@@ -1,0 +1,21 @@
+{
+    "sqltools.connections": [
+        {
+            "port": 1025,
+            "tdsqlpreferences": {
+                "showuserdbs": false
+            },
+            "tdsqloptions": {
+                "logmech": "TD2",
+                "encryptdata": true,
+                "tmode": "ANSI"
+            },
+            "previewLimit": 50,
+            "driver": "SQLTools Teradata Driver",
+            "server": "Teradata.suranet.com",
+            "username": "fredaran",
+            "password": "Articuno930618*",
+            "name": "SURA"
+        }
+    ]
+}
