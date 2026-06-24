@@ -62,6 +62,7 @@ COLLECT STATISTICS
 ON POLIZAS_VIDAGRUPO_TRADICIONAL
 INDEX (NUMERO_POLIZA, POLIZA_ID);
 
+ET;
 
 /* ============================================================
    3. RESULTADO UNIFICADO

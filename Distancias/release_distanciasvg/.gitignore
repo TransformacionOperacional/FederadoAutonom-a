@@ -1,0 +1,85 @@
+# ============================================================================
+# .gitignore - Excluir archivos sensibles del repositorio
+# ============================================================================
+
+# Credenciales y configuración
+.env
+.env.local
+.env.*.local
+*.pwd
+*.password
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Datos y outputs
+*.csv
+*.xlsx
+*.xls
+output/
+debug_*/
+logs/*.log
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node (si se usa Streamlit)
+node_modules/
+package-lock.json
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Archivos temporales
+*.bak
+*.tmp
+~$*

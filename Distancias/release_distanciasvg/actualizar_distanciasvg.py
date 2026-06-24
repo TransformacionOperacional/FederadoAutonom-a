@@ -11,7 +11,7 @@ import pyodbc
 
 # ---------------------------------------------------------------------------
 # TERADATA  (fuente del query)
-# Reemplaza DBCName, UID y PWD con tus credenciales de Teradata
+# IMPORTANTE: Reemplaza DBCName, UID y PWD con tus credenciales
 # ---------------------------------------------------------------------------
 TERADATA_CONN = (
     "DRIVER={Teradata Database ODBC Driver 20.00};"
@@ -22,6 +22,7 @@ TERADATA_CONN = (
 
 # ---------------------------------------------------------------------------
 # SQL SERVER  (destino de la carga)
+# IMPORTANTE: Reemplaza SERVER, UID y PWD con tus credenciales
 # ---------------------------------------------------------------------------
 SQLSERVER_CONN = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -172,14 +173,41 @@ def _cargar_en_sqlserver(conn_string: str, df: pd.DataFrame, table_name: str) ->
     return total
 
 
-def _traer_siniestros_agregados(conn_string: str, query_file: str = "SiniestrosAgregado.sql") -> pd.DataFrame:
-    """Ejecuta SiniestrosAgregado.sql en Teradata y trae NUMERO_POLIZA + VALOR_INCURRIDO."""
+def _traer_siniestros_agregados(conn_string: str, query_file: str = "Siniestros.sql") -> pd.DataFrame:
+    """Ejecuta Siniestros.sql en Teradata y trae NUMERO_POLIZA + VALOR_INCURRIDO."""
     if not Path(query_file).exists():
         raise FileNotFoundError(f"No existe el archivo SQL: {query_file}")
     sql = Path(query_file).read_text(encoding="utf-8")
     print("Conectando a Teradata para obtener siniestros agregados por póliza...")
+    
+    # Divide el SQL en sentencias individuales para evitar el error de DDL en Teradata
+    # Ejecuta las sentencias DDL primero, luego el SELECT
     with pyodbc.connect(conn_string) as conn:
-        df_sin = pd.read_sql(sql, conn)
+        cursor = conn.cursor()
+        
+        # Ejecuta todas las líneas excepto el último SELECT (que comienza con "SELECT *")
+        # Dividimos por "SELECT *" para separar DDL de la consulta
+        parts = sql.split("SELECT *\nFROM (")
+        if len(parts) == 2:
+            # Ejecuta la parte DDL
+            ddl_part = parts[0]
+            select_part = "SELECT *\nFROM (" + parts[1]
+            
+            # Ejecuta las sentencias DDL
+            for statement in ddl_part.split(";"):
+                stmt = statement.strip()
+                if stmt and not stmt.startswith("--") and not stmt.startswith("/*"):
+                    # Limpia comentarios en línea
+                    if "/*" in stmt or "--" in stmt:
+                        continue
+                    cursor.execute(stmt)
+            
+            # Ahora ejecuta el SELECT
+            df_sin = pd.read_sql(select_part, conn)
+        else:
+            # Si no encuentra la estructura esperada, intenta ejecutar todo
+            df_sin = pd.read_sql(sql, conn)
+    
     print(f"  Filas obtenidas de Teradata (siniestros): {len(df_sin):,}")
     
     # Normaliza nombres de columnas a mayúsculas para consistencia
@@ -289,7 +317,7 @@ def main() -> None:
     print("\n" + "="*70)
     df_siniestros = _traer_siniestros_agregados(
         conn_string=args.td_conn,
-        query_file="SiniestrosAgregado.sql"
+        query_file="Siniestros.sql"
     )
     print(f"  Columnas recibidas: {list(df_siniestros.columns)}")
     if len(df_siniestros) > 0:

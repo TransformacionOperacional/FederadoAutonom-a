@@ -12,10 +12,17 @@
             },
             "previewLimit": 50,
             "driver": "SQLTools Teradata Driver",
+<<<<<<< HEAD
             "server": "Teradata.suranet.com",
             "username": "fredaran",
             "password": "Articuno930618*",
             "name": "SURA"
+=======
+            "name": "Sura",
+            "username": "fredaran",
+            "password": "Articuno930618*",
+            "server": "teradata.suranet.com"
+>>>>>>> c5ce5e9cc1bfbaa532be77f200dd9c00395280f6
         }
     ]
 }
