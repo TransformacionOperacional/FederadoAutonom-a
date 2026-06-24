@@ -1,0 +1,51 @@
+﻿AMPARO;AMPARO DETALLE;Amparo_Id;Apertura_Amparo_Desc
+Auxilio de repatriación;AUXILIO DE REPATRIACIÓN;55431;RESTO
+Auxilio funerario;BONO O AUXILIO FUNERARIO ;417;RESTO
+Auxilio funerario;GASTOS EXEQUIALES;817;RESTO
+Auxilio funerario;Auxilio funerario por cuotas;60081;RESTO
+Auxilio por maternidad/paternidad;AUXILIO POR MATERNIDAD O PATERNIDAD;55348;RESTO
+Auxilio por maternidad/paternidad;Auxilio por maternidad o paternidad ;63712;RESTO
+Bono canasta;BONO CANASTA;59976;RESTO
+Bono canasta;BONO FAMILIAR;17712;RESTO
+Bono canasta;Bono Funerario ;63711;RESTO
+Bono canasta;Bono canasta ;63714;RESTO
+Bono canasta;Bono para adecuaciones del hogar por cuotas;60059;RESTO
+Bono para adecuaciones del hogar;BONO PARA ADECUACIONES DEL HOGAR;55346;RESTO
+Bono para adecuaciones del hogar;Bono para adecuaciones del hogar;63716;RESTO
+Bono para educación;BONO PARA EDUCACIÓN;5950;RESTO
+Bono para educación;BONO PARA EDUCACION;55347;RESTO
+Bono para educación;Bono para Educacion;63715;RESTO
+EG ANTICIPO;ENFERMEDADES GRAVES ANTICIPO;56031;EG
+EG INDEPENDIENTE;ENFERMEDADES GRAVES INDEPENDIENTE;221;EG
+EG INDEPENDIENTE;ENFERMEDADES GRAVES (BAN) ;64984;EG
+EG INDEPENDIENTE;Enfermedades Graves Independiente ;63719;EG
+EG INDEPENDIENTE;Enfermedades graves;63718;EG
+Gastos de Curación;GASTOS DE CURACIÓN;726;RESTO
+Gastos de Curación;Gastos de curacion ;63720;RESTO
+Invalidez por accidente;INVALIDEZ, PÉRDIDA O INUTILIZACIÓN POR UN ACCIDENTE;294;INV
+Invalidez por enfermedad;INVALIDEZ, PÉRDIDA O INUTILIZACIÓN POR ENFERMEDAD;306;INV
+ITP;INVALIDEZ, PÉRDIDA O INUTILIZACIÓN POR UN ACCIDENTE O ENFERMEDAD ;745;INV
+ITP;Invalidez o pérdida por un accidente o enfermedad ;63723;INV
+ITP;Invalidez por Accidente sin armas ;63721;INV
+ITP;Invalidez por Accidente;63722;INV
+ITP;INVALIDEZ ACC CON ARMAS;404;INV
+ITP;INVALIDEZ. PERDIDA O INUTILIZACION POR UN ACCIDENTE O ENFERMEDAD;366;INV
+Muerte accidental;MUERTE ACCIDENTAL;249;RESTO
+Muerte accidental;DOBLE INDEMNIZACION POR MUERTE ACCIDENTAL;963;RESTO
+Muerte accidental;Muerte en un accidente con armas;63689;RESTO
+Muerte accidental;Muerte en un accidente sin armas;63690;RESTO
+Muerte accidental;DOBLE INDEMNIZACIÓN POR MUERTE ACCIDENTAL HOMICIDIO;19761;RESTO
+Muerte accidental;MUERTE ACCIDENTAL;555;RESTO
+Pérdida parcial de la capacidad laboral;PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL;7068;RESTO
+Pérdida parcial de la capacidad laboral;Pérdida parcial de la capacidad laboral ;63694;RESTO
+Renta por hospitalización;RENTA POR HOSPITALIZACIÓN;5048;RESTO
+Renta por hospitalización;RENTA ADICIONAL POR HOSPITALIZACIÓN EN CUIDADOS INTENSIVOS;5047;RESTO
+Renta por hospitalización Básico;RENTADIARIA POR HOSPITALIZACION;135;RESTO
+Renta por hospitalización Básico;Renta por hospitalizacion ;63695;RESTO
+Renta por hospitalización UCI;Renta por hospitalizacion en UCI;63696;RESTO
+Renta por incapacidad;RENTA POR INCAPACIDAD POR ACCIDENTE O ENFERMEDAD;48425;RESTO
+Renta por incapacidad;Renta por incapacidad por accidente y/o Enfermedad;63725;RESTO
+Renta por incapacidad;Pérdida del ingreso independiente (Renta por incapacidad)  ;63692;RESTO
+Renta por incapacidad por accidente;RENTA POR INCAPACIDAD POR ACCIDENTE;63697;RESTO
+VIDA;VIDA – MUERTE POR CUALQUIER CAUSA;930;VIDA
+VIDA;Vida ;63717;VIDA
