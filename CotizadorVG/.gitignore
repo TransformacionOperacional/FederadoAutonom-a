@@ -1,0 +1,29 @@
+# Ignorar archivos de credenciales
+config.credentials.json
+
+# Node modules (si aplica)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporal
+temp/
+tmp/
+cache/
+
+# Proxy server (solo para desarrollo)
+proxy-server.js

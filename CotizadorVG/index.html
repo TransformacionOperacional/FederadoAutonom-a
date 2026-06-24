@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizador Vida Grupo - Seguros SURA</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header corporativo -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-area">
+                <h1>Seguros SURA</h1>
+                <span class="subtitle">Cotizador Vida Grupo</span>
+            </div>
+            <div class="header-info">
+                <button class="btn-menu-inicio" onclick="irAlMenuInicio()" title="Volver al menú de inicio">&#8962; Inicio</button>
+                <button class="btn-icon" id="btnAyuda" title="Ayuda">?</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==========================================
+         PANTALLAS PREVIAS AL WIZARD
+         ========================================== -->
+
+    <!-- PANTALLA LANDING: Selección tipo negocio -->
+    <div id="pantalla-landing" class="pantalla-inicial">
+        <div class="landing-hero">
+            <img src="logo-sura-azul-nuevo.png" class="landing-logo-img" alt="Seguros SURA">
+            <h1 class="landing-titulo">Cotizador Vida Grupo</h1>
+            <p class="landing-subtitulo">Seguros SURA &mdash; ¿Qué tipo de negocio vas a gestionar?</p>
+        </div>
+        <div class="landing-opciones">
+            <div class="card-opcion" onclick="seleccionarTipoNegocio('nuevo')">
+                <div class="card-opcion-icono">&#10010;</div>
+                <h2 class="card-opcion-titulo">Seguro Nuevo</h2>
+                <p class="card-opcion-desc">Cotización para una póliza nueva. Ingresarás los datos de forma manual o mediante carga de archivo.</p>
+                <span class="card-opcion-cta">Iniciar cotización &rarr;</span>
+            </div>
+            <div class="card-opcion" onclick="seleccionarTipoNegocio('renovacion')">
+                <div class="card-opcion-icono">&#8635;</div>
+                <h2 class="card-opcion-titulo">Modificación / Renovación</h2>
+                <p class="card-opcion-desc">Actualiza o renueva una póliza existente. Búscala por la identificación del tomador.</p>
+                <span class="card-opcion-cta">Buscar póliza &rarr;</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA: Selector subtipo para negocio nuevo -->
+    <div id="pantalla-tipo-nuevo" class="pantalla-inicial" style="display:none;">
+        <div class="pantalla-header">
+            <button class="btn-volver" onclick="volverAlLanding()">&#8592; Volver</button>
+            <h2>Seguro Nuevo &mdash; Elige el método de cotización</h2>
+            <p>Selecciona cómo ingresarás la información de los asegurados</p>
+        </div>
+        <div class="landing-opciones">
+            <div class="card-opcion card-opcion-simulacion" onclick="seleccionarSubtipo('simulacion')">
+                <div class="card-opcion-icono">&#9783;</div>
+                <h2 class="card-opcion-titulo">Simulación</h2>
+                <p class="card-opcion-desc">No tienes la base de asegurados. Ingresarás datos promedio: cantidad de asegurados, edad promedio y grupos salariales.</p>
+                <span class="card-opcion-cta">Hacer simulación &rarr;</span>
+            </div>
+            <div class="card-opcion card-opcion-cotizacion" onclick="seleccionarSubtipo('cotizacion')">
+                <div class="card-opcion-icono">&#128196;</div>
+                <h2 class="card-opcion-titulo">Cotización con datos reales</h2>
+                <p class="card-opcion-desc">Cargarás un archivo Excel con la base de asegurados: documento, edad y clasificación salarial.</p>
+                <span class="card-opcion-cta">Cargar Excel &rarr;</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA: Búsqueda de renovación -->
+    <div id="pantalla-renovacion" class="pantalla-inicial" style="display:none;">
+        <div class="pantalla-header">
+            <button class="btn-volver" onclick="volverAlLanding()">&#8592; Volver</button>
+            <h2>Modificación / Renovación</h2>
+            <p>Ingresa la identificación del asegurado/tomador para buscar sus pólizas vigentes</p>
+        </div>
+        <div class="renovacion-busqueda">
+            <div class="busqueda-form">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label for="tipoDocBusqueda" style="display: block; margin-bottom: 5px; font-weight: 600;">Tipo de Documento *</label>
+                        <select id="tipoDocBusqueda" class="input-busqueda" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="">Seleccionar...</option>
+                            <option value="C">Cédula</option>
+                            <option value="CE">Cédula de Extranjería</option>
+                            <option value="P">Pasaporte</option>
+                            <option value="NIT">NIT</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="numDocBusqueda" style="display: block; margin-bottom: 5px; font-weight: 600;">Número de Documento *</label>
+                        <input type="text" id="numDocBusqueda" class="input-busqueda" placeholder="Ej: 1020455161" maxlength="20">
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btnBuscarPolizas" onclick="buscarPolizasRenovacion()" style="width: 100%;">Buscar pólizas</button>
+            </div>
+            <div id="resultadosBusqueda" class="resultados-busqueda" style="display:none;">
+                <h3 id="tituloResultados"></h3>
+                <div id="listaPolizas" class="lista-polizas"></div>
+            </div>
+            <div id="loadingBusqueda" class="loading-busqueda" style="display:none;">
+                <div class="spinner"></div>
+                <p>Consultando pólizas en el sistema...</p>
+            </div>
+            <div id="errorBusqueda" class="error-busqueda" style="display:none; padding: 15px; background: #fee; border: 1px solid #f99; border-radius: 4px; color: #c00; margin-top: 15px;">
+                <p id="textoError"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor principal -->
+    <div class="container" id="mainContainer" style="display:none;">
+        <!-- Barra de progreso -->
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+            <div class="progress-steps">
+                <div class="step active" data-step="1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Póliza</span>
+                </div>
+                <div class="step" data-step="2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Coberturas</span>
+                </div>
+                <div class="step" data-step="3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Subgrupos</span>
+                </div>
+                <div class="step" data-step="4">
+                    <span class="step-number">4</span>
+                    <span class="step-label">Asegurados</span>
+                </div>
+                <div class="step" data-step="5">
+                    <span class="step-number">5</span>
+                    <span class="step-label">Planes</span>
+                </div>
+                <div class="step" data-step="6">
+                    <span class="step-number">6</span>
+                    <span class="step-label">Resumen</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Badge indicador del flujo activo -->
+        <div id="badgeFlujo" class="flujo-badge" style="display:none;"></div>
+
+        <!-- Área principal de contenido -->
+        <main class="main-content">
+            <!-- PASO 1: Datos generales de la póliza -->
+            <section class="step-section active" id="step1">
+                <h2>Datos Generales de la P&oacute;liza</h2>
+                <form id="formPoliza" class="form-grid">
+
+                    <span class="form-section-title">Identificaci&oacute;n del Tomador</span>
+
+                    <div class="form-group">
+                        <label for="tomador">Tomador / Empresa *</label>
+                        <input type="text" id="tomador" placeholder="Ej: Empresa XYZ S.A.S." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipoIdentificacion">Tipo de Identificaci&oacute;n *</label>
+                        <select id="tipoIdentificacion">
+                            <option value="NIT">NIT</option>
+                            <option value="CC">C&eacute;dula de Ciudadan&iacute;a</option>
+                            <option value="CE">C&eacute;dula de Extranjer&iacute;a</option>
+                            <option value="Pasaporte">Pasaporte</option>
+                            <option value="RUT">RUT</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="numeroIdentificacion">N&uacute;mero de Identificaci&oacute;n *</label>
+                        <input type="text" id="numeroIdentificacion" placeholder="Ej: 890123456-7" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="actividad">Actividad Econ&oacute;mica</label>
+                        <input type="text" id="actividad" placeholder="Ej: Manufactura, Comercio, Servicios...">
+                    </div>
+
+                    <span class="form-section-title">Datos de la P&oacute;liza</span>
+
+                    <div class="form-group">
+                        <label for="numeroPoliza">N&uacute;mero de P&oacute;liza</label>
+                        <input type="text" id="numeroPoliza" placeholder="Ej: VG-2024-001">
+                    </div>
+                    <div class="form-group">
+                        <label for="oficina">Oficina</label>
+                        <input type="text" id="oficina" placeholder="Ej: Medell&iacute;n Centro">
+                    </div>
+                    <div class="form-group">
+                        <label for="vigenciaDesde">Vigencia Desde *</label>
+                        <input type="date" id="vigenciaDesde" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vigenciaHasta">Vigencia Hasta *</label>
+                        <input type="date" id="vigenciaHasta" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="formaPago">Forma de Pago</label>
+                        <select id="formaPago">
+                            <option value="Mensual">Mensual</option>
+                            <option value="Trimestral">Trimestral</option>
+                            <option value="Semestral">Semestral</option>
+                            <option value="Anual">Anual</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fechaCobro">Fecha de Cobro</label>
+                        <input type="date" id="fechaCobro">
+                    </div>
+
+                    <span class="form-section-title">Comercial y Comisiones</span>
+
+                    <div class="form-group">
+                        <label for="asesor">Asesor *</label>
+                        <input type="text" id="asesor" placeholder="Ej: Juan P&eacute;rez" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="canalComercial">Canal Comercial</label>
+                        <select id="canalComercial">
+                            <option>Directo</option>
+                            <option>Broker</option>
+                            <option>Corredor</option>
+                            <option>Corporativo</option>
+                            <option>Digital</option>
+                        </select>
+                    </div>
+
+                    <div class="comisiones-grid">
+                        <div class="form-group">
+                            <label for="comision">Comisi&oacute;n %</label>
+                            <input type="number" id="comision" min="0" max="100" step="0.1" value="20" placeholder="Ej: 20">
+                        </div>
+                        <div class="form-group">
+                            <label for="honorarioAdmon">Honorario Admon &amp; Recaudo (Retorno) %</label>
+                            <input type="number" id="honorarioAdmon" min="0" max="100" step="0.1" value="0" placeholder="Ej: 5">
+                        </div>
+                        <div class="form-group">
+                            <label for="honorarioPromotora">Honorario Promotora %</label>
+                            <input type="number" id="honorarioPromotora" min="0" max="100" step="0.1" value="10" placeholder="Ej: 10">
+                        </div>
+                    </div>
+
+                    <div class="form-group form-full">
+                        <label for="observaciones">Observaciones</label>
+                        <textarea id="observaciones" placeholder="Notas adicionales..." rows="3"></textarea>
+                    </div>
+                </form>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="btnSiguiente1">Siguiente &rarr;</button>
+                    <button class="btn btn-secondary" id="btnLimpiar">Limpiar</button>
+                </div>
+            </section>
+
+            <!-- PASO 2: Configuración de coberturas -->
+            <section class="step-section" id="step2">
+                <h2>Configuración de Coberturas</h2>
+                <p class="info-box">⚠️ Las tasas mostradas son valores demostrativos y deben reemplazarse con las tasas oficiales defin­idas por el equipo actuarial de SURA.</p>
+
+                <div class="coberturas-container">
+                    <table class="table-editable" id="tablaCoberturas">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Tasa Base</th>
+                                <th>Obligatoria</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-coberturas">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <button class="btn btn-secondary" id="btnAgregarCobertura">+ Agregar Cobertura</button>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="btnSiguiente2">Siguiente →</button>
+                    <button class="btn btn-outline" id="btnAtras1">← Atrás</button>
+                </div>
+            </section>
+
+            <!-- PASO 3: Configuración de subgrupos -->
+            <section class="step-section" id="step3">
+                <h2>Configuraci&oacute;n de Subgrupos</h2>
+                <p class="info-box">Los subgrupos se definen por la <strong>combinaci&oacute;n de coberturas</strong>. Crea cada subgrupo seleccionando las coberturas que lo componen. Cada combinaci&oacute;n &uacute;nica genera un ID din&aacute;mico.</p>
+
+                <div class="subgrupos-header">
+                    <p id="contadorSubgrupos">0 subgrupo(s) configurado(s)</p>
+                    <button class="btn btn-accent" onclick="abrirModalCrearSubgrupo()">+ Crear subgrupo</button>
+                </div>
+
+                <div id="listaSubgruposConfig" class="lista-subgrupos-config">
+                    <!-- Se llena dinámicamente -->
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="btnSiguiente3">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras2">&larr; Atr&aacute;s</button>
+                </div>
+            </section>
+
+            <!-- PASO 4: Registro y asignación de asegurados -->
+            <section class="step-section" id="step4">
+                <h2>Asegurados</h2>
+
+                <!-- Panel de simulación (visible solo en modo simulación) -->
+                <div id="panelSimulacion" class="panel-modo" style="display:none;">
+                    <div class="panel-modo-header">
+                        <span class="badge-modo badge-simulacion">MODO SIMULACI&Oacute;N</span>
+                        <p>Completa los datos promedio para generar una base de asegurados simulada</p>
+                    </div>
+                    <div class="sim-params">
+                        <div class="form-group">
+                            <label for="simCantidad">N&uacute;mero total de asegurados</label>
+                            <input type="number" id="simCantidad" min="1" max="5000" value="100" class="input-sim">
+                        </div>
+                        <div class="form-group">
+                            <label for="simEdadPromedio">Edad promedio</label>
+                            <input type="number" id="simEdadPromedio" min="18" max="70" value="35" class="input-sim">
+                        </div>
+                    </div>
+                    <div class="sim-grupos">
+                        <h4>Grupos salariales</h4>
+                        <p class="info-pequena">Define la distribuci&oacute;n de los asegurados por rango salarial. El porcentaje total debe sumar 100%.</p>
+                        <table class="table-editable tabla-grupos-sal" id="tablaGruposSalariales">
+                            <thead>
+                                <tr>
+                                    <th>Rango salarial</th>
+                                    <th>% de asegurados</th>
+                                    <th>Salario ref. (millones COP/mes)</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-grupos-salariales"></tbody>
+                        </table>
+                        <button class="btn btn-secondary btn-small" onclick="agregarGrupoSalarial()">+ Agregar grupo</button>
+                    </div>
+                    <div class="sim-acciones">
+                        <div id="simValidacion" class="sim-validacion"></div>
+                        <button class="btn btn-primary" onclick="generarSimulacion()">&#9654; Generar asegurados simulados</button>
+                        <button class="btn btn-outline btn-small" onclick="limpiarSimulados()">Limpiar simulados</button>
+                    </div>
+                </div>
+
+                <!-- Panel de carga Excel (visible solo en modo cotización) -->
+                <div id="panelExcel" class="panel-modo" style="display:none;">
+                    <div class="panel-modo-header">
+                        <span class="badge-modo badge-cotizacion">COTIZACI&Oacute;N CON DATOS REALES</span>
+                        <p>Carga el archivo Excel con la base de asegurados</p>
+                    </div>
+                    <div class="excel-upload-area">
+                        <div class="excel-icon">&#128196;</div>
+                        <h4>Archivo Excel (.xlsx)</h4>
+                        <p>El archivo debe contener exactamente 3 columnas:</p>
+                        <ul class="excel-columnas">
+                            <li><strong>Columna A:</strong> Documento del cliente</li>
+                            <li><strong>Columna B:</strong> Edad</li>
+                            <li><strong>Columna C:</strong> Clasificaci&oacute;n / Salario mensual (COP)</li>
+                        </ul>
+                        <input type="file" id="fileExcel" accept=".xlsx,.xls" style="display:none;" onchange="importarExcel(event)">
+                        <div class="excel-acciones">
+                            <button class="btn btn-outline btn-small" onclick="descargarPlantillaExcel()">&#11015; Descargar plantilla .xlsx</button>
+                            <button class="btn btn-primary" onclick="document.getElementById('fileExcel').click()">&#128196; Seleccionar archivo Excel</button>
+                        </div>
+                        <div id="excelStatus" class="excel-status"></div>
+                    </div>
+                </div>
+
+                <!-- Barra de asignación masiva -->
+                <div class="asig-masiva-bar" id="barraAsignacionMasiva" style="display:none;">
+                    <label>Asignaci&oacute;n masiva a subgrupo:</label>
+                    <select id="subgrupoMasivoSelect" class="filter-select">
+                        <option value="">-- Seleccionar subgrupo --</option>
+                    </select>
+                    <button class="btn btn-accent btn-small" onclick="asignarTodosASubgrupo()">Asignar todos sin subgrupo</button>
+                    <button class="btn btn-secondary btn-small" onclick="asignarPorSalario()">Por rango salarial...</button>
+                </div>
+
+                <!-- Toolbar de acciones -->
+                <div class="toolbar-asegurados">
+                    <input type="text" id="buscadorAsegurado" placeholder="Buscar por documento..." class="search-input">
+                    <button class="btn btn-secondary btn-small" id="btnAgregarAsegurado">+ Agregar</button>
+                    <button class="btn btn-secondary btn-small" id="btnCargarDemo">Cargar Demo</button>
+                    <button class="btn btn-secondary btn-small" id="btnDescargarCSV">Plantilla CSV</button>
+                    <button class="btn btn-secondary btn-small" id="btnImportarCSV">Importar CSV</button>
+                    <input type="file" id="fileCSV" accept=".csv" style="display:none;">
+                    <button class="btn btn-secondary btn-small" id="btnExportarAsegurados">Exportar CSV</button>
+                </div>
+
+                <div class="asegurados-container">
+                    <table class="table-asegurados" id="tablaAsegurados">
+                        <thead>
+                            <tr>
+                                <th>Documento</th>
+                                <th>Nombre</th>
+                                <th>Edad</th>
+                                <th>Salario ref.</th>
+                                <th>Subgrupo asignado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-asegurados"></tbody>
+                    </table>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" id="btnExportarAseguradosAlt">Exportar CSV</button>
+                    <button class="btn btn-primary" id="btnSiguiente4">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras3">&larr; Atr&aacute;s</button>
+                </div>
+            </section>
+
+            <!-- PASO 5: Planes y valores asegurados -->
+            <section class="step-section" id="step5">
+                <h2>Planes y Valores Asegurados</h2>
+                <p class="info-box">Dentro de cada subgrupo puedes definir uno o varios <strong>planes</strong> con distintos valores asegurados. Un subgrupo = mismas coberturas; un plan = mismos valores.</p>
+
+                <!-- Tabs de subgrupos -->
+                <div id="planesSubgrupoTabs" class="planes-subgrupo-tabs">
+                    <!-- Se genera dinámicamente -->
+                </div>
+
+                <!-- Workspace del subgrupo seleccionado -->
+                <div id="planesWorkspace" class="planes-workspace">
+                    <div class="planes-workspace-header">
+                        <div>
+                            <div class="planes-workspace-titulo" id="planesWorkspaceTitulo">Selecciona un subgrupo</div>
+                            <div class="planes-workspace-sub" id="planesWorkspaceSub"></div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary btn-small" onclick="abrirModalPlanSalario()" id="btnPlanPorSalario" style="display:none;">Por rango salarial</button>
+                            <button class="btn btn-accent btn-small" onclick="agregarPlanAlSubgrupo()" id="btnAgregarPlan" style="display:none;">+ Agregar plan</button>
+                        </div>
+                    </div>
+
+                    <div id="planesTablaContainer">
+                        <p style="color:var(--color-gray);text-align:center;padding:32px;">Selecciona un subgrupo para configurar sus planes y valores asegurados</p>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" id="btnExportarCSVPlanes">Exportar CSV</button>
+                    <button class="btn btn-primary" id="btnSiguiente5">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras4">&larr; Atr&aacute;s</button>
+                </div>
+            </section>
+
+            <!-- PASO 6: Resumen de cotización -->
+            <section class="step-section" id="step6">
+                <h2>Resumen de Cotización</h2>
+
+                <div class="dashboard">
+                    <div class="card-stat">
+                        <div class="stat-numero" id="totalAsegurados">0</div>
+                        <div class="stat-label">Asegurados</div>
+                    </div>
+                    <div class="card-stat">
+                        <div class="stat-numero" id="totalSubgrupos">0</div>
+                        <div class="stat-label">Subgrupos</div>
+                    </div>
+                    <div class="card-stat">
+                        <div class="stat-numero" id="totalPlanes">0</div>
+                        <div class="stat-label">Planes</div>
+                    </div>
+                    <div class="card-stat">
+                        <div class="stat-numero" id="nivelComplejidad">-</div>
+                        <div class="stat-label">Complejidad</div>
+                    </div>
+                    <div class="card-stat card-stat-large">
+                        <div class="stat-numero" id="primaMensual">$0</div>
+                        <div class="stat-label">Prima Mensual</div>
+                    </div>
+                    <div class="card-stat card-stat-large">
+                        <div class="stat-numero" id="primaAnual">$0</div>
+                        <div class="stat-label">Prima Anual</div>
+                    </div>
+                </div>
+
+                <div class="resumen-details">
+                    <div class="detail-card">
+                        <h4>Información de la Póliza</h4>
+                        <div id="infoPolizaResumen"></div>
+                    </div>
+                    <div class="detail-card">
+                        <h4>Métricas Generales</h4>
+                        <div id="metricsResumen"></div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" id="btnExportarJSONResumen">📄 Guardar JSON</button>
+                    <button class="btn btn-secondary" id="btnExportarAseguradosFinal">⬇ Asegurados CSV</button>
+                    <button class="btn btn-outline" id="btnAtras5">← Atrás</button>
+                    <button class="btn btn-danger" id="btnLimpiarTodo">🗑 Limpiar Todo</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para configurar coberturas de asegurado -->
+    <div id="modalCoberturas" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configurar Coberturas</h3>
+                <button class="btn-close" id="btnCerrarModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table class="table-coberturas-modal" id="tablaCoberturasPorAsegurado">
+                    <thead>
+                        <tr>
+                            <th>Cobertura</th>
+                            <th>Activar</th>
+                            <th>Valor Asegurado</th>
+                            <th>Tasa</th>
+                            <th>Prima</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-coberturas-modal">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnGuardarCoberturas">Guardar</button>
+                <button class="btn btn-secondary" id="btnCancelarModal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar cobertura del catálogo -->
+    <div id="modalEditarCobertura" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Cobertura</h3>
+                <button class="btn-close" id="btnCerrarModalCobertura">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarCobertura" class="form-grid">
+                    <div class="form-group">
+                        <label for="codCobertura">Código</label>
+                        <input type="text" id="codCobertura" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="nomCobertura">Nombre</label>
+                        <input type="text" id="nomCobertura">
+                    </div>
+                    <div class="form-group">
+                        <label for="tasaCobertura">Tasa Base</label>
+                        <input type="number" id="tasaCobertura" step="0.000001" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="minValor">Valor Mínimo</label>
+                        <input type="number" id="minValor" step="1000000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxValor">Valor Máximo</label>
+                        <input type="number" id="maxValor" step="1000000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="porcentajeMax">% Máximo respecto a Vida</label>
+                        <input type="number" id="porcentajeMax" step="1" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="obligatoria"> Obligatoria
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnGuardarCobertura">Guardar</button>
+                <button class="btn btn-secondary" id="btnCancelarModalCobertura">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Overlay para loading -->
+    <div id="overlay" class="overlay" style="display:none;"></div>
+
+    <!-- ===== MODAL: Crear Subgrupo ===== -->
+    <div id="modalCrearSubgrupo" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Crear nuevo subgrupo</h3>
+                <button class="btn-close" onclick="cerrarModalCrearSubgrupo()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
+                    Selecciona las coberturas que componen este subgrupo. Las coberturas obligatorias se incluyen siempre.
+                </p>
+                <div id="coberturaCheckGrid" class="coberturas-seleccion-grid">
+                    <!-- Se genera dinámicamente -->
+                </div>
+                <div class="subgrupo-id-preview">
+                    ID generado: <strong id="previewSubgrupoId">—</strong>
+                    <span id="previewSubgrupoExiste" style="color:var(--color-danger);margin-left:10px;font-size:12px;"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent" onclick="confirmarCrearSubgrupo()">Crear subgrupo</button>
+                <button class="btn btn-secondary" onclick="cerrarModalCrearSubgrupo()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: Asignar por rango salarial (subgrupos) ===== -->
+    <div id="modalAsignacionSalario" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:640px;">
+            <div class="modal-header">
+                <h3>Asignaci&oacute;n por rango salarial</h3>
+                <button class="btn-close" onclick="document.getElementById('modalAsignacionSalario').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
+                    Define qu&eacute; subgrupo corresponde a cada rango salarial. Los asegurados sin subgrupo ser&aacute;n asignados autom&aacute;ticamente.
+                </p>
+                <table class="table-editable" id="tablaAsignacionSal">
+                    <thead>
+                        <tr>
+                            <th>Rango salarial (COP/mes)</th>
+                            <th>Subgrupo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-asig-sal">
+                        <!-- Se genera dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent" onclick="ejecutarAsignacionPorSalario()">Aplicar asignaci&oacute;n</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('modalAsignacionSalario').style.display='none'">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: Agregar plan por rango salarial ===== -->
+    <div id="modalPlanSalario" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:680px;">
+            <div class="modal-header">
+                <h3>Definir planes por rango salarial</h3>
+                <button class="btn-close" onclick="document.getElementById('modalPlanSalario').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
+                    Define los valores asegurados para cada rango salarial. El sistema crear&aacute; un plan por cada rango y asignar&aacute; autom&aacute;ticamente a los asegurados del subgrupo.
+                </p>
+                <div id="planSalarioFilas">
+                    <!-- Se genera dinámicamente con filas: rango, multiplicador VIDA, valores por cobertura -->
+                </div>
+                <button class="btn btn-secondary btn-small" onclick="agregarFilaPlanSalario()">+ Agregar rango</button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent" onclick="ejecutarPlanPorSalario()">Crear planes</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('modalPlanSalario').style.display='none'">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
