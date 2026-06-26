@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 import math
@@ -9,31 +10,147 @@ import numpy as np
 import pandas as pd
 import pyodbc
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+
+def _connect_with_diagnostics(conn_string: str, context: str):
+    if context.startswith("Conectar a Teradata"):
+        try:
+            import teradatasql
+        except ImportError as exc:
+            raise RuntimeError(
+                "No se pudo importar teradatasql. Instala la dependencia con: pip install -r requirements.txt"
+            ) from exc
+
+        host = _get_setting("TERADATA_HOST", "teradata.suranet.com")
+        user = _get_setting("TERADATA_USER", "FREDARAN")
+        password = _get_setting("TERADATA_PASSWORD", "Articuno930618*")
+        database = _get_setting("TERADATA_DATABASE", "").strip()
+        connect_kwargs = {
+            "host": host,
+            "user": user,
+            "password": password,
+        }
+        if database:
+            connect_kwargs["database"] = database
+        return teradatasql.connect(**connect_kwargs)
+
+    try:
+        return pyodbc.connect(conn_string)
+    except pyodbc.Error as exc:
+        installed_drivers = ", ".join(pyodbc.drivers()) if pyodbc.drivers() else "(ninguno)"
+        driver_name = "(no especificado)"
+        if "DRIVER={" in conn_string:
+            driver_name = conn_string.split("DRIVER={", 1)[1].split("}", 1)[0]
+        raise RuntimeError(
+            f"{context} falló. Driver esperado: {driver_name}. "
+            f"Drivers ODBC instalados: {installed_drivers}. "
+            f"Detalle: {exc}"
+        ) from exc
+
+
+def _load_env() -> dict[str, str]:
+    env_values: dict[str, str] = {}
+    env_path = SCRIPT_DIR / ".env"
+    if env_path.exists():
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            env_values[key.strip()] = value.strip().strip('"').strip("'")
+    return env_values
+
+
+ENV_VALUES = _load_env()
+
+
+def _get_setting(name: str, default: str) -> str:
+    return os.getenv(name, ENV_VALUES.get(name, default))
+
+
+def _build_teradata_conn() -> str:
+    driver = _get_setting("TERADATA_DRIVER", "Teradata Database ODBC Driver 20.00")
+    host = _get_setting("TERADATA_HOST", "teradata.suranet.com")
+    user = _get_setting("TERADATA_USER", "FREDARAN")
+    password = _get_setting("TERADATA_PASSWORD", "Articuno930618*")
+    return (
+        f"DRIVER={{{driver}}};"
+        f"DBCName={host};"
+        f"Username={user};"
+        f"Password={password};"
+    )
+
+
+def _select_sqlserver_driver(preferred_driver: str | None = None) -> str:
+    installed_drivers = [driver for driver in pyodbc.drivers() if driver]
+    candidates = []
+    if preferred_driver:
+        candidates.append(preferred_driver)
+    candidates.extend([
+        "ODBC Driver 18 for SQL Server",
+        "ODBC Driver 17 for SQL Server",
+        "SQL Server",
+    ])
+
+    for candidate in candidates:
+        if candidate in installed_drivers:
+            return candidate
+
+    if installed_drivers:
+        return installed_drivers[0]
+
+    if preferred_driver:
+        return preferred_driver
+
+    return "SQL Server"
+
+
+def _build_sqlserver_conn() -> str:
+    preferred_driver = _get_setting("SQLSERVER_DRIVER", "").strip()
+    driver = _select_sqlserver_driver(preferred_driver or None)
+    host = _get_setting("SQLSERVER_HOST", "surapilotos.database.windows.net")
+    database = _get_setting("SQLSERVER_DATABASE", "SuraPilotos")
+    user = _get_setting("SQLSERVER_USER", "fredaran")
+    password = _get_setting("SQLSERVER_PASSWORD", "Sura2025*")
+    return (
+        f"DRIVER={{{driver}}};"
+        f"SERVER={host};"
+        f"DATABASE={database};"
+        f"UID={user};"
+        f"PWD={password};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=no;"
+        "Connection Timeout=30;"
+    )
+
+
+def _resolve_sql_path(query_file: str | Path) -> Path:
+    path = Path(query_file)
+    if path.is_absolute():
+        return path
+
+    script_candidate = SCRIPT_DIR / path
+    if script_candidate.exists():
+        return script_candidate
+
+    cwd_candidate = Path.cwd() / path
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    return script_candidate
+
 # ---------------------------------------------------------------------------
 # TERADATA  (fuente del query)
 # IMPORTANTE: Reemplaza DBCName, UID y PWD con tus credenciales
 # ---------------------------------------------------------------------------
-TERADATA_CONN = (
-    "DRIVER={Teradata Database ODBC Driver 20.00};"
-    "DBCName=teradata.suranet.com;"
-    "Username=FREDARAN;"
-    "Password=Articuno930618*;"
-)
+TERADATA_CONN = _build_teradata_conn()
 
 # ---------------------------------------------------------------------------
 # SQL SERVER  (destino de la carga)
 # IMPORTANTE: Reemplaza SERVER, UID y PWD con tus credenciales
 # ---------------------------------------------------------------------------
-SQLSERVER_CONN = (
-    "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=surapilotos.database.windows.net;"
-    "DATABASE=SuraPilotos;"
-    "UID=fredaran;"
-    "PWD=Sura2025*;"
-    "Encrypt=yes;"
-    "TrustServerCertificate=no;"
-    "Connection Timeout=30;"
-)
+SQLSERVER_CONN = _build_sqlserver_conn()
 
 TABLE_NAME = "dbo.DistanciasVG"
 
@@ -77,10 +194,21 @@ SOURCE_TO_TARGET_COLUMNS = {
 
 
 def _ejecutar_en_teradata(conn_string: str, query_file: str) -> pd.DataFrame:
-    sql = Path(query_file).read_text(encoding="utf-8")
+    sql_path = _resolve_sql_path(query_file)
+    if not sql_path.exists():
+        raise FileNotFoundError(f"No existe el archivo SQL: {query_file}")
+    sql = sql_path.read_text(encoding="utf-8")
+    print(f"Usando archivo SQL: {sql_path}")
     print("Conectando a Teradata y ejecutando query...")
-    with pyodbc.connect(conn_string) as conn:
-        df = pd.read_sql(sql, conn)
+    conn = _connect_with_diagnostics(conn_string, "Conectar a Teradata")
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        columns = [col[0] for col in cursor.description] if cursor.description else []
+        rows = cursor.fetchall()
+        df = pd.DataFrame(rows, columns=columns)
+    finally:
+        conn.close()
     print(f"  Filas obtenidas de Teradata: {len(df):,}")
     return df
 
@@ -175,39 +303,47 @@ def _cargar_en_sqlserver(conn_string: str, df: pd.DataFrame, table_name: str) ->
 
 def _traer_siniestros_agregados(conn_string: str, query_file: str = "Siniestros.sql") -> pd.DataFrame:
     """Ejecuta Siniestros.sql en Teradata y trae NUMERO_POLIZA + VALOR_INCURRIDO."""
-    if not Path(query_file).exists():
+    sql_path = _resolve_sql_path(query_file)
+    if not sql_path.exists():
         raise FileNotFoundError(f"No existe el archivo SQL: {query_file}")
-    sql = Path(query_file).read_text(encoding="utf-8")
+    sql = sql_path.read_text(encoding="utf-8")
     print("Conectando a Teradata para obtener siniestros agregados por póliza...")
-    
-    # Divide el SQL en sentencias individuales para evitar el error de DDL en Teradata
-    # Ejecuta las sentencias DDL primero, luego el SELECT
-    with pyodbc.connect(conn_string) as conn:
+
+    conn = _connect_with_diagnostics(
+        conn_string,
+        "Conectar a Teradata para obtener siniestros agregados",
+    )
+    try:
         cursor = conn.cursor()
-        
-        # Ejecuta todas las líneas excepto el último SELECT (que comienza con "SELECT *")
-        # Dividimos por "SELECT *" para separar DDL de la consulta
+
+        # Divide el SQL en sentencias individuales para evitar el error de DDL en Teradata
+        # Ejecuta las sentencias DDL primero, luego el SELECT
         parts = sql.split("SELECT *\nFROM (")
         if len(parts) == 2:
-            # Ejecuta la parte DDL
             ddl_part = parts[0]
             select_part = "SELECT *\nFROM (" + parts[1]
-            
-            # Ejecuta las sentencias DDL
+
             for statement in ddl_part.split(";"):
                 stmt = statement.strip()
-                if stmt and not stmt.startswith("--") and not stmt.startswith("/*"):
-                    # Limpia comentarios en línea
-                    if "/*" in stmt or "--" in stmt:
-                        continue
-                    cursor.execute(stmt)
-            
-            # Ahora ejecuta el SELECT
+                if not stmt:
+                    continue
+                if stmt.startswith("--") or stmt.startswith("/*"):
+                    continue
+                if "/*" in stmt or "--" in stmt:
+                    continue
+
+                normalized_stmt = " ".join(stmt.split())
+                if normalized_stmt.upper() in {"ET", "ET;", "END TRANSACTION", "END TRANSACTION;"}:
+                    continue
+
+                cursor.execute(normalized_stmt)
+
             df_sin = pd.read_sql(select_part, conn)
         else:
-            # Si no encuentra la estructura esperada, intenta ejecutar todo
             df_sin = pd.read_sql(sql, conn)
-    
+    finally:
+        conn.close()
+
     print(f"  Filas obtenidas de Teradata (siniestros): {len(df_sin):,}")
     
     # Normaliza nombres de columnas a mayúsculas para consistencia
@@ -284,9 +420,10 @@ def refrescar_distanciasvg(
     table_name: str = TABLE_NAME,
 ) -> int:
     """Extrae datos de Teradata y los carga en SQL Server."""
-    if not Path(query_file).exists():
+    sql_path = _resolve_sql_path(query_file)
+    if not sql_path.exists():
         raise FileNotFoundError(f"No existe el archivo SQL: {query_file}")
-    df = _ejecutar_en_teradata(teradata_conn, query_file)
+    df = _ejecutar_en_teradata(teradata_conn, sql_path)
     return _cargar_en_sqlserver(sqlserver_conn, df, table_name)
 
 
