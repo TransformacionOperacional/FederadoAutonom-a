@@ -202,7 +202,7 @@ TARGET_COLUMNS = [
     "SIN_ESPERADA_TPCRED_ESC6",         # TP_CREDIBILIDAD_ESC6 * VALOR_ASEGURADO_VIDA / 1000
     "TC6",                              # TP_CREDIBILIDAD_ESC6 ajustado por grupo comercial (ASESORES, CORREDORES) GF = 51.52
     "AJUSTE_ESC6",                        # TC6 / TASA_ACTUAL - 1
-    "RANGO_ESC6",                         # Rango porcentual de AJUSTE_ESC6
+    "RANGO_ESC6",                         # Rango porcentual de AJUSTE_ESC6 (Menor que -50%, -50% a -20%, -20% a -5%, -5% a 0%, 0%-10%, 10%-20%, 20%-50%, 50%-100%, 100%+)
     "DIF_ENTRE_TPR_REAL_Y_TEORICA",      # TPR_REAL - TPR_PONDERADA_REDUCCION_20PCT
     "DIF_PCT_RESPECTO_TEORICA_ESC6",        # TP_CREDIBILIDAD_ESC6 - TPR_PONDERADA_POR_PERSONA / TP_CREDIBILIDAD_ESC6
     # ──────────────────────────────────────────────────────────────────────
