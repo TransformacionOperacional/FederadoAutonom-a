@@ -422,17 +422,18 @@ def _calcular_campos(df: pd.DataFrame) -> pd.DataFrame:
         - pd.to_numeric(df["TPR_PONDERADA_REDUCCION_20PCT"], errors="coerce")
     ).fillna(0.0)
 
-    FG = 0.5152
-
     def calcular_tc6(nombre_grupo: object, tp_credibilidad: object) -> float:
         tp_cred = pd.to_numeric(tp_credibilidad, errors="coerce")
         if pd.isna(tp_cred):
             return 0.0
         grupo = str(nombre_grupo).strip().upper() if not pd.isna(nombre_grupo) else ""
-        if grupo == "ASESORES":
-            return tp_cred / (1.0 - 0.13)
+        # TC6 = TP_CREDIBILIDAD_ESC6 / (1 - FG), con FG dependiente del canal.
         if grupo == "CORREDORES":
-            return tp_cred / (1.0 - FG)
+            fg = 0.375
+            return tp_cred / (1.0 - fg)
+        if grupo == "ASESORES":
+            fg = 0.5152
+            return tp_cred / (1.0 - fg)
         return 0.0
 
     df["TC6"] = df.apply(
