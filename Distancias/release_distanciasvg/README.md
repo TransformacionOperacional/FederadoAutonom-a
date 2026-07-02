@@ -65,11 +65,11 @@ UNION ALL de CEDIDOS + BRUTOS
 Retornar 37,585 filas (NUMERO_POLIZA, VALOR_INCURRIDO)
 ```
 
-### Fase 3: Actualización de SIN_REAL (2 min)
+### Fase 3: Actualización de VALOR_INCURRIDO (2 min)
 ```
 DataFrame de siniestros
     ↓
-UPDATE dbo.DistanciasVG SET SIN_REAL = ?
+INSERT/UPDATE dbo.DistanciasVG con VALOR_INCURRIDO
     ↓
 11,654 pólizas actualizadas con valores reales
 ```
@@ -156,11 +156,8 @@ _cargar_en_sqlserver()
 _traer_siniestros_agregados()
     # Ejecuta Siniestros.sql, normaliza columnas
 
-_actualizar_sin_real_en_sqlserver()
-    # UPDATE SET SIN_REAL por NUMERO_POLIZA
-
 main()
-    # Orquesta 3 fases
+    # Orquesta la extracción y carga en SQL Server
 ```
 
 ### Features
@@ -244,7 +241,7 @@ Action:
 **P: ¿Cuánto tarda?**  
 R: 8-10 minutos total.
 
-**P: ¿Por qué SIN_REAL = 0 en muchas pólizas?**  
+**P: ¿Por qué VALOR_INCURRIDO = 0 en muchas pólizas?**
 R: Normal - muchas pólizas no tienen siniestros en el período.
 
 **P: ¿Puedo ejecutar solo una fase?**  

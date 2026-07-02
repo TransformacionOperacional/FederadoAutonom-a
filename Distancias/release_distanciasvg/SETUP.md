@@ -67,6 +67,6 @@ Esperado: ~8-10 minutos
 - Extrae 16,166 pólizas desde Teradata
 - Carga en SQL Server
 - Procesa 37,585 siniestros
-- Actualiza 11,654 pólizas con SIN_REAL > 0
+- Actualiza 11,654 pólizas con VALOR_INCURRIDO > 0
 
 Ver README.md para documentación completa.
