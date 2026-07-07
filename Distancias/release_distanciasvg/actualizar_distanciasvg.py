@@ -304,7 +304,7 @@ def _calcular_campos(df: pd.DataFrame) -> pd.DataFrame:
         cantidad = 0.0 if pd.isna(cantidad) else float(cantidad)
 
         if grupo == "ASESORES":
-            return ">200" if cantidad > 200 else "<200"
+            return ">100" if cantidad > 100 else "<100"
         if grupo == "CORREDORES":
             return "CORREDORES"
         return "Otro"
