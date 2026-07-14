@@ -11,6 +11,10 @@ if (-not (Test-Path $venvPython)) {
     Write-Host "No se encontró el entorno virtual en $scriptDir. Creándolo..." -ForegroundColor Yellow
     python -m venv .venv
     $venvPython = Join-Path $scriptDir ".venv/Scripts/python.exe"
+    
+    Write-Host "Instalando dependencias..." -ForegroundColor Yellow
+    & $venvPython -m pip install --upgrade pip
+    & $venvPython -m pip install -r requirements.txt
 }
 
 if (-not (Test-Path $venvPython)) {
