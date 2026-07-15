@@ -289,32 +289,51 @@ function setupFilterListeners() {
 }
 
 function getFilterSelections() {
+  const getValues = (selectId) => {
+    const select = document.getElementById(selectId);
+    if (!select) return '';
+
+    if (select.tomselect) {
+      return select.tomselect.items.join(',');
+    }
+
+    return select.value || '';
+  };
+
   return {
-    regional: document.getElementById('filter_regional')?.value || '',
-    canal: document.getElementById('filter_canal')?.value || '',
-    clasificacion: document.getElementById('filter_clasificacion')?.value || '',
-    director: document.getElementById('filter_director')?.value || '',
-    asesor_corredor: document.getElementById('filter_asesor_corredor')?.value || '',
-    oficina: document.getElementById('filter_oficina')?.value || '',
-    producto: document.getElementById('filter_producto')?.value || '',
-    estado_tecnico: document.getElementById('filter_estado_tecnico')?.value || '',
+    regional: getValues('filter_regional'),
+    canal: getValues('filter_canal'),
+    clasificacion: getValues('filter_clasificacion'),
+    director: getValues('filter_director'),
+    asesor_corredor: getValues('filter_asesor_corredor'),
+    oficina: getValues('filter_oficina'),
+    producto: getValues('filter_producto'),
+    estado_tecnico: getValues('filter_estado_tecnico'),
   };
 }
 
 function resetFilters() {
-  ['regional', 'canal', 'clasificacion', 'director', 'asesor_corredor', 'oficina', 'producto', 'estado_tecnico']
-    .forEach(field => {
-      const select = document.getElementById(`filter_${field}`);
-      if (select) {
-        select.value = '';
-        select.dispatchEvent(new Event('change'));
-      }
-    });
+  if (window.tableEngine?.resetFilterSelections) {
+    window.tableEngine.resetFilterSelections();
+  } else {
+    ['regional', 'canal', 'clasificacion', 'director', 'asesor_corredor', 'oficina', 'producto', 'estado_tecnico']
+      .forEach(field => {
+        const select = document.getElementById(`filter_${field}`);
+        if (select) {
+          if (select.tomselect) {
+            select.tomselect.clear(true);
+          } else {
+            select.value = '';
+          }
+          select.dispatchEvent(new Event('change'));
+        }
+      });
+  }
   updateDashboard();
 }
 
 // ====== ACTUALIZAR DASHBOARD ====== 
-function updateDashboard() {
+window.updateDashboard = function updateDashboard() {
   const selections = getFilterSelections();
   const selectionObj = {
     regional: selections.regional ? selections.regional.split(',') : [],
@@ -348,7 +367,7 @@ function updateDashboard() {
   updateCharts();
   updateRankings();
   updateTopDeficit(15);
-}
+};
 
 // ====== MÉTRICAS ====== 
 function updateMetrics() {

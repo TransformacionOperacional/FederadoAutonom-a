@@ -37,6 +37,19 @@ const COLORS = {
   suficiencia: "#067647",
 };
 
+const FILTER_SPECS = [
+  ["regional", "regional", "Regional"],
+  ["canal", "canal", "Canal"],
+  ["clasificacion", "clasificacion", "Clasificación Asegurados"],
+  ["director", "director", "Director Comercial"],
+  ["asesor_corredor", "asesor_corredor", "Asesor/Corredor"],
+  ["oficina", "oficina", "Oficina"],
+  ["producto", "producto", "Producto"],
+  ["estado_tecnico", "estado_tecnico", "Estado Técnico"],
+];
+
+let FILTERS_REFRESHING = false;
+
 // ====================================================
 // UTILIDADES DE LIMPIEZA Y FORMATO
 // ====================================================
@@ -352,7 +365,7 @@ function prepareData() {
       const producto = get("producto", "text", "SIN PRODUCTO");
 
       // Estimar clasificación según número de asegurados
-      const clasificacion = cant_asegurados < 200 ? "<200" : ">200";
+      const clasificacion = cant_asegurados < 100 ? "<100" : ">100";
       
       // Estimar prima sugerida basada en tasas ponderadas
       // Prima sugerida = (TPR_PONDERADA * Valor_Asegurado) / 1000
@@ -366,7 +379,7 @@ function prepareData() {
       // Canal para ranking
       let canal_ranking = canal;
       if (canal.includes("ASESOR") || canal.includes("PROMOTORA") || canal.includes("SUCURSAL")) {
-        canal_ranking = clasificacion === "<200" ? "ASESORES <200" : "ASESORES >200";
+        canal_ranking = clasificacion === "<100" ? "ASESORES <100" : "ASESORES >100";
       } else if (canal.includes("CORRED")) {
         canal_ranking = "CORREDORES";
       }
@@ -410,13 +423,31 @@ function prepareData() {
 // FILTRADO Y OPCIONES
 // ====================================================
 
-function getFilterOptions(column) {
+function getFilterOptions(column, rows = PREPARED_DATA) {
   const options = new Set();
-  PREPARED_DATA.forEach(row => {
+  rows.forEach(row => {
     const value = row[column];
     if (value && value !== "SIN DATO") options.add(value);
   });
   return Array.from(options).sort();
+}
+
+function getSelectValues(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return [];
+
+  if (select.tomselect) {
+    const values = select.tomselect.items;
+    return Array.isArray(values) ? values : [];
+  }
+
+  return Array.from(select.selectedOptions).map(option => option.value);
+}
+
+function getFilterSelectionsFromDom() {
+  return Object.fromEntries(
+    FILTER_SPECS.map(([fieldKey]) => [fieldKey, getSelectValues(`filter_${fieldKey}`)])
+  );
 }
 
 function filterData(selections) {
@@ -428,6 +459,87 @@ function filterData(selections) {
     }
     return true;
   });
+}
+
+function refreshFilterOptions() {
+  const selections = getFilterSelectionsFromDom();
+
+  FILTER_SPECS.forEach(([fieldKey, dataCol]) => {
+    const select = document.getElementById(`filter_${fieldKey}`);
+    if (!select) return;
+
+    const currentValues = getSelectValues(`filter_${fieldKey}`);
+    const otherSelections = { ...selections };
+    delete otherSelections[fieldKey];
+
+    const activeSelections = Object.fromEntries(
+      Object.entries(otherSelections).filter(([, values]) => Array.isArray(values) && values.length > 0)
+    );
+
+    const filteredRows = filterData(activeSelections);
+    const options = getFilterOptions(dataCol, filteredRows);
+    const validCurrentValues = currentValues.filter(value => options.includes(value));
+
+    if (select.tomselect) {
+      select.tomselect.clearOptions();
+      options.forEach(option => {
+        select.tomselect.addOption({ value: option, text: option });
+      });
+      select.tomselect.refreshOptions(false);
+
+      if (validCurrentValues.length > 0) {
+        select.tomselect.setValue(validCurrentValues, true);
+      } else {
+        select.tomselect.clear(true);
+      }
+    } else {
+      select.innerHTML = '';
+      options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option;
+        optionElement.textContent = option;
+        optionElement.selected = validCurrentValues.includes(option);
+        select.appendChild(optionElement);
+      });
+    }
+  });
+}
+
+function resetFilterSelections() {
+  FILTERS_REFRESHING = true;
+  try {
+    FILTER_SPECS.forEach(([fieldKey]) => {
+      const select = document.getElementById(`filter_${fieldKey}`);
+      if (!select) return;
+
+      if (select.tomselect) {
+        select.tomselect.clear(true);
+      } else {
+        Array.from(select.options).forEach(option => {
+          option.selected = false;
+        });
+        select.value = '';
+      }
+    });
+
+    refreshFilterOptions();
+  } finally {
+    FILTERS_REFRESHING = false;
+  }
+}
+
+function handleFilterChange() {
+  if (FILTERS_REFRESHING) return;
+
+  FILTERS_REFRESHING = true;
+  try {
+    refreshFilterOptions();
+    if (typeof window !== 'undefined' && typeof window.updateDashboard === 'function') {
+      window.updateDashboard();
+    }
+  } finally {
+    FILTERS_REFRESHING = false;
+  }
 }
 
 // ====================================================
@@ -453,8 +565,8 @@ function weightedMean(values, weights) {
 }
 
 function tasaSugeridaPromedio(filtered, weightMode = "Pólizas únicas") {
-  const g1 = filtered.filter(r => r.clasificacion === "<200" && !isNaN(r.tc_6a1));
-  const g2 = filtered.filter(r => ["&gt;200", "CORREDORES"].includes(r.clasificacion) && !isNaN(r.tc_6));
+  const g1 = filtered.filter(r => r.clasificacion === "<100" && !isNaN(r.tc_6a1));
+  const g2 = filtered.filter(r => [">100", "CORREDORES"].includes(r.clasificacion) && !isNaN(r.tc_6));
 
   const avg1 = meanSafe(g1.map(r => r.tc_6a1));
   const avg2 = meanSafe(g2.map(r => r.tc_6));
@@ -624,18 +736,7 @@ function initFilters() {
 
   console.log("⚙️  Inicializando filtros y Tom Select...");
 
-  const filterSpecs = [
-    ["regional", "regional", "Regional"],
-    ["canal", "canal", "Canal"],
-    ["clasificacion", "clasificacion", "Clasificación Asegurados"],
-    ["director", "director", "Director Comercial"],
-    ["asesor_corredor", "asesor_corredor", "Asesor/Corredor"],
-    ["oficina", "oficina", "Oficina"],
-    ["producto", "producto", "Producto"],
-    ["estado_tecnico", "estado_tecnico", "Estado Técnico"],
-  ];
-
-  filterSpecs.forEach(([fieldKey, dataCol, label]) => {
+  FILTER_SPECS.forEach(([fieldKey, dataCol, label]) => {
     try {
       const selectId = `filter_${fieldKey}`;
       const select = document.getElementById(selectId);
@@ -688,7 +789,7 @@ function initFilters() {
   // Agregar listeners a los selects
   const selects = document.querySelectorAll('[id^="filter_"]');
   selects.forEach(select => {
-    select.addEventListener('change', updateDashboard);
+    select.addEventListener('change', handleFilterChange);
   });
   
   console.log(`✅ ${selects.length} listeners de cambio agregados`);
@@ -711,5 +812,8 @@ window.tableEngine = {
   formatRate,
   exportToCSV,
   getFilterOptions,
+  getFilterSelections: getFilterSelectionsFromDom,
+  refreshFilterOptions,
+  resetFilterSelections,
   getPreparedData: () => PREPARED_DATA,
 };
