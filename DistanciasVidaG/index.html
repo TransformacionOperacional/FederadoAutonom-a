@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablero Suscripción Vida Grupo | SURA</title>
+  
+  <!-- Librerías externas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+  
+  <!-- Estilos locales -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ====== ENCABEZADO ====== -->
+  <div class="hero-card">
+    <h1>Tablero Suscripción Vida Grupo</h1>
+    <p>
+      Seguimiento ejecutivo de suficiencia comercial: prima actual, prima sugerida,
+      brecha técnica, tasa comercial promedio y ranking regional.
+    </p>
+  </div>
+
+  <!-- ====== ESTADO DE CARGA ====== -->
+  <div id="loading" class="alert alert-info" style="text-align: center;">
+    <div class="spinner" style="display: inline-block; margin-right: 0.5rem;"></div>
+    <strong>Conectando a Power Automate...</strong>
+    <div style="font-size: 0.9rem; margin-top: 0.5rem; color: var(--text-muted);">
+      Cargando datos desde la API
+    </div>
+  </div>
+
+  <div id="content" style="display: none;">
+
+    <!-- ====== FILTROS ====== -->
+    <div class="filters-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 class="filters-title">📊 Filtros</h2>
+        <div class="filters-actions">
+          <button class="btn btn-reset" onclick="resetFilters()">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-wrap">
+          <label for="filter_regional">Regional</label>
+          <select id="filter_regional" multiple placeholder="Selecciona regional..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_canal">Canal</label>
+          <select id="filter_canal" multiple placeholder="Selecciona canal..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_clasificacion">Clasificación Asegurados</label>
+          <select id="filter_clasificacion" multiple placeholder="Selecciona clasificación..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_director">Director Comercial</label>
+          <select id="filter_director" multiple placeholder="Selecciona director..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_asesor_corredor">Asesor/Corredor</label>
+          <select id="filter_asesor_corredor" multiple placeholder="Selecciona asesor..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_oficina">Oficina</label>
+          <select id="filter_oficina" multiple placeholder="Selecciona oficina..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_producto">Producto</label>
+          <select id="filter_producto" multiple placeholder="Selecciona producto..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_estado_tecnico">Estado Técnico</label>
+          <select id="filter_estado_tecnico" multiple placeholder="Selecciona estado..."></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== GRÁFICO PRINCIPAL Y MÉTRICAS ====== -->
+    <div class="two-col">
+      <div class="card">
+        <h3 class="card-title">Prima actual vs prima sugerida</h3>
+        <p class="card-subtitle">Valores en <span id="unit-label">miles de pesos</span>.</p>
+        <div class="chart-container">
+          <canvas id="chartComparison"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Información general</h3>
+        <p class="card-subtitle">Valores monetarios en <span id="unit-label2">miles de pesos</span>.</p>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Pólizas</div>
+            <div class="metric-value" id="metric-polizas">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Asegurados</div>
+            <div class="metric-value" id="metric-asegurados">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">TC actual prom.</div>
+            <div class="metric-value" id="metric-tc-actual" style="font-size: 1.2rem;">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">TC sugerida prom.</div>
+            <div class="metric-value" id="metric-tc-sugerida" style="font-size: 1.2rem;">0</div>
+          </div>
+          <div class="metric-card" id="metric-brecha-card">
+            <div class="metric-label">Brecha</div>
+            <div class="metric-value" id="metric-brecha">0</div>
+            <div class="metric-caption" id="metric-brecha-caption">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== RANKINGS ====== -->
+    <div class="card">
+      <h3 class="card-title">📈 Rankings comparativos</h3>
+      <p class="card-subtitle">Ordenados por brecha: prima actual menos prima sugerida. De mejor a peor desempeño.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this, 'regional')">Por Regional</button>
+        <button class="tab-btn" onclick="switchTab(this, 'canal')">Por Canal</button>
+        <button class="tab-btn" onclick="switchTab(this, 'director')">Por Director</button>
+        <button class="tab-btn" onclick="switchTab(this, 'asesor')">Por Asesor/Corredor</button>
+        <button class="tab-btn" onclick="switchTab(this, 'oficina')">Por Oficina</button>
+      </div>
+
+      <div id="ranking-regional" class="tab-content active">
+        <div class="table-container">
+          <table id="table-regional">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-canal" class="tab-content">
+        <div class="table-container">
+          <table id="table-canal">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-director" class="tab-content">
+        <div class="table-container">
+          <table id="table-director">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-asesor" class="tab-content">
+        <div class="table-container">
+          <table id="table-asesor">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-oficina" class="tab-content">
+        <div class="table-container">
+          <table id="table-oficina">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== TOP PÓLIZAS ====== -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">
+        <span>🔴 Top pólizas con mayor déficit</span>
+        <span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-content">
+        <div style="margin-bottom: 1rem;">
+          <label for="top-n-slider">Número de pólizas a mostrar:</label>
+          <input type="range" id="top-n-slider" min="5" max="50" step="5" value="15" 
+                 oninput="updateTopDeficit(this.value)" style="width: 100%; max-width: 300px;">
+          <span id="top-n-value" style="margin-left: 1rem;">15</span>
+        </div>
+        <div class="table-container">
+          <table id="table-top-deficit">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== DESCARGAR ====== -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">
+        <span>⬇️ Descargar detalle filtrado</span>
+        <span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-content">
+        <p style="margin-bottom: 1rem; color: var(--text-muted);">
+          Descarga el detalle completo de los datos filtrados en formato CSV con separador ";" 
+          y punto decimal ",".
+        </p>
+        <button class="btn btn-primary" onclick="downloadCSV()">
+          ⬇️ Descargar detalle filtrado CSV
+        </button>
+        <div class="table-container" style="margin-top: 1rem;">
+          <table id="table-detail-preview">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- fin #content -->
+
+</div> <!-- fin .container -->
+
+<!-- Scripts -->
+<script src="engine.js"></script>
+<script>
+// ====== VARIABLES GLOBALES ====== 
+let filteredData = [];
+let currentMetrics = {};
+let moneyUnit = { divisor: 1000, suffix: " mil", label: "Miles COP", fullLabel: "miles de pesos" };
+let chartComparison = null;
+
+// ====== INICIALIZACIÓN ====== 
+document.addEventListener('DOMContentLoaded', async () => {
+  const loaded = await window.tableEngine.loadData();
+  
+  if (!loaded) {
+    document.getElementById('loading').innerHTML = 
+      `<div class="alert alert-error">
+        <strong>❌ Error de conexión</strong><br>
+        <div style="margin-top: 0.5rem; font-size: 0.9rem;">
+          No se pudieron cargar los datos desde Power Automate API.<br>
+          <br>
+          <strong>Verifica que:</strong><br>
+          ✓ El servidor está corriendo: <code>python serve.py</code><br>
+          ✓ La API es accesible<br>
+          ✓ Las credenciales son correctas<br>
+          <br>
+          Abre la consola (F12) para ver más detalles del error.
+        </div>
+      </div>`;
+    return;
+  }
+
+  initializeFilters();
+  updateDashboard();
+  
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+});
+
+// ====== FILTROS ====== 
+function initializeFilters() {
+  // Esta función ahora solo se encarga de hacer el llamado a engine.js
+  // engine.js maneja TODO: Tom Select + lógica de filtros
+  console.log("✅ Inicializando sistema de filtros desde index.html...");
+  
+  // No hacer nada más aquí - engine.js ya hizo todo en loadData()
+  console.log("✅ Filtros y listeners listos");
+}
+
+function setupFilterListeners() {
+  const filterFields = ['regional', 'canal', 'clasificacion', 'director', 'asesor_corredor', 'oficina', 'estado_tecnico'];
+  
+  filterFields.forEach(field => {
+    const select = document.getElementById(`filter_${field}`);
+    if (select) {
+      select.addEventListener('change', updateDashboard);
+    }
+  });
+}
+
+function getFilterSelections() {
+  return {
+    regional: document.getElementById('filter_regional')?.value || '',
+    canal: document.getElementById('filter_canal')?.value || '',
+    clasificacion: document.getElementById('filter_clasificacion')?.value || '',
+    director: document.getElementById('filter_director')?.value || '',
+    asesor_corredor: document.getElementById('filter_asesor_corredor')?.value || '',
+    oficina: document.getElementById('filter_oficina')?.value || '',
+    producto: document.getElementById('filter_producto')?.value || '',
+    estado_tecnico: document.getElementById('filter_estado_tecnico')?.value || '',
+  };
+}
+
+function resetFilters() {
+  ['regional', 'canal', 'clasificacion', 'director', 'asesor_corredor', 'oficina', 'producto', 'estado_tecnico']
+    .forEach(field => {
+      const select = document.getElementById(`filter_${field}`);
+      if (select) {
+        select.value = '';
+        select.dispatchEvent(new Event('change'));
+      }
+    });
+  updateDashboard();
+}
+
+// ====== ACTUALIZAR DASHBOARD ====== 
+function updateDashboard() {
+  const selections = getFilterSelections();
+  const selectionObj = {
+    regional: selections.regional ? selections.regional.split(',') : [],
+    canal: selections.canal ? selections.canal.split(',') : [],
+    clasificacion: selections.clasificacion ? selections.clasificacion.split(',') : [],
+    director: selections.director ? selections.director.split(',') : [],
+    asesor_corredor: selections.asesor_corredor ? selections.asesor_corredor.split(',') : [],
+    oficina: selections.oficina ? selections.oficina.split(',') : [],
+    producto: selections.producto ? selections.producto.split(',') : [],
+    estado_tecnico: selections.estado_tecnico ? selections.estado_tecnico.split(',') : [],
+  };
+
+  filteredData = window.tableEngine.filterData(selectionObj);
+
+  if (filteredData.length === 0) {
+    document.getElementById('content').innerHTML = 
+      '<div class="alert alert-warning"><strong>Sin datos:</strong> Los filtros seleccionados no devuelven resultados.</div>';
+    return;
+  }
+
+  // Cálculos
+  currentMetrics = window.tableEngine.calculateMetrics(filteredData);
+  moneyUnit = window.tableEngine.chooseMoneUnit([
+    currentMetrics.primActualTotal,
+    currentMetrics.primSugeridaTotal,
+    currentMetrics.brechaTotal,
+  ]);
+
+  // Actualizar UI
+  updateMetrics();
+  updateCharts();
+  updateRankings();
+  updateTopDeficit(15);
+}
+
+// ====== MÉTRICAS ====== 
+function updateMetrics() {
+  document.getElementById('metric-polizas').textContent = 
+    window.tableEngine.formatInt(currentMetrics.polizasTotal);
+  document.getElementById('metric-asegurados').textContent = 
+    window.tableEngine.formatInt(currentMetrics.aseguradosTotal);
+  document.getElementById('metric-tc-actual').textContent = 
+    window.tableEngine.formatRate(currentMetrics.tcActualProm);
+  document.getElementById('metric-tc-sugerida').textContent = 
+    window.tableEngine.formatRate(currentMetrics.tcSugeridaProm);
+
+  const brechaValue = currentMetrics.brechaTotal;
+  document.getElementById('metric-brecha').textContent = 
+    window.tableEngine.formatMoney(brechaValue, moneyUnit);
+  document.getElementById('metric-brecha-caption').textContent = moneyUnit.fullLabel;
+
+  const brechaCard = document.getElementById('metric-brecha-card');
+  brechaCard.classList.remove('good', 'bad');
+  brechaCard.classList.add(brechaValue >= 0 ? 'good' : 'bad');
+
+  // Actualizar etiquetas de unidad
+  document.querySelectorAll('#unit-label, #unit-label2, #unit-label3').forEach(el => {
+    el.textContent = moneyUnit.fullLabel;
+  });
+}
+
+// ====== GRÁFICOS ====== 
+function updateCharts() {
+  updateComparisonChart();
+}
+
+function updateComparisonChart() {
+  const ctx = document.getElementById('chartComparison')?.getContext('2d');
+  if (!ctx) return;
+
+  if (chartComparison) chartComparison.destroy();
+
+  chartComparison = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Prima actual', 'Prima sugerida'],
+      datasets: [{
+        label: 'Valor',
+        data: [
+          currentMetrics.primActualTotal / moneyUnit.divisor,
+          currentMetrics.primSugeridaTotal / moneyUnit.divisor,
+        ],
+        backgroundColor: ['#0033A0', '#00AEC7'],
+        borderRadius: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => window.tableEngine.formatMoney(context.parsed.y * moneyUnit.divisor, moneyUnit),
+          },
+        },
+      },
+      scales: {
+        y: {
+          title: { display: true, text: moneyUnit.label },
+          ticks: {
+            callback: (value) => window.tableEngine.formatInt(value),
+          },
+        },
+      },
+    },
+  });
+}
+
+// ====== RANKINGS ====== 
+function updateRankings() {
+  ['regional', 'canal', 'director', 'asesor_corredor', 'oficina'].forEach((col, idx) => {
+    const nameCol = ['regional_nombre', 'canal_nombre', 'director_nombre', 'asesor_nombre', 'oficina_nombre'][idx];
+    const ranking = window.tableEngine.buildRankingTable(filteredData, col, 
+      ['Regional', 'Canal', 'Director', 'Asesor/Corredor', 'Oficina'][idx], nameCol);
+    renderRankingTable(`table-${['regional', 'canal', 'director', 'asesor', 'oficina'][idx]}`, ranking, moneyUnit);
+  });
+}
+
+function renderRankingTable(tableId, ranking, unit) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  // Detectar si hay columna de nombre
+  const hasNameCol = ranking.length > 0 && Object.keys(ranking[0]).some(k => k.includes('(Nombre)'));
+  const groupKey = Object.keys(ranking[0]).find(k => !['posicion', 'estado', 'polizas', 'asegurados', 'primActual', 'primSugerida', 'tcActualProm', 'brecha', 'cumplimiento', 'tcSugeridaProm'].includes(k) && !k.includes('(Nombre)'));
+  const nameKey = hasNameCol ? Object.keys(ranking[0]).find(k => k.includes('(Nombre)')) : null;
+  
+  const headers = ['Posición', 'Estado', hasNameCol ? `${groupKey} (Nombre)` : groupKey, 
+    'Pólizas', 'Asegurados', 'Prima actual', 'Prima sugerida', 'Brecha', 'Cumplimiento'];
+  
+  table.querySelector('thead').innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  
+  table.querySelector('tbody').innerHTML = ranking.map(row => `
+    <tr>
+      <td>${row.posicion}</td>
+      <td>${row.estado}</td>
+      <td><strong>${hasNameCol && nameKey ? row[nameKey] : row[groupKey]}</strong></td>
+      <td>${window.tableEngine.formatInt(row.polizas)}</td>
+      <td>${window.tableEngine.formatInt(row.asegurados)}</td>
+      <td>${window.tableEngine.formatMoney(row.primActual, unit)}</td>
+      <td>${window.tableEngine.formatMoney(row.primSugerida, unit)}</td>
+      <td class="${row.brecha >= 0 ? 'good' : 'bad'}">${window.tableEngine.formatMoney(row.brecha, unit)}</td>
+      <td>${window.tableEngine.formatDecimal(row.cumplimiento, 2)}</td>
+    </tr>
+  `).join('');
+}
+
+// ====== TOP PÓLIZAS ====== 
+function updateTopDeficit(n) {
+  document.getElementById('top-n-value').textContent = n;
+  const sorted = [...filteredData].sort((a, b) => a.brecha_prima - b.brecha_prima).slice(0, parseInt(n));
+  
+  const table = document.getElementById('table-top-deficit');
+  const headers = ['Póliza', 'Regional', 'Canal', 'Clasificación', 'Director', 'Asesor', 'Oficina', 'Asegurados',
+    'Prima actual', 'Prima sugerida', 'Brecha', 'Cumplimiento'];
+  
+  table.querySelector('thead').innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  table.querySelector('tbody').innerHTML = sorted.map(row => `
+    <tr>
+      <td>${row.poliza}</td>
+      <td>${row.regional_nombre || row.regional}</td>
+      <td>${row.canal_nombre || row.canal}</td>
+      <td>${row.clasificacion}</td>
+      <td>${row.director_nombre || row.director}</td>
+      <td>${row.asesor_nombre || row.asesor_corredor}</td>
+      <td>${row.oficina_nombre || row.oficina}</td>
+      <td>${window.tableEngine.formatInt(row.cant_asegurados)}</td>
+      <td>${window.tableEngine.formatMoney(row.prima_actual, moneyUnit)}</td>
+      <td>${window.tableEngine.formatMoney(row.prima_sugerida, moneyUnit)}</td>
+      <td class="${row.brecha_prima >= 0 ? 'good' : 'bad'}">${window.tableEngine.formatMoney(row.brecha_prima, moneyUnit)}</td>
+      <td>${window.tableEngine.formatDecimal(row.cumplimiento_prima, 2)}</td>
+    </tr>
+  `).join('');
+}
+
+// ====== EXPORTAR CSV ====== 
+function downloadCSV() {
+  window.tableEngine.exportToCSV(filteredData, 'detalle_tablero_vida_grupo.csv');
+}
+
+// ====== EXPANDIBLES Y TABS ====== 
+function toggleExpander(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+function switchTab(btn, tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`ranking-${tab}`).classList.add('active');
+}
+</script>
+
+</body>
+</html>
