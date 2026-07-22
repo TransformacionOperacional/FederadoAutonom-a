@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizador Masivo - SURA PCP</title>
+    <link rel="icon" type="image/x-icon" href="https://sucursal.segurossura.com.co/favicon.ico">
+    <script src="https://kit.fontawesome.com/ba6c9b5137.js" crossorigin="anonymous"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: white;
+            padding: 40px 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .logo {
+            height: 85px;
+        }
+
+        .header h1 {
+            color: #0033a0;
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .upload-box {
+            border: 2px dashed #0033a0;
+            border-radius: 12px;
+            padding: 60px 30px;
+            text-align: center;
+            background: #f9fbff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 30px 0;
+        }
+
+        .upload-box:hover {
+            background: #f0f4ff;
+            border-color: #00aaec;
+        }
+
+        .upload-box.dragover {
+            background: #e8f4ff;
+            border-color: #00aaec;
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 170, 236, 0.2);
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            color: #0033a0;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 14px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #0033a0;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #002080;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 51, 160, 0.3);
+        }
+
+        .btn-secondary {
+            background: #00aaec;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #0088cc;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            padding: 18px;
+            border-radius: 8px;
+            border-left: 4px solid #0033a0;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .info-box.show {
+            display: block;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            color: #333;
+            font-size: 15px;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+
+        .progress-section {
+            display: none;
+            margin: 25px 0;
+        }
+
+        .progress-section.show {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0033a0, #00aaec);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .table-wrapper {
+            display: none;
+            margin: 25px 0;
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+
+        .table-wrapper.show {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background: #0033a0;
+            color: white;
+            padding: 14px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover {
+            background: #f8f9ff;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin: 25px 0;
+            display: none;
+        }
+
+        .stats.show {
+            display: grid;
+        }
+
+        .stat {
+            background: linear-gradient(135deg, #0033a0, #00aaec);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.85;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 40px;
+            font-weight: 700;
+        }
+
+        .title {
+            color: #0033a0;
+            font-size: 20px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .spinner {
+            font-size: 50px;
+            color: #0033a0;
+            margin-bottom: 15px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .modal-text {
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .modal-subtext {
+            color: #999;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .card {
+                padding: 25px;
+            }
+
+            .upload-box {
+                padding: 40px 20px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://www.segurossura.com.co/boletincovid191/Recomendaciones_COVID-19/images/logo_sura.png" alt="Logo SURA" class="logo">
+            <h1>Cotizador Masivo</h1>
+            <p>Plan Crédito Protegido</p>
+        </div>
+
+        <!-- Sección 1: Descargar Plantilla -->
+        <div class="card">
+            <h2 class="title"><i class="fas fa-file-excel"></i> 1. Descargar Plantilla</h2>
+            <p class="subtitle">Descarga el archivo Excel con la estructura de datos requerida</p>
+            <div class="btn-group">
+                <button class="btn-secondary" onclick="descargarPlantilla()">
+                    <i class="fas fa-download"></i> Descargar Plantilla Excel
+                </button>
+            </div>
+        </div>
+
+        <!-- Sección 2: Cargar Archivo -->
+        <div class="card">
+            <h2 class="title"><i class="fas fa-upload"></i> 2. Cargar Archivo</h2>
+            <p class="subtitle">Completa la plantilla y carga el archivo aquí</p>
+
+            <div class="upload-box" id="uploadArea" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('excelFile').click()">
+                <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                <div class="upload-text">Arrastra tu archivo aquí</div>
+                <div class="upload-hint">o haz clic para seleccionar • .xlsx o .xls</div>
+            </div>
+
+            <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+
+            <div class="alert alert-error" id="errorMessage"></div>
+            <div class="alert alert-success" id="successMessage"></div>
+
+            <div class="info-box" id="fileInfo">
+                <div class="info-item">
+                    <span>📄 Archivo:</span>
+                    <span id="fileName" style="color:#0033a0; font-weight:600;"></span>
+                </div>
+                <div class="info-item">
+                    <span>📊 Registros:</span>
+                    <span id="recordCount">0</span>
+                </div>
+            </div>
+
+            <div class="progress-section" id="progressSection">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text">Cargando... <span id="progressText">0%</span></div>
+            </div>
+
+            <div class="table-wrapper" id="tableWrapper">
+                <table id="previewTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nombre</th>
+                            <th>Edad</th>
+                            <th>Valor Asegurado</th>
+                            <th>Forma de Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-success" id="procesarBtn" onclick="procesarCotizaciones()" disabled>
+                    <i class="fas fa-calculator"></i> Procesar Cotizaciones
+                </button>
+                <button class="btn-danger" onclick="limpiarCarga()">
+                    <i class="fas fa-trash"></i> Limpiar
+                </button>
+            </div>
+        </div>
+
+        <!-- Sección 3: Resultados -->
+        <div class="card" id="resultadosCard" style="display:none;">
+            <h2 class="title"><i class="fas fa-check-circle"></i> 3. Resultados</h2>
+            <p class="subtitle">Descargar reporte con todas las cotizaciones procesadas</p>
+
+            <div class="stats" id="stats">
+                <div class="stat">
+                    <div class="stat-label">Total</div>
+                    <div class="stat-value" id="totalProcesados">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Exitosos</div>
+                    <div class="stat-value" id="exitosos">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Errores</div>
+                    <div class="stat-value" id="conError">0</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="descargarResultados()">
+                    <i class="fas fa-download"></i> Descargar Excel con Resultados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Procesamiento -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="spinner"><i class="fas fa-spinner fa-spin"></i></div>
+            <div class="modal-text" id="modalText">Procesando...</div>
+            <div class="modal-subtext" id="modalSubtext">Por favor espera</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script>
+        // Verificar que XLSX esté disponible
+        let xlsxReady = false;
+        let attempts = 0;
+
+        function checkXLSX() {
+            if (typeof XLSX !== 'undefined') {
+                xlsxReady = true;
+                console.log('✅ XLSX cargado correctamente');
+            } else if (attempts < 50) {
+                attempts++;
+                setTimeout(checkXLSX, 100);
+            } else {
+                console.error('❌ XLSX no se pudo cargar');
+            }
+        }
+
+        checkXLSX();
+    </script>
+    <script src="CargaMasiva.js"></script>
+</body>
+</html>
