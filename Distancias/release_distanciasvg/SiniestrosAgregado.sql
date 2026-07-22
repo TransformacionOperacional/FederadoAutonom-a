@@ -59,10 +59,10 @@ LEFT JOIN MDB_SEGUROS_COLOMBIA.V_GRUPO_CANAL_COMERCIAL AS GCAN
     ON CANAL.GRUPO_CANAL_COMERCIAL_ID = GCAN.GRUPO_CANAL_COMERCIAL_ID
 
 WHERE RAMO.CODIGO_RAMO_OP IN ('084', '183', '083')
-  AND CIA.CODIGO_OP = '02'
-    AND ESC.MES_ID BETWEEN 202201
-                                         AND (EXTRACT(YEAR FROM CURRENT_DATE) * 100)
-                                                 + EXTRACT(MONTH FROM CURRENT_DATE)
+    AND CIA.CODIGO_OP = '02'
+    -- El corte se hace por el año real de ocurrencia, no por el mes contable
+    -- del movimiento; así se excluyen siniestros ocurridos antes de 2022.
+    AND SINI.FECHA_SINIESTRO >= DATE '2022-01-01'
   AND CANAL.CANAL_COMERCIAL_ID IN (
       24390656,
       28686321,
