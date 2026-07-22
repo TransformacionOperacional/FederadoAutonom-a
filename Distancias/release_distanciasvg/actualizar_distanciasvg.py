@@ -684,13 +684,46 @@ def _traer_siniestros_agregados(conn_string: str, query_file: str = "SiniestrosA
     return df_sin
 
 
+def _asignar_valor_incurrido(df: pd.DataFrame, df_siniestros: pd.DataFrame) -> pd.DataFrame:
+    """Asigna a cada póliza su valor incurrido agregado de siniestros."""
+    if "NUMERO_POLIZA" not in df.columns:
+        raise ValueError("BaseCalculos.sql debe retornar la columna NUMERO_POLIZA.")
+
+    df = df.copy()
+    siniestros = df_siniestros[["NUMERO_POLIZA", "VALOR_INCURRIDO"]].copy()
+
+    # La consulta ya agrupa por póliza; se consolida otra vez como salvaguarda
+    # para evitar duplicar filas de la base si la fuente llegara a traer repetidos.
+    siniestros["VALOR_INCURRIDO"] = pd.to_numeric(
+        siniestros["VALOR_INCURRIDO"], errors="coerce"
+    ).fillna(0.0)
+    siniestros = siniestros.groupby("NUMERO_POLIZA", as_index=False)["VALOR_INCURRIDO"].sum()
+
+    df = df.drop(columns=["VALOR_INCURRIDO"], errors="ignore").merge(
+        siniestros,
+        on="NUMERO_POLIZA",
+        how="left",
+        validate="many_to_one",
+    )
+    df["VALOR_INCURRIDO"] = pd.to_numeric(
+        df["VALOR_INCURRIDO"], errors="coerce"
+    ).fillna(0.0)
+
+    polizas_con_siniestros = int((df["VALOR_INCURRIDO"] != 0).sum())
+    print(
+        "  Valor incurrido asignado desde SiniestrosAgregado.sql: "
+        f"{polizas_con_siniestros:,} de {len(df):,} pólizas con valor distinto de cero."
+    )
+    return df
+
+
 def refrescar_distanciasvg(
     teradata_conn: str,
     sqlserver_conn: str,
     query_file: str = "BaseCalculos.sql",
     table_name: str = TABLE_NAME,
 ) -> int:
-    """Extrae datos de Teradata, calcula campos derivados y los carga en SQL Server."""
+    """Extrae pólizas y siniestros de Teradata, calcula indicadores y los carga en SQL Server."""
     sql_path = _resolve_sql_path(query_file)
     if not sql_path.exists():
         raise FileNotFoundError(f"No existe el archivo SQL: {query_file}")
@@ -698,11 +731,16 @@ def refrescar_distanciasvg(
     # Paso A: traer datos crudos de Teradata
     df = _ejecutar_en_teradata(teradata_conn, sql_path)
 
-    # Paso B: calcular campos derivados antes de cargar a SQL Server
+    # Paso B: consultar siniestros agregados y asignar VALOR_INCURRIDO por póliza.
+    # Debe ocurrir antes de calcular TPR_REAL y los indicadores que dependen de ella.
+    df_siniestros = _traer_siniestros_agregados(teradata_conn)
+    df = _asignar_valor_incurrido(df, df_siniestros)
+
+    # Paso C: calcular campos derivados antes de cargar a SQL Server
     print("\n  Calculando campos derivados...")
     df = _calcular_campos(df)
 
-    # Paso C: eliminar cualquier columna obsoleta y garantizar columna destino antes de cargar
+    # Paso D: eliminar cualquier columna obsoleta y garantizar columna destino antes de cargar
     _drop_sqlserver_column_if_exists(sqlserver_conn, table_name, "SIN_REAL")
     _ensure_sqlserver_column_exists(sqlserver_conn, table_name, "VALOR_INCURRIDO")
     return _cargar_en_sqlserver(sqlserver_conn, df, table_name)
