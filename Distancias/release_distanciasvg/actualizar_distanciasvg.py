@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import datetime
 import os
-import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -188,7 +187,7 @@ TARGET_COLUMNS = [
     "TPR_SOLO_VIDA_EG_ITP",
     # ── Campos calculados ──────────────────────────────────────────────────
     "TPR_PONDERADA_REDUCCION_20PCT",   # = TPR_PONDERADA_POR_PERSONA * (1 - 20%)
-    "NUEVA_O_RENOVADA",                 # NUEVA si FECHA_INICIO_PRIMERA_VIGENCIA es 2025 o 2026
+    "NUEVA_O_RENOVADA",                 # RENOVADA si ya completó un año calendario desde la primera vigencia
     "FECHA_CORTE",                      # Calculado como fecha fija 31/12/2025
     "AÑOS_VIGENCIA",                    # Diferencia de años entre FECHA_CORTE y FECHA_INICIO_PRIMERA_VIGENCIA, máximo 4
     "CANT_ASEGURADOS",                  # viene de NUMERO_ASEGURADOS
@@ -260,21 +259,31 @@ def _calcular_campos(df: pd.DataFrame) -> pd.DataFrame:
     # ─────────────────────────────────────────────────────────────────────
 
     # ── Campo 2: NUEVA_O_RENOVADA ─────────────────────────────────────────
-    # Se basa en FECHA_INICIO_PRIMERA_VIGENCIA. Fechas con año 2025/2026 son NUEVA.
-    def calcular_nueva_o_renovada(fecha_valor: object) -> str | None:
+    # Una póliza es RENOVADA a partir de su primer aniversario calendario,
+    # comparado contra la fecha actual de ejecución; antes es NUEVA.
+    df["FECHA_CORTE"] = datetime.date(2025, 12, 31)
+    fecha_actual = datetime.date.today()
+
+    def calcular_nueva_o_renovada(fecha_valor: object, fecha_referencia: datetime.date) -> str | None:
         if pd.isna(fecha_valor):
             return None
-        fecha_texto = str(fecha_valor).strip()
-        if not fecha_texto:
+        try:
+            inicio = pd.to_datetime(fecha_valor, dayfirst=True).date()
+        except (TypeError, ValueError, OverflowError):
             return None
-        match = re.search(r"(\d{4})$", fecha_texto)
-        if not match:
-            return "RENOVADA"
-        year = int(match.group(1))
-        return "NUEVA" if year in {2025, 2026} else "RENOVADA"
 
-    df["NUEVA_O_RENOVADA"] = df["FECHA_INICIO_PRIMERA_VIGENCIA"].apply(calcular_nueva_o_renovada)
-    df["FECHA_CORTE"] = datetime.date(2025, 12, 31)
+        try:
+            primer_aniversario = inicio.replace(year=inicio.year + 1)
+        except ValueError:
+            # Una vigencia iniciada el 29 de febrero cumple su aniversario
+            # el 28 de febrero cuando el año siguiente no es bisiesto.
+            primer_aniversario = inicio.replace(year=inicio.year + 1, day=28)
+
+        return "RENOVADA" if fecha_referencia >= primer_aniversario else "NUEVA"
+
+    df["NUEVA_O_RENOVADA"] = df["FECHA_INICIO_PRIMERA_VIGENCIA"].apply(
+        lambda fecha: calcular_nueva_o_renovada(fecha, fecha_actual)
+    )
 
     def calcular_anos_vigencia(inicio: object, corte: object) -> float | None:
         if pd.isna(inicio) or pd.isna(corte):

@@ -2,24 +2,35 @@
 let datosClientes = [];
 let resultadosProcesamiento = [];
 
-// Tasas PCP por edad (del archivo Simulador - Columna PCP - VIDA COMERCIAL)
+// Tasas comerciales PCP por edad (tasas por mil).
 const TASAS_PCP = {
-    20: 0.411, 21: 0.468, 22: 0.530, 23: 0.595, 24: 0.666, 25: 0.742, 26: 0.824, 27: 0.912, 28: 1.007,
-    29: 1.108, 30: 1.217, 31: 1.334, 32: 1.460, 33: 1.596, 34: 1.741, 35: 1.898, 36: 2.066, 37: 2.246,
-    38: 2.440, 39: 2.649, 40: 2.873, 41: 3.114, 42: 3.373, 43: 3.626, 44: 3.791, 45: 3.971, 46: 4.168,
-    47: 4.382, 48: 4.617, 49: 4.876, 50: 5.154, 51: 5.364, 52: 5.644, 53: 6.004, 54: 6.474, 55: 7.024,
-    56: 7.489, 57: 7.986, 58: 8.515, 59: 9.079, 60: 9.681, 61: 10.323, 62: 11.009, 63: 11.788, 64: 12.673,
-    65: 13.679, 66: 14.825, 67: 16.131, 68: 17.624, 69: 19.332, 70: 21.290, 71: 23.542, 72: 26.137, 73: 29.135,
-    74: 32.608, 75: 36.642, 76: 40.987, 77: 45.976, 78: 49.435, 79: 53.153
+    18: 2.02, 19: 2.02, 20: 1.507, 21: 1.536, 22: 1.568, 23: 1.559, 24: 1.55, 25: 1.537,
+    26: 1.502, 27: 1.476, 28: 1.465, 29: 1.455, 30: 1.452, 31: 1.45, 32: 1.452, 33: 1.462,
+    34: 1.471, 35: 1.474, 36: 1.479, 37: 1.503, 38: 1.543, 39: 1.61, 40: 1.699, 41: 1.825,
+    42: 1.995, 43: 2.153, 44: 2.27, 45: 2.431, 46: 2.605, 47: 2.781, 48: 2.923, 49: 3.003,
+    50: 3.054, 51: 3.1, 52: 3.216, 53: 3.408, 54: 3.677, 55: 4.02, 56: 4.4, 57: 4.868,
+    58: 5.446, 59: 6.081, 60: 6.85, 61: 7.816, 62: 8.718, 63: 9.644, 64: 10.407, 65: 11.165,
+    66: 12.148, 67: 13.308, 68: 14.674, 69: 16.257, 70: 18.056, 71: 20.273, 72: 22.742,
+    73: 25.672, 74: 28.975, 75: 32.916, 76: 38.986, 77: 45.976, 78: 49.435, 79: 53.153
 };
 
-const TASAS_ITP = 0.353;
+// A partir de los 77 años no hay tasa ITP asignada; se cotiza solo VIDA.
+const TASAS_ITP = {
+    18: 0.069, 19: 0.069, 20: 0.052, 21: 0.053, 22: 0.053, 23: 0.096, 24: 0.142, 25: 0.19,
+    26: 0.265, 27: 0.333, 28: 0.404, 29: 0.477, 30: 0.548, 31: 0.609, 32: 0.667, 33: 0.724,
+    34: 0.783, 35: 0.848, 36: 0.93, 37: 1.038, 38: 1.143, 39: 1.229, 40: 1.297, 41: 1.356,
+    42: 1.415, 43: 1.446, 44: 1.446, 45: 1.468, 46: 1.496, 47: 1.527, 48: 1.618, 49: 1.804,
+    50: 2.027, 51: 2.225, 52: 2.41, 53: 2.581, 54: 2.756, 55: 2.92, 56: 3.009, 57: 3.029,
+    58: 3.015, 59: 2.929, 60: 2.807, 61: 2.7, 62: 2.531, 63: 2.383, 64: 2.518, 65: 2.788,
+    66: 2.895, 67: 3.015, 68: 3.131, 69: 3.228, 70: 3.372, 71: 3.34, 72: 3.202, 73: 3.088,
+    74: 2.975, 75: 2.884, 76: 2.914, 77: null, 78: null, 79: null
+};
 
 // Factores de fraccionamiento por forma de pago
 const FACTORES_FRACCIONAMIENTO = {
     'Mensual': 1.092,
-    'Trimestral': 1.268,
-    'Semestral': 1.523,
+    'Trimestral': 1.072,
+    'Semestral': 1.046,
     'Anual': 1.0
 };
 
@@ -227,10 +238,10 @@ function calcularPrimas(cliente) {
             return { nombre, edad, valorAsegurado, formaPago, estado: 'Error', error: 'Valor < $1.000.000' };
         }
 
-        const tasaPCP = TASAS_PCP[edad] || TASAS_PCP[Math.floor(edad)];
-        const tasaItp = TASAS_ITP;
+        const tasaPCP = TASAS_PCP[edad];
+        const tasaItp = TASAS_ITP[edad] ?? 0;
 
-        if (!tasaPCP) {
+        if (tasaPCP == null) {
             return { nombre, edad, valorAsegurado, formaPago, estado: 'Error', error: 'Tasas no disponibles' };
         }
 
@@ -248,12 +259,12 @@ function calcularPrimas(cliente) {
         const primaMensualItp = Math.round((primaAnualItp / 12) * 1.092);
         const primaMensualTotal = primaMensualPCP + primaMensualItp;
 
-        const primaTrimestralPCP = Math.round((primaAnualPCP / 4) * 1.268);
-        const primaTrimestralItp = Math.round((primaAnualItp / 4) * 1.268);
+        const primaTrimestralPCP = Math.round((primaAnualPCP / 4) * 1.072);
+        const primaTrimestralItp = Math.round((primaAnualItp / 4) * 1.072);
         const primaTrimestralTotal = primaTrimestralPCP + primaTrimestralItp;
 
-        const primaSemestralPCP = Math.round((primaAnualPCP / 2) * 1.523);
-        const primaSemestralItp = Math.round((primaAnualItp / 2) * 1.523);
+        const primaSemestralPCP = Math.round((primaAnualPCP / 2) * 1.046);
+        const primaSemestralItp = Math.round((primaAnualItp / 2) * 1.046);
         const primaSemestralTotal = primaSemestralPCP + primaSemestralItp;
 
         return {
@@ -308,6 +319,7 @@ async function descargarResultados() {
             { header: 'Valor Asegurado', key: 'valorAsegurado', width: 18 },
             { header: 'Forma de Pago', key: 'formaPago', width: 15 },
             { header: 'Tasa VIDA', key: 'tasaPCP', width: 12 },
+            { header: 'Tasa ITP', key: 'tasaItp', width: 12 },
             { header: 'Prima Anual VIDA', key: 'primaAnualPCP', width: 16 },
             { header: 'Prima Anual ITP', key: 'primaAnualItp', width: 16 },
             { header: 'Prima Anual Total', key: 'primaAnualTotal', width: 16 },

@@ -138,10 +138,11 @@ Luego se divide según forma de pago:
 
 Las tasas están predefinidas por edad y producto:
 
-- **VIDA COMERCIAL**: Tasas progresivas según edad (0.411% a 24.894%)
-- **ITP COMERCIAL**: Tasa fija (0.353%)
+- **VIDA COMERCIAL**: Tasas por edad ($2.020$ a $53.153$ por mil, para edades 18 a 79).
+- **ITP COMERCIAL**: Tasas por edad ($0.052$ a $3.372$ por mil, para edades 18 a 76).
+- Para las edades 77 a 79 no hay tasa ITP asignada; se cotiza únicamente la cobertura VIDA.
 
-Rango de edades soportadas: 20 a 70 años
+Rango de edades soportadas: 18 a 79 años
 
 ## ⚠️ Códigos de Error
 
