@@ -1,6 +1,7 @@
 # Script: ejecutar.ps1
 # Propósito: Ejecutar actualizar_distanciasvg.py usando el entorno virtual del proyecto
 # Uso: .\ejecutar.ps1
+#powershell -ExecutionPolicy Bypass -File "C:\Proyectos\1. Cotizador_VidaGrupo\FederadoAutonom-a\Distancias\release_distanciasvg\ejecutar.ps1"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptDir

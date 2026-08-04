@@ -7,6 +7,21 @@
    No añade filtros de póliza distintos a los del query fuente.
    ============================================================ */
 
+WITH PARAMETROS AS (
+    SELECT
+        LAST_DAY(
+            CAST(
+                CAST(MAX(MCER_SRC.MES_ID) AS VARCHAR(6)) || '01'
+                AS DATE FORMAT 'YYYYMMDD'
+            )
+        ) AS FECHA_CORTE
+    FROM MDB_SEGUROS_COLOMBIA.V_HIST_POLIZA_CERT_MSTR MCER_SRC
+    WHERE MCER_SRC.MES_ID <= (
+        EXTRACT(YEAR FROM ADD_MONTHS(CURRENT_DATE, -1)) * 100
+        + EXTRACT(MONTH FROM ADD_MONTHS(CURRENT_DATE, -1))
+    )
+)
+
 SELECT
     POL.NUMERO_POLIZA,
     SUM(
@@ -58,12 +73,14 @@ LEFT JOIN MDB_SEGUROS_COLOMBIA.V_CANAL_COMERCIAL AS CANAL
 LEFT JOIN MDB_SEGUROS_COLOMBIA.V_GRUPO_CANAL_COMERCIAL AS GCAN
     ON CANAL.GRUPO_CANAL_COMERCIAL_ID = GCAN.GRUPO_CANAL_COMERCIAL_ID
 
+CROSS JOIN PARAMETROS PAR
+
 WHERE RAMO.CODIGO_RAMO_OP IN ('084', '183', '083')
     AND CIA.CODIGO_OP = '02'
         -- El corte se hace por la fecha real de ocurrencia, no por el mes contable
-        -- del movimiento: incluye 2022 a 2025 y excluye 2026.
+        -- del movimiento: incluye desde 2022-01-01 hasta FECHA_CORTE.
     AND SINI.FECHA_SINIESTRO >= DATE '2022-01-01'
-        AND SINI.FECHA_SINIESTRO < DATE '2026-01-01'
+        AND SINI.FECHA_SINIESTRO <= PAR.FECHA_CORTE
   AND CANAL.CANAL_COMERCIAL_ID IN (
       24390656,
       28686321,
