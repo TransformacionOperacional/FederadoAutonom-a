@@ -258,32 +258,19 @@ def _calcular_campos(df: pd.DataFrame) -> pd.DataFrame:
     df["TPR_PONDERADA_REDUCCION_20PCT"] = base_tpr * 0.80
     # ─────────────────────────────────────────────────────────────────────
 
-    # ── Campo 2: NUEVA_O_RENOVADA ─────────────────────────────────────────
-    # Una póliza es RENOVADA a partir de su primer aniversario calendario,
-    # comparado contra la fecha actual de ejecución; antes es NUEVA.
-    df["FECHA_CORTE"] = datetime.date(2025, 12, 31)
-    fecha_actual = datetime.date.today()
+    # FECHA_CORTE y NUEVA_O_RENOVADA deben venir del SQL para mantener
+    # la misma lógica de corte y clasificación que se definió en Teradata.
+    if "FECHA_CORTE" not in df.columns:
+        df["FECHA_CORTE"] = datetime.date.today()
 
-    def calcular_nueva_o_renovada(fecha_valor: object, fecha_referencia: datetime.date) -> str | None:
-        if pd.isna(fecha_valor):
-            return None
-        try:
-            inicio = pd.to_datetime(fecha_valor, dayfirst=True).date()
-        except (TypeError, ValueError, OverflowError):
-            return None
-
-        try:
-            primer_aniversario = inicio.replace(year=inicio.year + 1)
-        except ValueError:
-            # Una vigencia iniciada el 29 de febrero cumple su aniversario
-            # el 28 de febrero cuando el año siguiente no es bisiesto.
-            primer_aniversario = inicio.replace(year=inicio.year + 1, day=28)
-
-        return "RENOVADA" if fecha_referencia >= primer_aniversario else "NUEVA"
-
-    df["NUEVA_O_RENOVADA"] = df["FECHA_INICIO_PRIMERA_VIGENCIA"].apply(
-        lambda fecha: calcular_nueva_o_renovada(fecha, fecha_actual)
-    )
+    if "NUEVA_O_RENOVADA" not in df.columns:
+        fecha_corte = pd.to_datetime(df["FECHA_CORTE"], errors="coerce")
+        fecha_inicio = pd.to_datetime(df["FECHA_INICIO_PRIMERA_VIGENCIA"], errors="coerce")
+        df["NUEVA_O_RENOVADA"] = np.where(
+            fecha_inicio < (fecha_corte - pd.DateOffset(months=12)),
+            "RENOVADA",
+            "NUEVA",
+        )
 
     def calcular_anos_vigencia(inicio: object, corte: object) -> float | None:
         if pd.isna(inicio) or pd.isna(corte):
