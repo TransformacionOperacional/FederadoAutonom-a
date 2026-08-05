@@ -65,7 +65,7 @@
             <div class="card-opcion card-opcion-cotizacion" onclick="seleccionarSubtipo('cotizacion')">
                 <div class="card-opcion-icono">&#128196;</div>
                 <h2 class="card-opcion-titulo">Cotización con datos reales</h2>
-                <p class="card-opcion-desc">Cargarás un archivo Excel con la base de asegurados: documento, edad y clasificación salarial.</p>
+                <p class="card-opcion-desc">Cargarás un archivo Excel con la base de asegurados: documento, edad y valor asegurado.</p>
                 <span class="card-opcion-cta">Cargar Excel &rarr;</span>
             </div>
         </div>
@@ -124,22 +124,18 @@
                 </div>
                 <div class="step" data-step="2">
                     <span class="step-number">2</span>
-                    <span class="step-label">Coberturas</span>
+                    <span class="step-label">Asegurados</span>
                 </div>
                 <div class="step" data-step="3">
                     <span class="step-number">3</span>
-                    <span class="step-label">Subgrupos</span>
+                    <span class="step-label">Coberturas</span>
                 </div>
                 <div class="step" data-step="4">
                     <span class="step-number">4</span>
-                    <span class="step-label">Asegurados</span>
+                    <span class="step-label">Planes</span>
                 </div>
                 <div class="step" data-step="5">
                     <span class="step-number">5</span>
-                    <span class="step-label">Planes</span>
-                </div>
-                <div class="step" data-step="6">
-                    <span class="step-number">6</span>
                     <span class="step-label">Resumen</span>
                 </div>
             </div>
@@ -256,17 +252,18 @@
                 </div>
             </section>
 
-            <!-- PASO 2: Configuración de coberturas -->
-            <section class="step-section" id="step2">
+            <!-- PASO 3: Configuración de coberturas -->
+            <section class="step-section" id="step3">
                 <h2>Configuración de Coberturas</h2>
-                <p class="info-box">⚠️ Las tasas mostradas son valores demostrativos y deben reemplazarse con las tasas oficiales defin­idas por el equipo actuarial de SURA.</p>
+                <p class="info-box">Selecciona los amparos aplicables. Las tasas base son definidas por el sistema y no pueden modificarse.</p>
 
                 <div class="coberturas-container">
                     <table class="table-editable" id="tablaCoberturas">
                         <thead>
                             <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
+                                <th>Código operativo</th>
+                                <th>Código amparo</th>
+                                <th>Amparo detallado</th>
                                 <th>Tasa Base</th>
                                 <th>Obligatoria</th>
                                 <th>Acciones</th>
@@ -278,36 +275,24 @@
                     </table>
                 </div>
 
-                <button class="btn btn-secondary" id="btnAgregarCobertura">+ Agregar Cobertura</button>
-
-                <div class="button-group">
-                    <button class="btn btn-primary" id="btnSiguiente2">Siguiente →</button>
-                    <button class="btn btn-outline" id="btnAtras1">← Atrás</button>
-                </div>
-            </section>
-
-            <!-- PASO 3: Configuración de subgrupos -->
-            <section class="step-section" id="step3">
-                <h2>Configuraci&oacute;n de Subgrupos</h2>
-                <p class="info-box">Los subgrupos se definen por la <strong>combinaci&oacute;n de coberturas</strong>. Crea cada subgrupo seleccionando las coberturas que lo componen. Cada combinaci&oacute;n &uacute;nica genera un ID din&aacute;mico.</p>
-
-                <div class="subgrupos-header">
-                    <p id="contadorSubgrupos">0 subgrupo(s) configurado(s)</p>
-                    <button class="btn btn-accent" onclick="abrirModalCrearSubgrupo()">+ Crear subgrupo</button>
-                </div>
-
-                <div id="listaSubgruposConfig" class="lista-subgrupos-config">
-                    <!-- Se llena dinámicamente -->
+                <div class="coverage-add-control">
+                    <label for="buscadorCoberturas">Buscar amparo para agregar</label>
+                    <div class="coverage-add-fields">
+                        <input type="search" id="buscadorCoberturas" placeholder="Busca por código o nombre del amparo..." autocomplete="off">
+                        <select id="coberturaDisponible" aria-label="Amparo disponible" size="7"></select>
+                    </div>
+                    <p class="coverage-add-help">La lista muestra el código operativo, el amparo detallado y su código interno.</p>
+                    <button class="btn btn-secondary" id="btnAgregarCobertura">+ Agregar amparo seleccionado</button>
                 </div>
 
                 <div class="button-group">
-                    <button class="btn btn-primary" id="btnSiguiente3">Siguiente &rarr;</button>
-                    <button class="btn btn-outline" id="btnAtras2">&larr; Atr&aacute;s</button>
+                    <button class="btn btn-primary" id="btnSiguiente3">Siguiente →</button>
+                    <button class="btn btn-outline" id="btnAtras2">← Atrás</button>
                 </div>
             </section>
 
-            <!-- PASO 4: Registro y asignación de asegurados -->
-            <section class="step-section" id="step4">
+            <!-- PASO 2: Registro y carga de asegurados -->
+            <section class="step-section" id="step2">
                 <h2>Asegurados</h2>
 
                 <!-- Panel de simulación (visible solo en modo simulación) -->
@@ -362,7 +347,7 @@
                         <ul class="excel-columnas">
                             <li><strong>Columna A:</strong> Documento del cliente</li>
                             <li><strong>Columna B:</strong> Edad</li>
-                            <li><strong>Columna C:</strong> Clasificaci&oacute;n / Salario mensual (COP)</li>
+                            <li><strong>Columna C:</strong> Valor asegurado (COP)</li>
                         </ul>
                         <input type="file" id="fileExcel" accept=".xlsx,.xls" style="display:none;" onchange="importarExcel(event)">
                         <div class="excel-acciones">
@@ -371,16 +356,6 @@
                         </div>
                         <div id="excelStatus" class="excel-status"></div>
                     </div>
-                </div>
-
-                <!-- Barra de asignación masiva -->
-                <div class="asig-masiva-bar" id="barraAsignacionMasiva" style="display:none;">
-                    <label>Asignaci&oacute;n masiva a subgrupo:</label>
-                    <select id="subgrupoMasivoSelect" class="filter-select">
-                        <option value="">-- Seleccionar subgrupo --</option>
-                    </select>
-                    <button class="btn btn-accent btn-small" onclick="asignarTodosASubgrupo()">Asignar todos sin subgrupo</button>
-                    <button class="btn btn-secondary btn-small" onclick="asignarPorSalario()">Por rango salarial...</button>
                 </div>
 
                 <!-- Toolbar de acciones -->
@@ -401,8 +376,7 @@
                                 <th>Documento</th>
                                 <th>Nombre</th>
                                 <th>Edad</th>
-                                <th>Salario ref.</th>
-                                <th>Subgrupo asignado</th>
+                                <th>Valor asegurado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -412,13 +386,13 @@
 
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarAseguradosAlt">Exportar CSV</button>
-                    <button class="btn btn-primary" id="btnSiguiente4">Siguiente &rarr;</button>
-                    <button class="btn btn-outline" id="btnAtras3">&larr; Atr&aacute;s</button>
+                    <button class="btn btn-primary" id="btnSiguiente2">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras1">&larr; Atr&aacute;s</button>
                 </div>
             </section>
 
-            <!-- PASO 5: Planes y valores asegurados -->
-            <section class="step-section" id="step5">
+            <!-- PASO 4: Planes y valores asegurados -->
+            <section class="step-section" id="step4">
                 <h2>Planes y Valores Asegurados</h2>
                 <p class="info-box">Dentro de cada subgrupo puedes definir uno o varios <strong>planes</strong> con distintos valores asegurados. Un subgrupo = mismas coberturas; un plan = mismos valores.</p>
 
@@ -435,7 +409,7 @@
                             <div class="planes-workspace-sub" id="planesWorkspaceSub"></div>
                         </div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="btn btn-secondary btn-small" onclick="abrirModalPlanSalario()" id="btnPlanPorSalario" style="display:none;">Por rango salarial</button>
+                            <button class="btn btn-secondary btn-small" onclick="abrirModalPlanSalario()" id="btnPlanPorSalario" style="display:none;">Por rango de valor asegurado</button>
                             <button class="btn btn-accent btn-small" onclick="agregarPlanAlSubgrupo()" id="btnAgregarPlan" style="display:none;">+ Agregar plan</button>
                         </div>
                     </div>
@@ -447,13 +421,13 @@
 
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarCSVPlanes">Exportar CSV</button>
-                    <button class="btn btn-primary" id="btnSiguiente5">Siguiente &rarr;</button>
-                    <button class="btn btn-outline" id="btnAtras4">&larr; Atr&aacute;s</button>
+                    <button class="btn btn-primary" id="btnSiguiente4">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras3">&larr; Atr&aacute;s</button>
                 </div>
             </section>
 
-            <!-- PASO 6: Resumen de cotización -->
-            <section class="step-section" id="step6">
+            <!-- PASO 5: Resumen de cotización -->
+            <section class="step-section" id="step5">
                 <h2>Resumen de Cotización</h2>
 
                 <div class="dashboard">
@@ -497,7 +471,7 @@
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarJSONResumen">📄 Guardar JSON</button>
                     <button class="btn btn-secondary" id="btnExportarAseguradosFinal">⬇ Asegurados CSV</button>
-                    <button class="btn btn-outline" id="btnAtras5">← Atrás</button>
+                    <button class="btn btn-outline" id="btnAtras4">← Atrás</button>
                     <button class="btn btn-danger" id="btnLimpiarTodo">🗑 Limpiar Todo</button>
                 </div>
             </section>
@@ -613,21 +587,21 @@
         </div>
     </div>
 
-    <!-- ===== MODAL: Asignar por rango salarial (subgrupos) ===== -->
+    <!-- ===== MODAL: Asignar por rango de valor asegurado (subgrupos) ===== -->
     <div id="modalAsignacionSalario" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:640px;">
             <div class="modal-header">
-                <h3>Asignaci&oacute;n por rango salarial</h3>
+                <h3>Asignaci&oacute;n por rango de valor asegurado</h3>
                 <button class="btn-close" onclick="document.getElementById('modalAsignacionSalario').style.display='none'">&times;</button>
             </div>
             <div class="modal-body">
                 <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
-                    Define qu&eacute; subgrupo corresponde a cada rango salarial. Los asegurados sin subgrupo ser&aacute;n asignados autom&aacute;ticamente.
+                    Define qu&eacute; subgrupo corresponde a cada rango de valor asegurado. Los asegurados sin subgrupo ser&aacute;n asignados autom&aacute;ticamente.
                 </p>
                 <table class="table-editable" id="tablaAsignacionSal">
                     <thead>
                         <tr>
-                            <th>Rango salarial (COP/mes)</th>
+                            <th>Rango de valor asegurado (COP)</th>
                             <th>Subgrupo</th>
                         </tr>
                     </thead>
@@ -643,16 +617,16 @@
         </div>
     </div>
 
-    <!-- ===== MODAL: Agregar plan por rango salarial ===== -->
+    <!-- ===== MODAL: Agregar plan por rango de valor asegurado ===== -->
     <div id="modalPlanSalario" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:680px;">
             <div class="modal-header">
-                <h3>Definir planes por rango salarial</h3>
+                <h3>Definir planes por rango de valor asegurado</h3>
                 <button class="btn-close" onclick="document.getElementById('modalPlanSalario').style.display='none'">&times;</button>
             </div>
             <div class="modal-body">
                 <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
-                    Define los valores asegurados para cada rango salarial. El sistema crear&aacute; un plan por cada rango y asignar&aacute; autom&aacute;ticamente a los asegurados del subgrupo.
+                    Define los valores asegurados para cada rango de valor asegurado. El sistema crear&aacute; un plan por cada rango y asignar&aacute; autom&aacute;ticamente a los asegurados del subgrupo.
                 </p>
                 <div id="planSalarioFilas">
                     <!-- Se genera dinámicamente con filas: rango, multiplicador VIDA, valores por cobertura -->

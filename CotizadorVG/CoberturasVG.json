@@ -1,0 +1,252 @@
+[
+  {
+    "Amparo_Detallado": "INVALIDEZ, PÉRDIDA O INUTILIZACIÓN POR ENFERMEDAD",
+    "Codigo_Amparo": 306,
+    "Codigo_Amparo_Op": "IVE"
+  },
+  {
+    "Amparo_Detallado": "ENFERMEDADES GRAVES INDEPENDIENTE",
+    "Codigo_Amparo": 221,
+    "Codigo_Amparo_Op": "EFG"
+  },
+  {
+    "Amparo_Detallado": "ENFERMEDADES GRAVES (BAN)",
+    "Codigo_Amparo": 64984,
+    "Codigo_Amparo_Op": "EGB"
+  },
+  {
+    "Amparo_Detallado": "ENFERMEDADES GRAVES INDEPENDIENTE",
+    "Codigo_Amparo": 63719,
+    "Codigo_Amparo_Op": "WEV"
+  },
+  {
+    "Amparo_Detallado": "ENFERMEDADES GRAVES",
+    "Codigo_Amparo": 63718,
+    "Codigo_Amparo_Op": "WEU"
+  },
+  {
+    "Amparo_Detallado": "ENFERMEDADES GRAVES ANTICIPO",
+    "Codigo_Amparo": 56031,
+    "Codigo_Amparo_Op": "EGI"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ, PÉRDIDA O INUTILIZACIÓN POR UN ACCIDENTE",
+    "Codigo_Amparo": 294,
+    "Codigo_Amparo_Op": "IVA"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ, PÉRDIDA O INUTILIZACIÓN POR UN ACCIDENTE O ENFERMEDAD",
+    "Codigo_Amparo": 745,
+    "Codigo_Amparo_Op": "INV"
+  },
+  {
+    "Amparo_Detallado": "BONO PARA ADECUACIONES DEL HOGAR",
+    "Codigo_Amparo": 55346,
+    "Codigo_Amparo_Op": "BIV"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ O PÉRDIDA POR UN ACCIDENTE O ENFERMEDAD",
+    "Codigo_Amparo": 63723,
+    "Codigo_Amparo_Op": "WEZ"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ POR ACCIDENTE SIN ARMAS",
+    "Codigo_Amparo": 63721,
+    "Codigo_Amparo_Op": "WEX"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ POR ACCIDENTE",
+    "Codigo_Amparo": 63722,
+    "Codigo_Amparo_Op": "WEY"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ ACC CON ARMAS",
+    "Codigo_Amparo": 404,
+    "Codigo_Amparo_Op": "IAH"
+  },
+  {
+    "Amparo_Detallado": "INVALIDEZ. PERDIDA O INUTILIZACION POR UN ACCIDENTE O ENFERMEDAD",
+    "Codigo_Amparo": 366,
+    "Codigo_Amparo_Op": "ITP"
+  },
+  {
+    "Amparo_Detallado": "BONO PARA ADECUACIONES DEL HOGAR",
+    "Codigo_Amparo": 63716,
+    "Codigo_Amparo_Op": "WES"
+  },
+  {
+    "Amparo_Detallado": "AUXILIO DE REPATRIACIÓN",
+    "Codigo_Amparo": 55431,
+    "Codigo_Amparo_Op": "XRE"
+  },
+  {
+    "Amparo_Detallado": "MUERTE ACCIDENTAL",
+    "Codigo_Amparo": 249,
+    "Codigo_Amparo_Op": "MAC"
+  },
+  {
+    "Amparo_Detallado": "DOBLE INDEMNIZACION POR MUERTE ACCIDENTAL",
+    "Codigo_Amparo": 963,
+    "Codigo_Amparo_Op": "IMA"
+  },
+  {
+    "Amparo_Detallado": "MUERTE EN UN ACCIDENTE CON ARMAS",
+    "Codigo_Amparo": 63689,
+    "Codigo_Amparo_Op": "WE1"
+  },
+  {
+    "Amparo_Detallado": "MUERTE EN UN ACCIDENTE SIN ARMAS",
+    "Codigo_Amparo": 63690,
+    "Codigo_Amparo_Op": "WE2"
+  },
+  {
+    "Amparo_Detallado": "DOBLE INDEMNIZACIÓN POR MUERTE ACCIDENTAL HOMICIDIO",
+    "Codigo_Amparo": 19761,
+    "Codigo_Amparo_Op": "IMH"
+  },
+  {
+    "Amparo_Detallado": "MUERTE ACCIDENTAL",
+    "Codigo_Amparo": 555,
+    "Codigo_Amparo_Op": "MAH"
+  },
+  {
+    "Amparo_Detallado": "PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL",
+    "Codigo_Amparo": 7068,
+    "Codigo_Amparo_Op": "IPP"
+  },
+  {
+    "Amparo_Detallado": "PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL",
+    "Codigo_Amparo": 63694,
+    "Codigo_Amparo_Op": "WE6"
+  },
+  {
+    "Amparo_Detallado": "VIDA – MUERTE POR CUALQUIER CAUSA",
+    "Codigo_Amparo": 930,
+    "Codigo_Amparo_Op": "VID"
+  },
+  {
+    "Amparo_Detallado": "VIDA",
+    "Codigo_Amparo": 63717,
+    "Codigo_Amparo_Op": "WET"
+  },
+  {
+    "Amparo_Detallado": "BONO O AUXILIO FUNERARIO",
+    "Codigo_Amparo": 417,
+    "Codigo_Amparo_Op": "GEN"
+  },
+  {
+    "Amparo_Detallado": "BONO PARA EDUCACIÓN",
+    "Codigo_Amparo": 5950,
+    "Codigo_Amparo_Op": "BCE"
+  },
+  {
+    "Amparo_Detallado": "GASTOS EXEQUIALES",
+    "Codigo_Amparo": 817,
+    "Codigo_Amparo_Op": "GEX"
+  },
+  {
+    "Amparo_Detallado": "AUXILIO FUNERARIO POR CUOTAS",
+    "Codigo_Amparo": 60081,
+    "Codigo_Amparo_Op": "AFC"
+  },
+  {
+    "Amparo_Detallado": "BONO PARA EDUCACION",
+    "Codigo_Amparo": 55347,
+    "Codigo_Amparo_Op": "BVD"
+  },
+  {
+    "Amparo_Detallado": "BONO PARA EDUCACION",
+    "Codigo_Amparo": 63715,
+    "Codigo_Amparo_Op": "WER"
+  },
+  {
+    "Amparo_Detallado": "BONO CANASTA",
+    "Codigo_Amparo": 59976,
+    "Codigo_Amparo_Op": "BCA"
+  },
+  {
+    "Amparo_Detallado": "BONO FAMILIAR",
+    "Codigo_Amparo": 17712,
+    "Codigo_Amparo_Op": "BFA"
+  },
+  {
+    "Amparo_Detallado": "BONO FUNERARIO",
+    "Codigo_Amparo": 63711,
+    "Codigo_Amparo_Op": "WEN"
+  },
+  {
+    "Amparo_Detallado": "BONO CANASTA",
+    "Codigo_Amparo": 63714,
+    "Codigo_Amparo_Op": "WEQ"
+  },
+  {
+    "Amparo_Detallado": "BONO PARA ADECUACIONES DEL HOGAR POR CUOTAS",
+    "Codigo_Amparo": 60059,
+    "Codigo_Amparo_Op": "BAC"
+  },
+  {
+    "Amparo_Detallado": "GASTOS DE CURACIÓN",
+    "Codigo_Amparo": 726,
+    "Codigo_Amparo_Op": "VGC"
+  },
+  {
+    "Amparo_Detallado": "GASTOS DE CURACION",
+    "Codigo_Amparo": 63720,
+    "Codigo_Amparo_Op": "WEW"
+  },
+  {
+    "Amparo_Detallado": "AUXILIO POR MATERNIDAD O PATERNIDAD",
+    "Codigo_Amparo": 55348,
+    "Codigo_Amparo_Op": "XMA"
+  },
+  {
+    "Amparo_Detallado": "AUXILIO POR MATERNIDAD O PATERNIDAD",
+    "Codigo_Amparo": 63712,
+    "Codigo_Amparo_Op": "WEO"
+  },
+  {
+    "Amparo_Detallado": "RENTA POR HOSPITALIZACIÓN",
+    "Codigo_Amparo": 5048,
+    "Codigo_Amparo_Op": "BSU"
+  },
+  {
+    "Amparo_Detallado": "RENTADIARIA POR HOSPITALIZACION",
+    "Codigo_Amparo": 135,
+    "Codigo_Amparo_Op": "RDH"
+  },
+  {
+    "Amparo_Detallado": "RENTA POR HOSPITALIZACION",
+    "Codigo_Amparo": 63695,
+    "Codigo_Amparo_Op": "WE7"
+  },
+  {
+    "Amparo_Detallado": "RENTA ADICIONAL POR HOSPITALIZACIÓN EN CUIDADOS INTENSIVOS",
+    "Codigo_Amparo": 5047,
+    "Codigo_Amparo_Op": "UCI"
+  },
+  {
+    "Amparo_Detallado": "RENTA POR HOSPITALIZACION EN UCI",
+    "Codigo_Amparo": 63696,
+    "Codigo_Amparo_Op": "WE8"
+  },
+  {
+    "Amparo_Detallado": "RENTA POR INCAPACIDAD POR ACCIDENTE",
+    "Codigo_Amparo": 63697,
+    "Codigo_Amparo_Op": "WE9"
+  },
+  {
+    "Amparo_Detallado": "RENTA POR INCAPACIDAD POR ACCIDENTE O ENFERMEDAD",
+    "Codigo_Amparo": 48425,
+    "Codigo_Amparo_Op": "ITT"
+  },
+  {
+    "Amparo_Detallado": "RENTA POR INCAPACIDAD POR ACCIDENTE Y/O ENFERMEDAD",
+    "Codigo_Amparo": 63725,
+    "Codigo_Amparo_Op": "WFA"
+  },
+  {
+    "Amparo_Detallado": "PÉRDIDA DEL INGRESO INDEPENDIENTE (RENTA POR INCAPACIDAD)",
+    "Codigo_Amparo": 63692,
+    "Codigo_Amparo_Op": "WE4"
+  }
+]

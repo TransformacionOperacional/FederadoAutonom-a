@@ -39,14 +39,20 @@ const CONFIG = {
     }
 };
 
-const coberturasCatalogo = [
-    { codigo: 'VIDA', nombre: 'Vida', tasaBase: 0.8, obligatoria: true },
-    { codigo: 'INV', nombre: 'Invalidez', tasaBase: 0.3, obligatoria: false },
-    { codigo: 'EG', nombre: 'Enfermedades Graves', tasaBase: 1.2, obligatoria: false },
-    { codigo: 'MA', nombre: 'Muerte Accidental', tasaBase: 0.2, obligatoria: false },
-    { codigo: 'RHD', nombre: 'Responsabilidad Civil', tasaBase: 0.5, obligatoria: false },
-    { codigo: 'EXE', nombre: 'Exequias', tasaBase: 0.15, obligatoria: false }
-];
+const TASA_BASE_SISTEMA = 0.1;
+const coberturaVidaPredeterminada = {
+    codigo: 'VID',
+    codigoAmparo: 930,
+    nombre: 'VIDA – MUERTE POR CUALQUIER CAUSA',
+    tasaBase: TASA_BASE_SISTEMA,
+    obligatoria: true
+};
+let coberturasDisponibles = [coberturaVidaPredeterminada];
+
+function crearCatalogoInicial() {
+    const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'VID') || coberturaVidaPredeterminada;
+    return [{ ...vida, tasaBase: TASA_BASE_SISTEMA, obligatoria: true }];
+}
 
 /* ============================================================
    SECCIÓN 2: ESTADO GLOBAL
@@ -72,7 +78,7 @@ let estado = {
         canalComercial: 'Directo',
         observaciones: ''
     },
-    coberturasCatalogo: JSON.parse(JSON.stringify(coberturasCatalogo)),
+    coberturasCatalogo: crearCatalogoInicial(),
     asegurados: [],
     subgrupos: [],   // estructura explícita: { id, nombre, coberturas[], asegurados[] }
     planes: [],      // estructura: { id, subgrupoId, nombre, valoresCobertura{}, asegurados[], primaTotal }
@@ -156,7 +162,7 @@ function limpiarEstado() {
                 canalComercial: 'Directo',
                 observaciones: ''
             },
-            coberturasCatalogo: JSON.parse(JSON.stringify(coberturasCatalogo)),
+            coberturasCatalogo: crearCatalogoInicial(),
             asegurados: [],
             subgrupos: [],
             planes: [],
@@ -190,6 +196,7 @@ function agregarAsegurado(asegurado = null) {
         salario: '',
         coberturas: estado.coberturasCatalogo.map(c => ({
             codigo: c.codigo,
+            codigoAmparo: c.codigoAmparo,
             nombre: c.nombre,
             activa: c.obligatoria,
             valorAsegurado: 0,
@@ -267,60 +274,45 @@ function validarEdad(edad) {
    ============================================================ */
 
 function editarCobertura(codigoCobertura) {
-    const cobertura = estado.coberturasCatalogo.find(c => c.codigo === codigoCobertura);
-    if (!cobertura) return;
-
-    const tasaAnterior = cobertura.tasaBase;
-    const nuevaTasa = prompt(`Editar tasa base para ${cobertura.nombre}:\n(Actual: ${tasaAnterior})`, tasaAnterior);
-    
-    if (nuevaTasa !== null) {
-        const tasa = parseFloat(nuevaTasa);
-        if (!isNaN(tasa) && tasa > 0) {
-            cobertura.tasaBase = tasa;
-            recalcularTodo();
-            mostrarToast('Cobertura actualizada', 'success');
-        } else {
-            mostrarToast('Valor inválido', 'error');
-        }
-    }
+    mostrarToast('La tasa base es definida por el sistema y no se puede modificar.', 'info');
 }
 
 function agregarCobertura() {
-    const nombre = prompt('Nombre de la nueva cobertura:');
-    if (!nombre) return;
-    
-    const codigo = nombre.substring(0, 3).toUpperCase();
-    const tasa = parseFloat(prompt('Tasa base (ej: 0.5):'));
-    
-    if (isNaN(tasa) || tasa <= 0) {
-        mostrarToast('Tasa inválida', 'error');
+    const codigo = document.getElementById('coberturaDisponible')?.value;
+    const cobertura = coberturasDisponibles.find(item => item.codigo === codigo);
+    if (!cobertura) {
+        mostrarToast('Selecciona un amparo para agregar.', 'warning');
         return;
     }
-    
-    estado.coberturasCatalogo.push({
-        codigo: codigo,
-        nombre: nombre,
-        tasaBase: tasa,
-        obligatoria: false
-    });
+    if (estado.coberturasCatalogo.some(item => item.codigo === codigo)) {
+        mostrarToast('El amparo seleccionado ya está configurado.', 'warning');
+        return;
+    }
+
+    estado.coberturasCatalogo.push({ ...cobertura, tasaBase: TASA_BASE_SISTEMA, obligatoria: false });
     
     // Agregar cobertura a todos los asegurados
     estado.asegurados.forEach(a => {
         a.coberturas.push({
             codigo: codigo,
-            nombre: nombre,
+            codigoAmparo: cobertura.codigoAmparo,
+            nombre: cobertura.nombre,
             activa: false,
             valorAsegurado: 0,
-            tasa: tasa,
+            tasa: TASA_BASE_SISTEMA,
             prima: 0
         });
     });
     
     recalcularTodo();
-    mostrarToast('Cobertura agregada', 'success');
+    mostrarToast('Amparo agregado', 'success');
 }
 
 function eliminarCobertura(codigo) {
+    if (codigo === 'VID') {
+        mostrarToast('El amparo Vida debe permanecer configurado.', 'warning');
+        return;
+    }
     if (confirm('¿Deseas eliminar esta cobertura? Se eliminará de todos los asegurados.')) {
         estado.coberturasCatalogo = estado.coberturasCatalogo.filter(c => c.codigo !== codigo);
         
@@ -704,8 +696,8 @@ function importarCSV(evento) {
                     edad: parseInt(campos[3]) || 0,
                     sexo: campos[4] || 'Masculino',
                     ocupacion: campos[5] || 'Administrativo',
-                    salario: parseInt(campos[6]) || 0,
-                    coberturas: generarCoberturasPorDefecto(),
+                    salario: 0,
+                    coberturas: generarCoberturasPorDefecto(parsearValorAsegurado(campos[6])),
                     subgrupoId: null,
                     planId: null,
                     primaIndividual: 0
@@ -732,11 +724,11 @@ function importarCSV(evento) {
 }
 
 function exportarAsegurados() {
-    let csv = 'Tipo Doc,#Documento,Nombre,Edad,Sexo,Ocupación,Salario,Prima Individual\n';
+    let csv = 'Tipo Doc,#Documento,Nombre,Edad,Sexo,Ocupación,Valor Asegurado (COP),Prima Individual\n';
     
     estado.asegurados.forEach(a => {
         const prima = a.primaIndividual || 0;
-        csv += `${a.tipoDocumento},${a.numeroDocumento},${a.nombreCompleto},${a.edad},${a.sexo},${a.ocupacion},${a.salario},${prima}\n`;
+        csv += `${a.tipoDocumento},${a.numeroDocumento},${a.nombreCompleto},${a.edad},${a.sexo},${a.ocupacion},${obtenerValorAseguradoBase(a)},${prima}\n`;
     });
 
     descargarCSV(csv, 'asegurados.csv');
@@ -768,10 +760,10 @@ function exportarPlanes() {
 }
 
 function generarPlantillaCSV() {
-    const plantilla = `Tipo Doc,#Documento,Nombre,Edad,Sexo,Ocupación,Salario
-Cédula,1234567890,Juan García,35,Masculino,Administrativo,3000000
-Cédula,0987654321,María López,28,Femenino,Ejecutivo,5000000
-Cédula,1122334455,Carlos Rodríguez,42,Masculino,Operario,2500000`;
+    const plantilla = `Tipo Doc,#Documento,Nombre,Edad,Sexo,Ocupación,Valor_Asegurado_COP
+Cédula,1234567890,Juan García,35,Masculino,Administrativo,72000000
+Cédula,0987654321,María López,28,Femenino,Ejecutivo,120000000
+Cédula,1122334455,Carlos Rodríguez,42,Masculino,Operario,60000000`;
 
     descargarCSV(plantilla, 'plantilla_asegurados.csv');
 }
@@ -801,16 +793,38 @@ function renderizarTablaCoberturas() {
         const fila = document.createElement('tr');
         fila.innerHTML = `
             <td>${cobertura.codigo}</td>
+            <td>${cobertura.codigoAmparo}</td>
             <td>${cobertura.nombre}</td>
-            <td><input type="number" step="0.01" value="${cobertura.tasaBase}" class="tasa-input" data-codigo="${cobertura.codigo}"></td>
-            <td><input type="checkbox" ${cobertura.obligatoria ? 'checked' : ''} class="obligatoria-input" data-codigo="${cobertura.codigo}"></td>
+            <td>${cobertura.tasaBase}</td>
+            <td>${cobertura.obligatoria ? 'Sí' : 'No'}</td>
             <td>
-                <button class="btn btn-small btn-secondary" onclick="editarCobertura('${cobertura.codigo}')">Editar</button>
-                <button class="btn btn-small btn-danger" onclick="eliminarCobertura('${cobertura.codigo}')">Eliminar</button>
+                ${cobertura.codigo === 'VID' ? 'Amparo inicial' : `<button class="btn btn-small btn-danger" onclick="eliminarCobertura('${cobertura.codigo}')">Eliminar</button>`}
             </td>
         `;
         tbody.appendChild(fila);
     });
+
+    renderizarAmparosDisponibles();
+}
+
+function renderizarAmparosDisponibles() {
+    const selector = document.getElementById('coberturaDisponible');
+    if (!selector) return;
+
+    const codigosConfigurados = new Set(estado.coberturasCatalogo.map(cobertura => cobertura.codigo));
+    const busqueda = normalizarTexto(document.getElementById('buscadorCoberturas')?.value || '');
+    const disponibles = coberturasDisponibles.filter(cobertura => {
+        const textoAmparo = `${cobertura.codigo} ${cobertura.codigoAmparo} ${cobertura.nombre}`;
+        return !codigosConfigurados.has(cobertura.codigo) && normalizarTexto(textoAmparo).includes(busqueda);
+    });
+    selector.innerHTML = '<option value="">Selecciona un amparo...</option>' + disponibles
+        .map(cobertura => `<option value="${cobertura.codigo}">${cobertura.codigo} · ${cobertura.nombre} · Cód. ${cobertura.codigoAmparo}</option>`)
+        .join('');
+    selector.disabled = disponibles.length === 0;
+}
+
+function normalizarTexto(valor) {
+    return String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
 function renderizarTablaAsegurados() {
@@ -819,37 +833,21 @@ function renderizarTablaAsegurados() {
 
     tbody.innerHTML = '';
 
-    // Construir opciones de subgrupo una vez
-    const subgrupoOpts = '<option value="">-- Sin subgrupo --</option>' +
-        estado.subgrupos.map(sg =>
-            `<option value="${sg.id}">${sg.nombre} (${sg.id})</option>`
-        ).join('');
-
     estado.asegurados.forEach(asegurado => {
-        const salarioTexto = asegurado.salario > 0 ? formatearDinero(asegurado.salario) : '—';
-        const esAsignado = !!asegurado.subgrupoId;
+        const valorAsegurado = obtenerValorAseguradoBase(asegurado);
+        const valorAseguradoTexto = valorAsegurado > 0 ? formatearDinero(valorAsegurado) : '—';
 
         const fila = document.createElement('tr');
         fila.innerHTML = `
             <td>${asegurado.numeroDocumento}</td>
             <td>${asegurado.nombreCompleto}</td>
             <td>${asegurado.edad}</td>
-            <td>${salarioTexto}</td>
-            <td>
-                <select class="asig-subgrupo-select${esAsignado ? ' asignado' : ''}"
-                    onchange="asignarSubgrupoAAsegurado('${asegurado.id}', this.value)">
-                    ${subgrupoOpts}
-                </select>
-            </td>
+            <td>${valorAseguradoTexto}</td>
             <td>
                 <button class="btn btn-small btn-secondary" onclick="editarAsegurado('${asegurado.id}')">Editar</button>
                 <button class="btn btn-small btn-danger" onclick="eliminarAsegurado('${asegurado.id}')">Eliminar</button>
             </td>
         `;
-
-        // Establecer valor seleccionado
-        const select = fila.querySelector('select');
-        if (select) select.value = asegurado.subgrupoId || '';
 
         tbody.appendChild(fila);
     });
@@ -1015,11 +1013,11 @@ function setupEventListeners() {
 
     // Botones de acción generales
     // Navegación por botones de siguiente en cada paso
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 4; i++) {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => irAlPaso(i + 1));
-        if (i > 1) {
-            document.getElementById(`btnAtras${i - 1}`)?.addEventListener('click', () => irAlPaso(i - 1));
-        }
+    }
+    for (let i = 1; i <= 4; i++) {
+        document.getElementById(`btnAtras${i}`)?.addEventListener('click', () => irAlPaso(i));
     }
 
     // Paso 1: Póliza - campos actualizados
@@ -1041,11 +1039,12 @@ function setupEventListeners() {
         });
     });
 
-    // Paso 2: Coberturas
+    // Paso 3: Coberturas
     document.getElementById('btnAgregarCobertura')?.addEventListener('click', agregarCobertura);
+    document.getElementById('buscadorCoberturas')?.addEventListener('input', renderizarAmparosDisponibles);
     document.getElementById('btnDescargarCSV')?.addEventListener('click', generarPlantillaCSV);
 
-    // Paso 3: Asegurados
+    // Paso 2: Asegurados
     document.getElementById('buscadorAsegurado')?.addEventListener('input', (e) => {
         const valor = e.target.value.toLowerCase();
         const filas = document.querySelectorAll('.table-asegurados tbody tr');
@@ -1121,6 +1120,7 @@ function seleccionarSubtipo(subtipo) {
     estado.asegurados = [];
     estado.subgrupos  = [];
     estado.planes     = [];
+    estado.coberturasCatalogo = crearCatalogoInicial();
     estado.poliza = {
         id: generarUUID(),
         tomador: '', tipoIdentificacion: 'NIT', numeroIdentificacion: '',
@@ -1142,7 +1142,7 @@ function volverAlLanding() {
 function mostrarWizard() {
     mostrarSoloPantalla('mainContainer');
     actualizarBadgeFlujo();
-    // Mostrar / ocultar paneles de modo en paso 4 (asegurados)
+    // Mostrar / ocultar paneles de modo en paso 2 (asegurados)
     // Para renovación, no se muestran paneles de carga ya que los datos vienen del sistema
     const panelSim   = document.getElementById('panelSimulacion');
     const panelExcel = document.getElementById('panelExcel');
@@ -1150,8 +1150,6 @@ function mostrarWizard() {
     if (panelSim)   panelSim.style.display   = (esNuevo && flujo.subtipo === 'simulacion') ? 'block' : 'none';
     if (panelExcel) panelExcel.style.display  = (esNuevo && flujo.subtipo === 'cotizacion') ? 'block' : 'none';
     renderizarGruposSalariales();
-    renderizarListaSubgruposConfig();
-    actualizarSelectoresSubgrupos();
     renderizarTablaCoberturas();
     irAlPaso(1);
 }
@@ -1167,6 +1165,30 @@ function actualizarBadgeFlujo() {
     const key = flujo.tipo === 'renovacion' ? 'renovacion' : `${flujo.tipo}-${flujo.subtipo}`;
     badge.innerHTML = `<strong>Flujo:</strong> ${labels[key] || ''}`;
     badge.style.display = key ? 'inline-flex' : 'none';
+}
+
+async function cargarCatalogoCoberturas() {
+    try {
+        const respuesta = await fetch('CoberturasVG.json');
+        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
+        const amparos = await respuesta.json();
+        coberturasDisponibles = amparos.map(amparo => ({
+            codigo: amparo.Codigo_Amparo_Op,
+            codigoAmparo: amparo.Codigo_Amparo,
+            nombre: amparo.Amparo_Detallado,
+            tasaBase: TASA_BASE_SISTEMA,
+            obligatoria: amparo.Codigo_Amparo_Op === 'VID'
+        }));
+
+        if (estado.asegurados.length === 0) {
+            estado.coberturasCatalogo = crearCatalogoInicial();
+        }
+        renderizarTablaCoberturas();
+    } catch (error) {
+        console.warn('No se pudo cargar CoberturasVG.json:', error);
+        mostrarToast('No se pudo cargar el catálogo de amparos; se usará Vida como valor inicial.', 'warning');
+    }
 }
 
 /* ---- Mock API de renovación ---- */
@@ -1713,7 +1735,7 @@ function generarSimulacion() {
                 sexo: Math.random() > 0.5 ? 'Masculino' : 'Femenino',
                 ocupacion,
                 salario: salarioMensual,
-                coberturas: generarCoberturasPorDefecto(0), // valores vienen de planes en Step 5
+                coberturas: generarCoberturasPorDefecto(valorVida),
                 subgrupoId: null,
                 planId: null,
                 primaIndividual: 0,
@@ -1744,7 +1766,7 @@ function generarSimulacion() {
                 sexo: Math.random() > 0.5 ? 'Masculino' : 'Femenino',
                 ocupacion,
                 salario: salarioMensual,
-                coberturas: generarCoberturasPorDefecto(0), // valores vienen de planes en Step 5
+                coberturas: generarCoberturasPorDefecto(valorVida),
                 subgrupoId: null,
                 planId: null,
                 primaIndividual: 0,
@@ -1855,9 +1877,9 @@ function importarExcel(evento) {
                 const fila = filas[i];
                 if (!fila || fila.every(c => c === '' || c === null || c === undefined)) continue;
 
-                const documento    = String(fila[0] ?? '').trim();
-                const edadRaw      = fila[1];
-                const clasificacion = fila[2];
+                const documento = String(fila[0] ?? '').trim();
+                const edadRaw = fila[1];
+                const valorAseguradoRaw = fila[2];
 
                 if (!documento) { errores.push(`Fila ${i + 1}: documento vacío`); continue; }
 
@@ -1866,13 +1888,13 @@ function importarExcel(evento) {
                     errores.push(`Fila ${i + 1}: edad inválida (${edadRaw})`); continue;
                 }
 
+                const valorAsegurado = parsearValorAsegurado(valorAseguradoRaw);
+                if (!Number.isFinite(valorAsegurado) || valorAsegurado <= 0) {
+                    errores.push(`Fila ${i + 1}: valor asegurado inválido (${valorAseguradoRaw})`); continue;
+                }
+
                 const valDoc = validarDocumento('Cédula', documento);
                 if (!valDoc.valido) { errores.push(`Fila ${i + 1}: ${valDoc.mensaje}`); continue; }
-
-                const ocupacion = clasificacionAOcupacion(clasificacion);
-                const salarioNum = parseFloat(String(clasificacion).replace(/[^0-9.]/g, ''));
-                const salario = isNaN(salarioNum) ? 0 : salarioNum;
-                const valorVida = salarioAValorAsegurado(salario || 2 * SMMLV);
 
                 nuevos.push({
                     id: generarUUID(),
@@ -1881,9 +1903,9 @@ function importarExcel(evento) {
                     nombreCompleto: `Asegurado ${documento}`,
                     edad,
                     sexo: 'Masculino',
-                    ocupacion,
-                    salario,
-                    coberturas: generarCoberturasPorDefecto(0), // valores vienen de planes en Step 5
+                    ocupacion: 'Administrativo',
+                    salario: 0,
+                    coberturas: generarCoberturasPorDefecto(valorAsegurado),
                     subgrupoId: null,
                     planId: null,
                     primaIndividual: 0,
@@ -1924,12 +1946,12 @@ function descargarPlantillaExcel() {
 
     // Datos de la plantilla: encabezados + filas de ejemplo
     const datos = [
-        ['Numero_Documento', 'Edad', 'Salario_Mensual_COP'],
-        ['1012345678', 28, 2800000],
-        ['1023456789', 35, 5500000],
-        ['1034567890', 42, 1500000],
-        ['1045678901', 31, 9000000],
-        ['1056789012', 25, 2000000]
+        ['Numero_Documento', 'Edad', 'Valor_Asegurado_COP'],
+        ['1012345678', 28, 67000000],
+        ['1023456789', 35, 132000000],
+        ['1034567890', 42, 36000000],
+        ['1045678901', 31, 216000000],
+        ['1056789012', 25, 48000000]
     ];
 
     const wb = XLSX.utils.book_new();
@@ -2210,12 +2232,12 @@ function asignarPorSalario() {
     const tbody = document.getElementById('tbody-asig-sal');
     if (!modal || !tbody) return;
 
-    // Opciones de rango salarial predeterminadas
+    // Opciones de rango de valor asegurado predeterminadas
     const rangos = [
-        { label: '< 2 SMMLV (< $2,600,000)', maxSalario: 2600000 },
-        { label: '2 – 5 SMMLV ($2.6M – $6.5M)', maxSalario: 6500000 },
-        { label: '5 – 10 SMMLV ($6.5M – $13M)', maxSalario: 13000000 },
-        { label: '> 10 SMMLV (> $13M)', maxSalario: Infinity }
+        { label: 'Hasta $50.000.000', maxValorAsegurado: 50000000 },
+        { label: 'Hasta $100.000.000', maxValorAsegurado: 100000000 },
+        { label: 'Hasta $200.000.000', maxValorAsegurado: 200000000 },
+        { label: 'Más de $200.000.000', maxValorAsegurado: Infinity }
     ];
 
     const subgrupoOpts = estado.subgrupos.map(sg =>
@@ -2228,7 +2250,7 @@ function asignarPorSalario() {
         fila.innerHTML = `
             <td style="font-size:13px;padding:8px;">${rango.label}</td>
             <td>
-                <select class="filter-select" data-max="${rango.maxSalario}" style="width:100%;">
+                <select class="filter-select" data-max="${rango.maxValorAsegurado}" style="width:100%;">
                     <option value="">-- Sin asignar --</option>
                     ${subgrupoOpts}
                 </select>
@@ -2245,18 +2267,18 @@ function ejecutarAsignacionPorSalario() {
     const reglas = [];
     filas.forEach(fila => {
         const select = fila.querySelector('select');
-        const maxSalario = parseFloat(select.dataset.max) || Infinity;
+        const maxValorAsegurado = parseFloat(select.dataset.max) || Infinity;
         const subgrupoId = select.value;
-        if (subgrupoId) reglas.push({ maxSalario, subgrupoId });
+        if (subgrupoId) reglas.push({ maxValorAsegurado, subgrupoId });
     });
 
-    reglas.sort((a, b) => a.maxSalario - b.maxSalario);
+    reglas.sort((a, b) => a.maxValorAsegurado - b.maxValorAsegurado);
 
     let asignados = 0;
     estado.asegurados.forEach(a => {
-        const salario = a.salario || 0;
+        const valorAsegurado = obtenerValorAseguradoBase(a);
         for (const regla of reglas) {
-            if (salario <= regla.maxSalario) {
+            if (valorAsegurado <= regla.maxValorAsegurado) {
                 a.subgrupoId = regla.subgrupoId;
                 a.planId = null;
                 asignados++;
@@ -2268,7 +2290,7 @@ function ejecutarAsignacionPorSalario() {
     guardarEstado();
     renderizarTablaAsegurados();
     document.getElementById('modalAsignacionSalario').style.display = 'none';
-    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango salarial`, 'success');
+    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado`, 'success');
 }
 
 /* ============================================================
@@ -2281,7 +2303,7 @@ function renderizarPlanesSubgrupoTabs() {
 
     container.innerHTML = '';
     if (estado.subgrupos.length === 0) {
-        container.innerHTML = '<p style="color:var(--color-gray);font-size:13px;">No hay subgrupos configurados. Ve al Paso 3 para crearlos.</p>';
+        container.innerHTML = '<p style="color:var(--color-gray);font-size:13px;">Aún no hay agrupaciones disponibles para configurar planes.</p>';
         return;
     }
 
@@ -2506,7 +2528,7 @@ function abrirAsignadorPlan(planId) {
     mostrarToast(`${asignados} asegurado(s) asignado(s) al plan`, 'success');
 }
 
-/* ---- Plan por rango salarial ---- */
+/* ---- Plan por rango de valor asegurado ---- */
 
 let planSalarioSubgrupoActivo = null;
 
@@ -2527,7 +2549,7 @@ function abrirModalPlanSalario() {
         <table class="tabla-planes-valores" id="tablaPlanSalario">
             <thead>
                 <tr>
-                    <th>Rango salarial (hasta COP)</th>
+                    <th>Rango de valor asegurado (hasta COP)</th>
                     ${cobCols}
                 </tr>
             </thead>
@@ -2555,7 +2577,7 @@ function agregarFilaPlanSalario() {
 
     const fila = document.createElement('tr');
     fila.innerHTML = `
-        <td><input type="number" class="valor-aseg-input" placeholder="Ej: 2600000" step="100000" data-tipo="salario"></td>
+        <td><input type="number" class="valor-aseg-input" placeholder="Ej: 50000000" step="1000000" data-tipo="valor-asegurado"></td>
         ${cobInputs}
         <td><button class="btn btn-small btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
     `;
@@ -2570,7 +2592,7 @@ function ejecutarPlanPorSalario() {
     const reglas = [];
 
     filas.forEach(fila => {
-        const maxSal = parseFloat(fila.querySelector('[data-tipo=salario]')?.value) || 0;
+        const maxValorAsegurado = parseFloat(fila.querySelector('[data-tipo=valor-asegurado]')?.value) || 0;
         if (maxSal <= 0) return;
 
         const vals = {};
@@ -2578,15 +2600,15 @@ function ejecutarPlanPorSalario() {
             vals[inp.dataset.cod] = parseFloat(inp.value) || 0;
         });
 
-        reglas.push({ maxSalario: maxSal, valoresCobertura: vals });
+        reglas.push({ maxValorAsegurado, valoresCobertura: vals });
     });
 
     if (reglas.length === 0) {
-        mostrarToast('Define al menos un rango salarial con salario > 0', 'warning');
+        mostrarToast('Define al menos un rango de valor asegurado mayor a 0', 'warning');
         return;
     }
 
-    reglas.sort((a, b) => a.maxSalario - b.maxSalario);
+    reglas.sort((a, b) => a.maxValorAsegurado - b.maxValorAsegurado);
 
     // Eliminar planes existentes del subgrupo
     const planesAnteriores = estado.planes.filter(p => p.subgrupoId === planSalarioSubgrupoActivo);
@@ -2604,19 +2626,19 @@ function ejecutarPlanPorSalario() {
     const planesCreados = reglas.map((regla, i) => ({
         id: generarUUID(),
         subgrupoId: planSalarioSubgrupoActivo,
-        nombre: `Plan ${i + 1} (≤ ${formatearDinero(regla.maxSalario)})`,
+        nombre: `Plan ${i + 1} (≤ ${formatearDinero(regla.maxValorAsegurado)})`,
         valoresCobertura: regla.valoresCobertura,
         asegurados: [],
         primaTotal: 0
     }));
 
-    // Asignar asegurados a planes según su salario
+    // Asignar asegurados a planes según su valor asegurado de Vida
     aseguradosDelSubgrupo.forEach(a => {
-        const salario = a.salario || 0;
+        const valorAsegurado = obtenerValorAseguradoBase(a);
         let planAsignado = planesCreados[planesCreados.length - 1]; // último plan para los que superen todos los rangos
         for (const plan of planesCreados) {
-            const maxSal = reglas[planesCreados.indexOf(plan)].maxSalario;
-            if (salario <= maxSal) { planAsignado = plan; break; }
+            const maxValor = reglas[planesCreados.indexOf(plan)].maxValorAsegurado;
+            if (valorAsegurado <= maxValor) { planAsignado = plan; break; }
         }
         a.planId = planAsignado.id;
         planAsignado.asegurados.push(a.id);
@@ -2629,7 +2651,7 @@ function ejecutarPlanPorSalario() {
     guardarEstado();
     renderizarPlanesWorkspace(planSalarioSubgrupoActivo);
     document.getElementById('modalPlanSalario').style.display = 'none';
-    mostrarToast(`${planesCreados.length} plan(es) creado(s) por rango salarial`, 'success');
+    mostrarToast(`${planesCreados.length} plan(es) creado(s) por rango de valor asegurado`, 'success');
 }
 
 /* ============================================================
@@ -2645,6 +2667,7 @@ function inicializar() {
     renderizarTablaSubgrupos();
     renderizarTablaPlanes();
     renderizarDashboard();
+    cargarCatalogoCoberturas();
 
     // Mostrar pantalla de inicio (no ir directo al wizard)
     mostrarSoloPantalla('pantalla-landing');
@@ -2697,18 +2720,20 @@ function pasosNavegacion() {
     });
 
     // Actualizar barra de progreso
-    const progreso = ((pasoActual - 1) / 5) * 100;
+    const progreso = ((pasoActual - 1) / 4) * 100;
     const progressFill = document.querySelector('.progress-fill');
     if (progressFill) {
         progressFill.style.width = progreso + '%';
     }
 
     // Mostrar/ocultar botones de navegación apropiados
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 4; i++) {
         const btnSiguiente = document.getElementById(`btnSiguiente${i}`);
-        const btnAtras = document.getElementById(`btnAtras${i - 1}`);
         if (btnSiguiente) btnSiguiente.style.display = pasoActual === i ? 'inline-block' : 'none';
-        if (btnAtras) btnAtras.style.display = pasoActual === i ? 'inline-block' : 'none';
+    }
+    for (let i = 1; i <= 4; i++) {
+        const btnAtras = document.getElementById(`btnAtras${i}`);
+        if (btnAtras) btnAtras.style.display = pasoActual === i + 1 ? 'inline-block' : 'none';
     }
 }
 
@@ -2730,16 +2755,13 @@ function mostrarSeccionAsegurados() {
 }
 
 function irAlPaso(numero) {
-    if (numero < 1 || numero > 6) return;
+    if (numero < 1 || numero > 5) return;
 
     pasoActual = numero;
     pasosNavegacion();
 
     // Renderizado específico por paso
-    if (numero === 3) {
-        renderizarListaSubgruposConfig();
-    } else if (numero === 4) {
-        actualizarSelectoresSubgrupos();
+    if (numero === 2) {
         renderizarTablaAsegurados();
         // Para póliza nueva: ocultar tabla hasta que se carguen asegurados
         if (flujo.tipo === 'nuevo' && estado.asegurados.length === 0) {
@@ -2747,9 +2769,9 @@ function irAlPaso(numero) {
         } else {
             mostrarSeccionAsegurados();
         }
-    } else if (numero === 5) {
+    } else if (numero === 4) {
         renderizarPlanesSubgrupoTabs();
-    } else if (numero === 6) {
+    } else if (numero === 5) {
         renderizarDashboard();
     }
 
@@ -2761,8 +2783,8 @@ function recalcularTodo() {
     estado.planes.forEach(plan => recalcularPrimaPlan(plan));
 
     // Re-renderizar vistas activas
+    renderizarTablaCoberturas();
     renderizarTablaAsegurados();
-    renderizarListaSubgruposConfig();
     if (subgrupoActivoEnPlanes) renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
     renderizarDashboard();
     guardarEstado();
@@ -2787,6 +2809,18 @@ function formatearDinero(valor) {
     }).format(valor);
 }
 
+function parsearValorAsegurado(valor) {
+    if (typeof valor === 'number') return valor;
+    return Number(String(valor ?? '').replace(/[^0-9]/g, ''));
+}
+
+function obtenerValorAseguradoBase(asegurado) {
+    const coberturaVida = asegurado.coberturas?.find(cobertura =>
+        cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
+    );
+    return coberturaVida?.valorAsegurado || 0;
+}
+
 function mostrarToast(mensaje, tipo = 'info') {
     const toast = document.getElementById('toast');
     if (toast) {
@@ -2802,12 +2836,13 @@ function generarCoberturasPorDefecto(valorVida = 0) {
     return estado.coberturasCatalogo.map(c => {
         let va = 0;
         if (valorVida > 0) {
-            if (c.codigo === 'VIDA') va = valorVida;
+            if (c.codigo === 'VID') va = valorVida;
             else if (c.obligatoria) va = valorVida;
             // otras coberturas: por defecto 0 (el asesor las configurará)
         }
         return {
             codigo: c.codigo,
+            codigoAmparo: c.codigoAmparo,
             nombre: c.nombre,
             activa: c.obligatoria,
             valorAsegurado: va,
@@ -2837,10 +2872,7 @@ function modalConfigCoberturas(idAsegurado) {
                        value="${cob.valorAsegurado}" 
                        onchange="actualizarCobertura('${idAsegurado}', '${cob.codigo}', 'valor', this.value)"
                        ${!cob.activa ? 'disabled' : ''}>
-                <input type="number" step="0.01" placeholder="Tasa"
-                       value="${cob.tasa}"
-                       onchange="actualizarCobertura('${idAsegurado}', '${cob.codigo}', 'tasa', this.value)"
-                       ${!cob.activa ? 'disabled' : ''}>
+                  <small class="text-muted">Tasa base del sistema: ${cob.tasa}</small>
                 <small class="text-muted">Prima: ${formatearDinero(cob.prima)}</small>
             </div>
         `;
@@ -2873,7 +2905,7 @@ function actualizarCobertura(idAsegurado, codigo, campo, valor) {
         const cobertura = asegurado.coberturas.find(c => c.codigo === codigo);
         if (cobertura) {
             if (campo === 'valor') cobertura.valorAsegurado = parseFloat(valor) || 0;
-            if (campo === 'tasa') cobertura.tasa = parseFloat(valor) || cobertura.tasaBase;
+            cobertura.tasa = TASA_BASE_SISTEMA;
             cobertura.prima = calcularPrimaCobertura(cobertura, cobertura.valorAsegurado, asegurado.edad);
             recalcularTodo();
         }
@@ -2912,6 +2944,7 @@ function cargarDemoData() {
                 salario: d.salario,
                 coberturas: estado.coberturasCatalogo.map(c => ({
                     codigo: c.codigo,
+                    codigoAmparo: c.codigoAmparo,
                     nombre: c.nombre,
                     activa: c.obligatoria || Math.random() > 0.5,
                     valorAsegurado: Math.random() > 0.5 ? Math.floor(Math.random() * 5 + 10) * 1000000 : 0,
@@ -2934,6 +2967,13 @@ function cargarDemoData() {
 function exportarResumen() {
     const resumen = {
         poliza: estado.poliza,
+        coberturas: estado.coberturasCatalogo.map(cobertura => ({
+            Codigo_Amparo_Op: cobertura.codigo,
+            Codigo_Amparo: cobertura.codigoAmparo,
+            Amparo_Detallado: cobertura.nombre,
+            tasaBase: cobertura.tasaBase,
+            obligatoria: cobertura.obligatoria
+        })),
         estadisticas: {
             totalAsegurados: estado.asegurados.length,
             totalSubgrupos: estado.subgrupos.length,
