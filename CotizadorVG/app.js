@@ -40,6 +40,7 @@ const CONFIG = {
 };
 
 const TASA_BASE_SISTEMA = 0.1;
+const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const coberturaVidaPredeterminada = {
     codigo: 'VID',
     codigoAmparo: 930,
@@ -79,6 +80,8 @@ let estado = {
         observaciones: ''
     },
     coberturasCatalogo: crearCatalogoInicial(),
+    tasasPorCoberturaEdad: {},
+    porcentajesFactorPorCoberturaEdad: {},
     asegurados: [],
     subgrupos: [],   // estructura explícita: { id, nombre, coberturas[], asegurados[] }
     planes: [],      // estructura: { id, subgrupoId, nombre, valoresCobertura{}, asegurados[], primaTotal }
@@ -163,6 +166,8 @@ function limpiarEstado() {
                 observaciones: ''
             },
             coberturasCatalogo: crearCatalogoInicial(),
+            tasasPorCoberturaEdad: {},
+            porcentajesFactorPorCoberturaEdad: {},
             asegurados: [],
             subgrupos: [],
             planes: [],
@@ -277,7 +282,7 @@ function editarCobertura(codigoCobertura) {
     mostrarToast('La tasa base es definida por el sistema y no se puede modificar.', 'info');
 }
 
-function agregarCobertura() {
+async function agregarCobertura() {
     const codigo = document.getElementById('coberturaDisponible')?.value;
     const cobertura = coberturasDisponibles.find(item => item.codigo === codigo);
     if (!cobertura) {
@@ -305,7 +310,69 @@ function agregarCobertura() {
     });
     
     recalcularTodo();
-    mostrarToast('Amparo agregado', 'success');
+    mostrarToast('Amparo agregado. Consultando tasas por edad...', 'info');
+
+    try {
+        await consultarTasasCoberturas();
+        recalcularTodo();
+        mostrarToast('Amparo agregado y tasas por edad actualizadas.', 'success');
+    } catch (error) {
+        console.error('No fue posible consultar las tasas de coberturas:', error);
+        mostrarToast('Amparo agregado, pero no fue posible consultar las tasas por edad.', 'warning');
+    }
+}
+
+async function consultarTasasCoberturas() {
+    const codigosAmparo = [...new Set(
+        estado.coberturasCatalogo
+            .map(cobertura => cobertura.codigoAmparo)
+            .filter(codigo => codigo !== undefined && codigo !== null && codigo !== '')
+            .map(codigo => String(codigo).replace(/\.0$/, ''))
+    )].join(',');
+
+    if (!codigosAmparo) {
+        throw new Error('No hay códigos de amparo para consultar.');
+    }
+
+    const respuesta = await fetch(API_TASAS_COBERTURAS, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ CodigosAmparo: codigosAmparo })
+    });
+
+    if (!respuesta.ok) {
+        throw new Error(`La API de tasas respondió HTTP ${respuesta.status}.`);
+    }
+
+    const datos = await respuesta.json();
+    const filas = Array.isArray(datos.Table1) ? datos.Table1 : [];
+    if (filas.length === 0) {
+        throw new Error('La API no devolvió tasas en Table1.');
+    }
+
+    const tasasPorCoberturaEdad = {};
+    const porcentajesFactorPorCoberturaEdad = {};
+    filas.forEach(fila => {
+        const codigoAmparo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
+        const edad = Number(fila.Edad);
+        const tasa = Number(fila['Tasa -20%']);
+        const porcentajeFactor = Number(fila.Porcentaje_Factor);
+        if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(tasa)) {
+            tasasPorCoberturaEdad[`${codigoAmparo}-${edad}`] = tasa;
+        }
+        if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(porcentajeFactor)) {
+            porcentajesFactorPorCoberturaEdad[`${codigoAmparo}-${edad}`] = porcentajeFactor;
+        }
+    });
+    estado.tasasPorCoberturaEdad = tasasPorCoberturaEdad;
+    estado.porcentajesFactorPorCoberturaEdad = porcentajesFactorPorCoberturaEdad;
+
+    guardarEstado();
+    renderizarTablaCalculos();
+    console.info('Tasas por edad actualizadas:', estado.tasasPorCoberturaEdad);
 }
 
 function eliminarCobertura(codigo) {
@@ -330,19 +397,24 @@ function eliminarCobertura(codigo) {
    ============================================================ */
 
 function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
-    const factorEdad = obtenerFactorEdad(edad);
-    const tasa = cobertura.tasa || cobertura.tasaBase;
-    const prima = valorAsegurado * tasa * factorEdad / 100;
+    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
+    const tasaPorEdad = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+    const tasa = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
+    const prima = tasaPorEdad !== undefined
+        ? valorAsegurado * tasa
+        : valorAsegurado * tasa * obtenerFactorEdad(edad) / 100;
     return Math.round(prima * 100) / 100;
 }
 
 function calcularPrimaIndividual(asegurado) {
     let prima = 0;
     asegurado.coberturas.forEach(cob => {
-        if (cob.activa && cob.valorAsegurado > 0) {
+        const coberturaCatalogo = estado.coberturasCatalogo.find(item => item.codigo === cob.codigo) || cob;
+        const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
+        if (cob.activa && valorAsegurado !== null && valorAsegurado > 0) {
             prima += calcularPrimaCobertura(
-                { tasa: cob.tasa },
-                cob.valorAsegurado,
+                { codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
+                valorAsegurado,
                 asegurado.edad
             );
         }
@@ -795,7 +867,6 @@ function renderizarTablaCoberturas() {
             <td>${cobertura.codigo}</td>
             <td>${cobertura.codigoAmparo}</td>
             <td>${cobertura.nombre}</td>
-            <td>${cobertura.tasaBase}</td>
             <td>${cobertura.obligatoria ? 'Sí' : 'No'}</td>
             <td>
                 ${cobertura.codigo === 'VID' ? 'Amparo inicial' : `<button class="btn btn-small btn-danger" onclick="eliminarCobertura('${cobertura.codigo}')">Eliminar</button>`}
@@ -805,6 +876,56 @@ function renderizarTablaCoberturas() {
     });
 
     renderizarAmparosDisponibles();
+}
+
+function obtenerTasaPorEdad(cobertura, edad) {
+    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
+    return estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+}
+
+function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
+    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
+    return estado.porcentajesFactorPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+}
+
+function calcularValorAseguradoCobertura(cobertura, asegurado) {
+    const valorAseguradoVida = obtenerValorAseguradoBase(asegurado);
+    const porcentajeFactor = obtenerPorcentajeFactorPorEdad(cobertura, asegurado.edad);
+    return porcentajeFactor === undefined ? null : valorAseguradoVida * porcentajeFactor;
+}
+
+function formatearTasa(tasa) {
+    return Number.isFinite(tasa) ? tasa.toLocaleString('es-CO', { maximumFractionDigits: 12 }) : 'Sin tasa';
+}
+
+function renderizarTablaCalculos() {
+    const thead = document.getElementById('thead-calculos');
+    const tbody = document.getElementById('tbody-calculos');
+    if (!thead || !tbody) return;
+
+    const coberturas = estado.coberturasCatalogo;
+    thead.innerHTML = `<tr>
+        <th>Documento</th>
+        <th>Edad</th>
+        ${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}
+    </tr>`;
+
+    if (estado.asegurados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${2 + coberturas.length * 3}" class="calculos-vacio">No hay asegurados cargados.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = estado.asegurados.map(asegurado => {
+        const celdas = coberturas.map(cobertura => {
+            const tasa = obtenerTasaPorEdad(cobertura, asegurado.edad);
+            const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
+            const prima = tasa === undefined || valorAsegurado === null
+                ? null
+                : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+            return `<td>${formatearTasa(tasa)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
+        }).join('');
+        return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
+    }).join('');
 }
 
 function renderizarAmparosDisponibles() {
@@ -1013,10 +1134,10 @@ function setupEventListeners() {
 
     // Botones de acción generales
     // Navegación por botones de siguiente en cada paso
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => irAlPaso(i + 1));
     }
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
         document.getElementById(`btnAtras${i}`)?.addEventListener('click', () => irAlPaso(i));
     }
 
@@ -2720,18 +2841,18 @@ function pasosNavegacion() {
     });
 
     // Actualizar barra de progreso
-    const progreso = ((pasoActual - 1) / 4) * 100;
+    const progreso = ((pasoActual - 1) / 5) * 100;
     const progressFill = document.querySelector('.progress-fill');
     if (progressFill) {
         progressFill.style.width = progreso + '%';
     }
 
     // Mostrar/ocultar botones de navegación apropiados
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
         const btnSiguiente = document.getElementById(`btnSiguiente${i}`);
         if (btnSiguiente) btnSiguiente.style.display = pasoActual === i ? 'inline-block' : 'none';
     }
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
         const btnAtras = document.getElementById(`btnAtras${i}`);
         if (btnAtras) btnAtras.style.display = pasoActual === i + 1 ? 'inline-block' : 'none';
     }
@@ -2755,7 +2876,7 @@ function mostrarSeccionAsegurados() {
 }
 
 function irAlPaso(numero) {
-    if (numero < 1 || numero > 5) return;
+    if (numero < 1 || numero > 6) return;
 
     pasoActual = numero;
     pasosNavegacion();
@@ -2770,8 +2891,10 @@ function irAlPaso(numero) {
             mostrarSeccionAsegurados();
         }
     } else if (numero === 4) {
-        renderizarPlanesSubgrupoTabs();
+        renderizarTablaCalculos();
     } else if (numero === 5) {
+        renderizarPlanesSubgrupoTabs();
+    } else if (numero === 6) {
         renderizarDashboard();
     }
 
@@ -2785,6 +2908,7 @@ function recalcularTodo() {
     // Re-renderizar vistas activas
     renderizarTablaCoberturas();
     renderizarTablaAsegurados();
+    renderizarTablaCalculos();
     if (subgrupoActivoEnPlanes) renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
     renderizarDashboard();
     guardarEstado();

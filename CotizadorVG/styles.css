@@ -227,6 +227,29 @@ body {
     color: var(--color-primary-dark);
 }
 
+.calculos-container {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    margin: 20px 0;
+}
+
+.tabla-calculos {
+    min-width: max-content;
+    width: 100%;
+}
+
+.tabla-calculos th,
+.tabla-calculos td {
+    white-space: nowrap;
+}
+
+.calculos-vacio {
+    color: var(--color-gray);
+    padding: 24px !important;
+    text-align: center;
+}
+
 /* ============================================================
    CONTENIDO PRINCIPAL
    ============================================================ */

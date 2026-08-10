@@ -132,10 +132,14 @@
                 </div>
                 <div class="step" data-step="4">
                     <span class="step-number">4</span>
-                    <span class="step-label">Planes</span>
+                    <span class="step-label">Cálculos</span>
                 </div>
                 <div class="step" data-step="5">
                     <span class="step-number">5</span>
+                    <span class="step-label">Planes</span>
+                </div>
+                <div class="step" data-step="6">
+                    <span class="step-number">6</span>
                     <span class="step-label">Resumen</span>
                 </div>
             </div>
@@ -255,7 +259,7 @@
             <!-- PASO 3: Configuración de coberturas -->
             <section class="step-section" id="step3">
                 <h2>Configuración de Coberturas</h2>
-                <p class="info-box">Selecciona los amparos aplicables. Las tasas base son definidas por el sistema y no pueden modificarse.</p>
+                <p class="info-box">Selecciona los amparos aplicables. Las tasas se consultan por código de amparo y edad en el paso de cálculos.</p>
 
                 <div class="coberturas-container">
                     <table class="table-editable" id="tablaCoberturas">
@@ -264,7 +268,6 @@
                                 <th>Código operativo</th>
                                 <th>Código amparo</th>
                                 <th>Amparo detallado</th>
-                                <th>Tasa Base</th>
                                 <th>Obligatoria</th>
                                 <th>Acciones</th>
                             </tr>
@@ -286,7 +289,7 @@
                 </div>
 
                 <div class="button-group">
-                    <button class="btn btn-primary" id="btnSiguiente3">Siguiente →</button>
+                    <button class="btn btn-primary" id="btnSiguiente3">Ver cálculos →</button>
                     <button class="btn btn-outline" id="btnAtras2">← Atrás</button>
                 </div>
             </section>
@@ -391,8 +394,24 @@
                 </div>
             </section>
 
-            <!-- PASO 4: Planes y valores asegurados -->
+            <!-- PASO 4: Tasas y primas por asegurado -->
             <section class="step-section" id="step4">
+                <h2>Cálculos de Tasas y Primas</h2>
+                <p class="info-box">Las tasas se cruzan por la edad del asegurado y el código de cada amparo. La prima corresponde a valor asegurado × tasa.</p>
+                <div class="calculos-container">
+                    <table class="table-editable tabla-calculos" id="tablaCalculos">
+                        <thead id="thead-calculos"></thead>
+                        <tbody id="tbody-calculos"></tbody>
+                    </table>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" id="btnSiguiente4">Configurar planes →</button>
+                    <button class="btn btn-outline" id="btnAtras3">← Atrás</button>
+                </div>
+            </section>
+
+            <!-- PASO 5: Planes y valores asegurados -->
+            <section class="step-section" id="step5">
                 <h2>Planes y Valores Asegurados</h2>
                 <p class="info-box">Dentro de cada subgrupo puedes definir uno o varios <strong>planes</strong> con distintos valores asegurados. Un subgrupo = mismas coberturas; un plan = mismos valores.</p>
 
@@ -421,13 +440,13 @@
 
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarCSVPlanes">Exportar CSV</button>
-                    <button class="btn btn-primary" id="btnSiguiente4">Siguiente &rarr;</button>
-                    <button class="btn btn-outline" id="btnAtras3">&larr; Atr&aacute;s</button>
+                    <button class="btn btn-primary" id="btnSiguiente5">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras4">&larr; Atr&aacute;s</button>
                 </div>
             </section>
 
-            <!-- PASO 5: Resumen de cotización -->
-            <section class="step-section" id="step5">
+            <!-- PASO 6: Resumen de cotización -->
+            <section class="step-section" id="step6">
                 <h2>Resumen de Cotización</h2>
 
                 <div class="dashboard">
@@ -471,7 +490,7 @@
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarJSONResumen">📄 Guardar JSON</button>
                     <button class="btn btn-secondary" id="btnExportarAseguradosFinal">⬇ Asegurados CSV</button>
-                    <button class="btn btn-outline" id="btnAtras4">← Atrás</button>
+                    <button class="btn btn-outline" id="btnAtras5">← Atrás</button>
                     <button class="btn btn-danger" id="btnLimpiarTodo">🗑 Limpiar Todo</button>
                 </div>
             </section>
