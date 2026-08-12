@@ -18,6 +18,13 @@ SELECT
     b.Ind_Beneficiario_Contingente,
     b.Num_Orden,
 
+    cl.Numero_Identificacion,
+    cl.Tipo_Identificacion_Cd,
+    cl.Email_Contacto AS Correo_Cliente,
+    cl.Telefono_Contacto AS Telefono_Cliente,
+    cl.Nombre_Completo AS Nombre_Cliente,
+    clt.Telefono_Txt AS Celular_Cliente,
+
     ag.Agente_Id,
     ag.Codigo_Op AS Codigo_Asesor,
     ag.Nombre_Agente AS Nombre_Asesor,
@@ -45,6 +52,14 @@ INNER JOIN MDB_SEGUROS_COLOMBIA.V_POLIZA pol
 
 INNER JOIN MDB_SEGUROS_COLOMBIA.V_POLIZA_BENEFICIARIO b
     ON pc.Poliza_Certificado_Id = b.Poliza_Certificado_Id
+
+LEFT JOIN MDB_SEGUROS_COLOMBIA.V_CLIENTE cl
+    ON pc.Asegurado_Id = cl.Cliente_Id
+
+LEFT JOIN MDB_SEGUROS_COLOMBIA.V_CLIENTE_TELEFONO clt
+    ON cl.Cliente_Id = clt.Cliente_Id
+    AND clt.Uso_Direccion_Cd = 4
+    AND CHARACTER_LENGTH(clt.Telefono_Txt) = 10
 
 LEFT JOIN MDB_SEGUROS_COLOMBIA.V_AGENTE ag
     ON pol.Agente_Lider_Id = ag.Agente_Id
