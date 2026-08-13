@@ -619,6 +619,18 @@
     <!-- Toast notifications -->
     <div id="toast" class="toast"></div>
 
+    <!-- Alerta de validación de rangos -->
+    <div id="modalAlertaRango" class="modal modal-alerta-rango" style="display:none;" role="alertdialog" aria-modal="true" aria-labelledby="tituloAlertaRango">
+        <div class="modal-content alerta-rango-contenido">
+            <div class="alerta-rango-icono">!</div>
+            <h3 id="tituloAlertaRango">Revisa el rango de valor asegurado</h3>
+            <p id="mensajeAlertaRango"></p>
+            <div class="modal-footer alerta-rango-footer">
+                <button class="btn btn-primary" type="button" id="btnAceptarAlertaRango" onclick="cerrarAlertaRango()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Overlay para loading -->
     <div id="overlay" class="overlay" style="display:none;"></div>
 

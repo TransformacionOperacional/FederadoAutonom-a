@@ -430,6 +430,64 @@ body {
     box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
 }
 
+.table-editable input.rango-plan-error,
+.table-editable input.rango-plan-error:focus {
+    border-color: #d9534f;
+    background-color: #fff1f1;
+    box-shadow: 0 0 0 2px rgba(217, 83, 79, 0.16);
+}
+
+.modal-alerta-rango {
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(4, 42, 86, 0.48);
+    backdrop-filter: blur(3px);
+}
+
+.alerta-rango-contenido {
+    width: min(100%, 460px);
+    padding: 30px 32px 24px;
+    border: 0;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(3, 49, 94, 0.28);
+    text-align: center;
+}
+
+.alerta-rango-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    background: #fff3cd;
+    color: #a76900;
+    font-size: 27px;
+    font-weight: 700;
+}
+
+.alerta-rango-contenido h3 {
+    margin: 0 0 10px;
+    color: var(--color-primary-dark);
+    font-size: 20px;
+}
+
+.alerta-rango-contenido p {
+    margin: 0;
+    color: var(--color-gray-dark);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.alerta-rango-footer {
+    justify-content: center;
+    margin-top: 24px;
+    padding: 0;
+    border: 0;
+}
+
 .coverage-add-control {
     max-width: 780px;
     margin: 24px 0;

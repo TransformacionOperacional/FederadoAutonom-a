@@ -58,6 +58,7 @@ const PLANES_SUGERIDOS = [
     { nombre: 'Plan 5', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR HOSPITALIZACIÓN BÁSICO', 'RENTA POR INCAPACIDAD'] }
 ];
 let planEditandoId = null;
+let campoRangoConError = null;
 
 function crearCatalogoInicial() {
     const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
@@ -3192,8 +3193,8 @@ function renderizarAsignacionPlanes() {
     cuerpoRangos.innerHTML = estado.planes.map(plan => `
         <tr>
             <td>${plan.nombre}</td>
-            <td><input type="number" min="0" step="1000000" value="${plan.valorDesde ?? ''}" placeholder="Sin mínimo" onchange="actualizarRangoPlan('${plan.id}', 'desde', this.value)"></td>
-            <td><input type="number" min="0" step="1000000" value="${plan.valorHasta ?? ''}" placeholder="Sin máximo" onchange="actualizarRangoPlan('${plan.id}', 'hasta', this.value)"></td>
+            <td><input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="desde" value="${formatearValorMonetario(plan.valorDesde)}" placeholder="$ 0" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'desde', this.value, this)"></td>
+            <td><input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="hasta" value="${formatearValorMonetario(plan.valorHasta)}" placeholder="Sin máximo" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'hasta', this.value, this)"></td>
         </tr>`).join('');
 
     const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${plan.nombre}</option>`).join('');
@@ -3210,10 +3211,107 @@ function renderizarAsignacionPlanes() {
     });
 }
 
-function actualizarRangoPlan(planId, limite, valor) {
+function obtenerValorMonetario(valor) {
+    const digitos = String(valor ?? '').replace(/\D/g, '');
+    return digitos === '' ? null : Number(digitos);
+}
+
+function formatearValorMonetario(valor) {
+    if (valor === null || valor === undefined || valor === '') return '';
+    return `$ ${Number(valor).toLocaleString('es-CO')}`;
+}
+
+function formatearCampoMoneda(campo) {
+    const valor = obtenerValorMonetario(campo.value);
+    campo.value = formatearValorMonetario(valor);
+}
+
+function revisarRangosEnFormulario(campoActivo = null) {
+    const campos = Array.from(document.querySelectorAll('#tbody-rangos-planes input[data-plan-id]'));
+    campos.forEach(campo => campo.classList.remove('rango-plan-error'));
+
+    const rangos = estado.planes.map(plan => {
+        const desdeCampo = campos.find(campo => campo.dataset.planId === plan.id && campo.dataset.limite === 'desde');
+        const hastaCampo = campos.find(campo => campo.dataset.planId === plan.id && campo.dataset.limite === 'hasta');
+        return {
+            plan,
+            desde: obtenerValorMonetario(desdeCampo?.value),
+            hasta: obtenerValorMonetario(hastaCampo?.value),
+            desdeCampo,
+            hastaCampo
+        };
+    }).filter(rango => rango.desde !== null && rango.hasta !== null).sort((a, b) => a.desde - b.desde);
+
+    let mensaje = '';
+    for (let indice = 0; indice < rangos.length; indice++) {
+        const rango = rangos[indice];
+        if (rango.desde > rango.hasta) {
+            rango.desdeCampo?.classList.add('rango-plan-error');
+            rango.hastaCampo?.classList.add('rango-plan-error');
+            mensaje = `${rango.plan.nombre}: el valor desde no puede ser mayor que el valor hasta.`;
+            break;
+        }
+        const anterior = rangos[indice - 1];
+        if (anterior && rango.desde <= anterior.hasta) {
+            anterior.hastaCampo?.classList.add('rango-plan-error');
+            rango.desdeCampo?.classList.add('rango-plan-error');
+            mensaje = `${rango.plan.nombre}: el valor desde debe ser mayor que el valor hasta de ${anterior.plan.nombre}.`;
+            break;
+        }
+    }
+    return { valido: !mensaje, mensaje, campoError: campoActivo?.classList.contains('rango-plan-error') ? campoActivo : rangos.find(rango => rango.desdeCampo?.classList.contains('rango-plan-error'))?.desdeCampo };
+}
+
+function validarRangosPlanes() {
+    const rangos = estado.planes
+        .filter(plan => plan.valorDesde !== null && plan.valorDesde !== undefined && plan.valorHasta !== null && plan.valorHasta !== undefined)
+        .map(plan => ({ nombre: plan.nombre, desde: plan.valorDesde, hasta: plan.valorHasta }))
+        .sort((a, b) => a.desde - b.desde);
+
+    for (let indice = 0; indice < rangos.length; indice++) {
+        const rango = rangos[indice];
+        if (rango.desde > rango.hasta) {
+            return { valido: false, mensaje: `${rango.nombre}: el valor desde no puede ser mayor que el valor hasta.` };
+        }
+        const anterior = rangos[indice - 1];
+        if (anterior && rango.desde <= anterior.hasta) {
+            return { valido: false, mensaje: `${rango.nombre}: el valor desde debe ser mayor que $ ${anterior.hasta.toLocaleString('es-CO')} para no cruzarse con ${anterior.nombre}.` };
+        }
+    }
+    return { valido: true };
+}
+
+function mostrarAlertaRango(mensaje, campo) {
+    const modal = document.getElementById('modalAlertaRango');
+    const texto = document.getElementById('mensajeAlertaRango');
+    if (!modal || !texto) return;
+    campoRangoConError = campo || null;
+    texto.textContent = mensaje;
+    modal.style.display = 'flex';
+    document.getElementById('btnAceptarAlertaRango')?.focus();
+}
+
+function cerrarAlertaRango() {
+    const modal = document.getElementById('modalAlertaRango');
+    if (modal) modal.style.display = 'none';
+    campoRangoConError?.focus();
+    campoRangoConError = null;
+}
+
+function actualizarRangoPlan(planId, limite, valor, campo) {
     const plan = estado.planes.find(item => item.id === planId);
     if (!plan) return;
-    plan[limite === 'desde' ? 'valorDesde' : 'valorHasta'] = valor === '' ? null : Number(valor);
+    const propiedad = limite === 'desde' ? 'valorDesde' : 'valorHasta';
+    const valorAnterior = plan[propiedad];
+    plan[propiedad] = obtenerValorMonetario(valor);
+    const validacion = validarRangosPlanes();
+    if (!validacion.valido) {
+        plan[propiedad] = valorAnterior;
+        const revision = revisarRangosEnFormulario(campo);
+        mostrarAlertaRango(validacion.mensaje, revision.campoError || campo);
+        return;
+    }
+    revisarRangosEnFormulario();
     guardarEstado();
 }
 
@@ -3232,6 +3330,11 @@ function asignarPlanAAsegurado(aseguradoId, planId) {
 }
 
 function asignarPlanesPorRango() {
+    const validacion = validarRangosPlanes();
+    if (!validacion.valido) {
+        mostrarToast(validacion.mensaje, 'warning');
+        return;
+    }
     let asignados = 0;
     estado.asegurados.forEach(asegurado => {
         const valor = obtenerValorAseguradoBase(asegurado);
