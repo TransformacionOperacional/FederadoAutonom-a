@@ -132,14 +132,18 @@
                 </div>
                 <div class="step" data-step="4">
                     <span class="step-number">4</span>
-                    <span class="step-label">Cálculos</span>
+                    <span class="step-label">Asignación</span>
                 </div>
                 <div class="step" data-step="5">
                     <span class="step-number">5</span>
-                    <span class="step-label">Planes</span>
+                    <span class="step-label">Cálculos</span>
                 </div>
                 <div class="step" data-step="6">
                     <span class="step-number">6</span>
+                    <span class="step-label">Planes</span>
+                </div>
+                <div class="step" data-step="7">
+                    <span class="step-number">7</span>
                     <span class="step-label">Resumen</span>
                 </div>
             </div>
@@ -258,10 +262,23 @@
 
             <!-- PASO 3: Configuración de coberturas -->
             <section class="step-section" id="step3">
-                <h2>Configuración de Coberturas</h2>
-                <p class="info-box">Selecciona los amparos aplicables. Las tasas se consultan por código de amparo y edad en el paso de cálculos.</p>
+                <h2>Configuración de Planes</h2>
+                <p class="info-box">Crea o selecciona planes de coberturas. Vida se incluye obligatoriamente en todos los planes y las tasas se consultan por código de amparo y edad en el paso de cálculos.</p>
 
-                <div class="coberturas-container">
+                <div class="coverage-add-control">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <label>Planes</label>
+                        <button class="btn btn-accent btn-small" type="button" onclick="abrirModalCrearPlan()">+ Crear plan</button>
+                    </div>
+                    <p class="coverage-add-help">Crea planes manuales seleccionando sus coberturas o usa una sugerencia. Luego podrás definir valores asegurados y asignar asegurados en la pantalla de planes.</p>
+                    <div id="planesSugeridos" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;"></div>
+                    <div style="margin-top:20px;">
+                        <strong style="font-size:14px;">Planes agregados</strong>
+                        <div id="planesConfiguradosResumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px;"></div>
+                    </div>
+                </div>
+
+                <div class="coberturas-container" style="display:none;" aria-hidden="true">
                     <table class="table-editable" id="tablaCoberturas">
                         <thead>
                             <tr>
@@ -278,13 +295,13 @@
                     </table>
                 </div>
 
-                <div class="coverage-add-control">
+                <div class="coverage-add-control" style="display:none;" aria-hidden="true">
                     <label for="buscadorCoberturas">Buscar amparo para agregar</label>
                     <div class="coverage-add-fields">
-                        <input type="search" id="buscadorCoberturas" placeholder="Busca por código o nombre del amparo..." autocomplete="off">
+                        <input type="search" id="buscadorCoberturas" placeholder="Busca por nombre del amparo..." autocomplete="off">
                         <select id="coberturaDisponible" aria-label="Amparo disponible" size="7"></select>
                     </div>
-                    <p class="coverage-add-help">La lista muestra el código operativo, el amparo detallado y su código interno.</p>
+                    <p class="coverage-add-help">La lista muestra únicamente los amparos disponibles del Core GW.</p>
                     <button class="btn btn-secondary" id="btnAgregarCobertura">+ Agregar amparo seleccionado</button>
                 </div>
 
@@ -394,8 +411,33 @@
                 </div>
             </section>
 
-            <!-- PASO 4: Tasas y primas por asegurado -->
+            <!-- PASO 4: Asignación de asegurados a planes -->
             <section class="step-section" id="step4">
+                <h2>Asignación de Planes</h2>
+                <p class="info-box">Asigna cada asegurado manualmente a un plan o define rangos de valor asegurado para realizar la asignación automática.</p>
+                <h3 style="font-size:16px;margin:20px 0 10px;">Rangos de valor asegurado por plan</h3>
+                <div style="overflow-x:auto;">
+                    <table class="table-editable">
+                        <thead><tr><th>Plan</th><th>Desde (COP)</th><th>Hasta (COP)</th></tr></thead>
+                        <tbody id="tbody-rangos-planes"></tbody>
+                    </table>
+                </div>
+                <div style="margin:12px 0 24px;"><button class="btn btn-secondary" type="button" onclick="asignarPlanesPorRango()">Asignar automáticamente por rango</button></div>
+                <h3 style="font-size:16px;margin:0 0 10px;">Asignación manual</h3>
+                <div style="overflow-x:auto;">
+                    <table class="table-editable">
+                        <thead><tr><th>Documento</th><th>Nombre</th><th>Valor asegurado</th><th>Plan</th></tr></thead>
+                        <tbody id="tbody-asignacion-planes"></tbody>
+                    </table>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" id="btnSiguiente4">Ver cálculos →</button>
+                    <button class="btn btn-outline" id="btnAtras3">← Atrás</button>
+                </div>
+            </section>
+
+            <!-- PASO 5: Tasas y primas por asegurado -->
+            <section class="step-section" id="step5">
                 <h2>Cálculos de Tasas y Primas</h2>
                 <p class="info-box">Las tasas se cruzan por la edad del asegurado y el código de cada amparo. La prima corresponde a valor asegurado × tasa.</p>
                 <div class="calculos-container">
@@ -405,13 +447,13 @@
                     </table>
                 </div>
                 <div class="button-group">
-                    <button class="btn btn-primary" id="btnSiguiente4">Configurar planes →</button>
-                    <button class="btn btn-outline" id="btnAtras3">← Atrás</button>
+                    <button class="btn btn-primary" id="btnSiguiente5">Configurar planes →</button>
+                    <button class="btn btn-outline" id="btnAtras4">← Atrás</button>
                 </div>
             </section>
 
-            <!-- PASO 5: Planes y valores asegurados -->
-            <section class="step-section" id="step5">
+            <!-- PASO 6: Planes y valores asegurados -->
+            <section class="step-section" id="step6">
                 <h2>Planes y Valores Asegurados</h2>
                 <p class="info-box">Dentro de cada subgrupo puedes definir uno o varios <strong>planes</strong> con distintos valores asegurados. Un subgrupo = mismas coberturas; un plan = mismos valores.</p>
 
@@ -440,13 +482,13 @@
 
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarCSVPlanes">Exportar CSV</button>
-                    <button class="btn btn-primary" id="btnSiguiente5">Siguiente &rarr;</button>
-                    <button class="btn btn-outline" id="btnAtras4">&larr; Atr&aacute;s</button>
+                    <button class="btn btn-primary" id="btnSiguiente6">Siguiente &rarr;</button>
+                    <button class="btn btn-outline" id="btnAtras5">&larr; Atr&aacute;s</button>
                 </div>
             </section>
 
-            <!-- PASO 6: Resumen de cotización -->
-            <section class="step-section" id="step6">
+            <!-- PASO 7: Resumen de cotización -->
+            <section class="step-section" id="step7">
                 <h2>Resumen de Cotización</h2>
 
                 <div class="dashboard">
@@ -602,6 +644,50 @@
             <div class="modal-footer">
                 <button class="btn btn-accent" onclick="confirmarCrearSubgrupo()">Crear subgrupo</button>
                 <button class="btn btn-secondary" onclick="cerrarModalCrearSubgrupo()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: Crear plan manual ===== -->
+    <div id="modalCrearPlan" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Crear plan</h3>
+                <button class="btn-close" onclick="cerrarModalCrearPlan()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="nombrePlanManual">Nombre del plan</label>
+                    <input type="text" id="nombrePlanManual" placeholder="Ej.: Plan corporativo">
+                </div>
+                <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Selecciona las coberturas del plan. Vida se incluye obligatoriamente.</p>
+                <div id="coberturasPlanManual" class="coberturas-seleccion-grid"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent" type="button" onclick="crearPlanManual()">Crear plan</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalCrearPlan()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: Editar plan ===== -->
+    <div id="modalEditarPlan" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Editar plan</h3>
+                <button class="btn-close" onclick="cerrarModalEditarPlan()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="nombrePlanEdicion">Nombre del plan</label>
+                    <input type="text" id="nombrePlanEdicion">
+                </div>
+                <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Agrega o retira las coberturas del plan. Vida se mantiene obligatoria.</p>
+                <div id="coberturasPlanEdicion" class="coberturas-seleccion-grid"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent" type="button" onclick="guardarEdicionPlan()">Guardar cambios</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalEditarPlan()">Cancelar</button>
             </div>
         </div>
     </div>

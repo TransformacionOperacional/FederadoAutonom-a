@@ -42,17 +42,55 @@ const CONFIG = {
 const TASA_BASE_SISTEMA = 0.1;
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const coberturaVidaPredeterminada = {
-    codigo: 'VID',
-    codigoAmparo: 930,
-    nombre: 'VIDA – MUERTE POR CUALQUIER CAUSA',
+    codigo: 'WET',
+    codigoAmparo: 63717,
+    nombre: 'VIDA',
     tasaBase: TASA_BASE_SISTEMA,
     obligatoria: true
 };
 let coberturasDisponibles = [coberturaVidaPredeterminada];
 
+const PLANES_SUGERIDOS = [
+    { nombre: 'Plan 1', coberturas: ['VIDA', 'ITP', 'BONO FUNERARIO'] },
+    { nombre: 'Plan 2', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO'] },
+    { nombre: 'Plan 3', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR INCAPACIDAD'] },
+    { nombre: 'Plan 4', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR HOSPITALIZACIÓN BÁSICO'] },
+    { nombre: 'Plan 5', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR HOSPITALIZACIÓN BÁSICO', 'RENTA POR INCAPACIDAD'] }
+];
+let planEditandoId = null;
+
 function crearCatalogoInicial() {
-    const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'VID') || coberturaVidaPredeterminada;
-    return [{ ...vida, tasaBase: TASA_BASE_SISTEMA, obligatoria: true }];
+    const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
+    return vida ? [{ ...vida, tasaBase: TASA_BASE_SISTEMA, obligatoria: true }] : [];
+}
+
+function sincronizarVidaObligatoria() {
+    const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
+    if (!vida) return;
+
+    estado.coberturasCatalogo = estado.coberturasCatalogo
+        .filter(cobertura => cobertura.codigo !== 'VID')
+        .map(cobertura => ({ ...cobertura, obligatoria: cobertura.codigo === 'WET' || cobertura.obligatoria }));
+
+    if (!estado.coberturasCatalogo.some(cobertura => cobertura.codigo === 'WET')) {
+        estado.coberturasCatalogo.unshift({ ...vida, tasaBase: TASA_BASE_SISTEMA, obligatoria: true });
+    }
+
+    estado.asegurados.forEach(asegurado => {
+        const vidaAnterior = asegurado.coberturas?.find(cobertura => cobertura.codigo === 'VID');
+        asegurado.coberturas = (asegurado.coberturas || []).filter(cobertura => cobertura.codigo !== 'VID');
+        if (!asegurado.coberturas.some(cobertura => cobertura.codigo === 'WET')) {
+            asegurado.coberturas.push({
+                codigo: vida.codigo,
+                codigoAmparo: vida.codigoAmparo,
+                nombre: vida.nombre,
+                activa: true,
+                valorAsegurado: vidaAnterior?.valorAsegurado || 0,
+                tasa: TASA_BASE_SISTEMA,
+                prima: 0
+            });
+        }
+    });
 }
 
 /* ============================================================
@@ -334,6 +372,35 @@ async function consultarTasasCoberturas() {
         throw new Error('No hay códigos de amparo para consultar.');
     }
 
+    const filas = await consultarTasasEnApi(codigosAmparo);
+    const filasCoreGW = filas.filter(fila => String(fila.Core ?? '').trim().toUpperCase() === 'GW');
+    if (filasCoreGW.length === 0) {
+        throw new Error('La API no devolvió tasas para amparos del Core GW.');
+    }
+
+    const tasasPorCoberturaEdad = {};
+    const porcentajesFactorPorCoberturaEdad = {};
+    filasCoreGW.forEach(fila => {
+        const codigoAmparo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
+        const edad = Number(fila.Edad);
+        const tasa = Number(fila['Tasa -20%']);
+        const porcentajeFactor = Number(fila.Porcentaje_Factor);
+        if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(tasa)) {
+            tasasPorCoberturaEdad[`${codigoAmparo}-${edad}`] = tasa;
+        }
+        if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(porcentajeFactor)) {
+            porcentajesFactorPorCoberturaEdad[`${codigoAmparo}-${edad}`] = porcentajeFactor;
+        }
+    });
+    estado.tasasPorCoberturaEdad = tasasPorCoberturaEdad;
+    estado.porcentajesFactorPorCoberturaEdad = porcentajesFactorPorCoberturaEdad;
+
+    guardarEstado();
+    renderizarTablaCalculos();
+    console.info('Tasas Core GW por edad actualizadas:', estado.tasasPorCoberturaEdad);
+}
+
+async function consultarTasasEnApi(codigosAmparo) {
     const respuesta = await fetch(API_TASAS_COBERTURAS, {
         method: 'POST',
         headers: {
@@ -352,31 +419,11 @@ async function consultarTasasCoberturas() {
     if (filas.length === 0) {
         throw new Error('La API no devolvió tasas en Table1.');
     }
-
-    const tasasPorCoberturaEdad = {};
-    const porcentajesFactorPorCoberturaEdad = {};
-    filas.forEach(fila => {
-        const codigoAmparo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
-        const edad = Number(fila.Edad);
-        const tasa = Number(fila['Tasa -20%']);
-        const porcentajeFactor = Number(fila.Porcentaje_Factor);
-        if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(tasa)) {
-            tasasPorCoberturaEdad[`${codigoAmparo}-${edad}`] = tasa;
-        }
-        if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(porcentajeFactor)) {
-            porcentajesFactorPorCoberturaEdad[`${codigoAmparo}-${edad}`] = porcentajeFactor;
-        }
-    });
-    estado.tasasPorCoberturaEdad = tasasPorCoberturaEdad;
-    estado.porcentajesFactorPorCoberturaEdad = porcentajesFactorPorCoberturaEdad;
-
-    guardarEstado();
-    renderizarTablaCalculos();
-    console.info('Tasas por edad actualizadas:', estado.tasasPorCoberturaEdad);
+    return filas;
 }
 
 function eliminarCobertura(codigo) {
-    if (codigo === 'VID') {
+    if (codigo === 'WET') {
         mostrarToast('El amparo Vida debe permanecer configurado.', 'warning');
         return;
     }
@@ -869,13 +916,240 @@ function renderizarTablaCoberturas() {
             <td>${cobertura.nombre}</td>
             <td>${cobertura.obligatoria ? 'Sí' : 'No'}</td>
             <td>
-                ${cobertura.codigo === 'VID' ? 'Amparo inicial' : `<button class="btn btn-small btn-danger" onclick="eliminarCobertura('${cobertura.codigo}')">Eliminar</button>`}
+                ${cobertura.codigo === 'WET' ? 'Amparo obligatorio' : `<button class="btn btn-small btn-danger" onclick="eliminarCobertura('${cobertura.codigo}')">Eliminar</button>`}
             </td>
         `;
         tbody.appendChild(fila);
     });
 
     renderizarAmparosDisponibles();
+    renderizarPlanesSugeridos();
+}
+
+function renderizarPlanesSugeridos() {
+    const container = document.getElementById('planesSugeridos');
+    if (!container) return;
+
+    container.innerHTML = PLANES_SUGERIDOS.map((plan, indice) => {
+        const coberturas = plan.coberturas.map(buscarCoberturaPorReferencia);
+        const faltantes = plan.coberturas.filter((referencia, posicion) => !coberturas[posicion]);
+        const detalle = plan.coberturas
+            .map((referencia, posicion) => coberturas[posicion]?.nombre || referencia)
+            .join(' · ');
+        return `
+            <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#fff;">
+                <strong>${plan.nombre}</strong>
+                <p style="margin:8px 0;font-size:12px;line-height:1.45;color:var(--color-gray);">${detalle}</p>
+                ${faltantes.length > 0
+                    ? '<span style="font-size:12px;color:#a35b00;">No disponible para Core GW</span>'
+                    : `<button class="btn btn-secondary btn-small" onclick="aplicarPlanSugerido(${indice + 1})">Agregar plan</button>`}
+            </article>`;
+    }).join('');
+    renderizarResumenPlanesConfigurados();
+}
+
+function renderizarResumenPlanesConfigurados() {
+    const container = document.getElementById('planesConfiguradosResumen');
+    if (!container) return;
+
+    if (estado.planes.length === 0) {
+        container.innerHTML = '<p style="grid-column:1/-1;margin:0;color:var(--color-gray);font-size:13px;">Aún no has agregado planes.</p>';
+        return;
+    }
+
+    container.innerHTML = estado.planes.map(plan => {
+        const subgrupo = estado.subgrupos.find(item => item.id === plan.subgrupoId);
+        const coberturas = (subgrupo?.coberturas || [])
+            .map(codigo => coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)?.nombre || codigo);
+        return `
+            <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#f8fbff;">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+                    <strong>${plan.nombre}</strong>
+                    <button class="btn btn-secondary btn-small" type="button" onclick="abrirModalEditarPlan('${plan.id}')">Editar plan</button>
+                </div>
+                <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--color-gray);">${coberturas.join(' · ')}</p>
+            </article>`;
+    }).join('');
+}
+
+function buscarCoberturaPorReferencia(referencia) {
+    const referenciaNormalizada = normalizarTexto(referencia);
+    if (referenciaNormalizada === 'vida') {
+        return coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
+    }
+    return coberturasDisponibles.find(cobertura =>
+        normalizarTexto(cobertura.amparoResumido) === referenciaNormalizada
+        || normalizarTexto(cobertura.nombre) === referenciaNormalizada
+    );
+}
+
+function aplicarPlanSugerido(sugeridoId) {
+    const sugerencia = PLANES_SUGERIDOS[sugeridoId - 1];
+    if (!sugerencia) return;
+
+    const coberturas = sugerencia.coberturas.map(buscarCoberturaPorReferencia);
+    if (coberturas.some(cobertura => !cobertura)) {
+        mostrarToast('Una o más coberturas del plan no están disponibles en el Core GW.', 'warning');
+        return;
+    }
+
+    crearPlanConCoberturas(sugerencia.nombre, coberturas);
+}
+
+function siguienteNombrePlan() {
+    let numero = estado.planes.length;
+    let letras = '';
+    do {
+        letras = String.fromCharCode(65 + (numero % 26)) + letras;
+        numero = Math.floor(numero / 26) - 1;
+    } while (numero >= 0);
+    return `Plan ${letras}`;
+}
+
+function crearPlanConCoberturas(nombre, coberturas) {
+    const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
+    if (vida && !coberturas.some(cobertura => cobertura.codigo === 'WET')) {
+        coberturas = [vida, ...coberturas];
+    }
+    const codigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+
+    coberturas.forEach(cobertura => {
+        if (!estado.coberturasCatalogo.some(item => item.codigo === cobertura.codigo)) {
+            estado.coberturasCatalogo.push({ ...cobertura, tasaBase: TASA_BASE_SISTEMA, obligatoria: cobertura.codigo === 'WET' });
+        }
+    });
+
+    const subgrupoId = generarIdSubgrupo(codigos);
+    if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoId)) {
+        estado.subgrupos.push({ id: subgrupoId, nombre: `Grupo ${estado.subgrupos.length + 1}`, coberturas: codigos, asegurados: [] });
+    }
+
+    const nombrePlan = siguienteNombrePlan();
+    estado.planes.push({
+        id: generarUUID(), subgrupoId, nombre: nombrePlan,
+        valoresCobertura: Object.fromEntries(codigos.map(codigo => [codigo, 0])),
+        asegurados: [], primaTotal: 0
+    });
+
+    guardarEstado();
+    renderizarTablaCoberturas();
+    renderizarPlanesSubgrupoTabs();
+    mostrarToast(`${nombrePlan} creado. Define valores asegurados y asigna asegurados en Planes.`, 'success');
+}
+
+function abrirModalCrearPlan() {
+    const modal = document.getElementById('modalCrearPlan');
+    const nombre = document.getElementById('nombrePlanManual');
+    const contenedor = document.getElementById('coberturasPlanManual');
+    if (!modal || !nombre || !contenedor) return;
+
+    planEditandoId = null;
+    nombre.value = siguienteNombrePlan();
+    contenedor.innerHTML = coberturasDisponibles.map(cobertura => {
+        const esVida = cobertura.codigo === 'WET';
+        return `<label class="cobertura-check-item${esVida ? ' obligatoria-lock' : ''}">
+            <input type="checkbox" value="${cobertura.codigo}" ${esVida ? 'checked disabled' : ''}>
+            <span>${cobertura.nombre}</span>
+        </label>`;
+    }).join('');
+    modal.style.display = 'flex';
+}
+
+function cerrarModalCrearPlan() {
+    const modal = document.getElementById('modalCrearPlan');
+    if (modal) modal.style.display = 'none';
+}
+
+function crearPlanManual() {
+    const nombre = (document.getElementById('nombrePlanManual')?.value || '').trim();
+    const codigos = Array.from(document.querySelectorAll('#coberturasPlanManual input:checked'))
+        .map(checkbox => checkbox.value);
+    const coberturas = codigos.map(codigo => coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)).filter(Boolean);
+    if (!nombre) {
+        mostrarToast('Ingresa el nombre del plan.', 'warning');
+        return;
+    }
+    if (coberturas.length === 0) {
+        mostrarToast('Selecciona al menos una cobertura.', 'warning');
+        return;
+    }
+    crearPlanConCoberturas(nombre, coberturas);
+    cerrarModalCrearPlan();
+}
+
+function abrirModalEditarPlan(planId) {
+    const plan = estado.planes.find(item => item.id === planId);
+    const modal = document.getElementById('modalEditarPlan');
+    const nombre = document.getElementById('nombrePlanEdicion');
+    const contenedor = document.getElementById('coberturasPlanEdicion');
+    if (!plan || !modal || !nombre || !contenedor) return;
+
+    planEditandoId = planId;
+    nombre.value = plan.nombre;
+    contenedor.innerHTML = coberturasDisponibles.map(cobertura => {
+        const esVida = cobertura.codigo === 'WET';
+        const seleccionada = esVida || estado.subgrupos
+            .find(subgrupo => subgrupo.id === plan.subgrupoId)?.coberturas.includes(cobertura.codigo);
+        return `<label class="cobertura-check-item${esVida ? ' obligatoria-lock' : ''}">
+            <input type="checkbox" value="${cobertura.codigo}" ${seleccionada ? 'checked' : ''} ${esVida ? 'disabled' : ''}>
+            <span>${cobertura.nombre}</span>
+        </label>`;
+    }).join('');
+    modal.style.display = 'flex';
+}
+
+function cerrarModalEditarPlan() {
+    const modal = document.getElementById('modalEditarPlan');
+    if (modal) modal.style.display = 'none';
+    planEditandoId = null;
+}
+
+function guardarEdicionPlan() {
+    const plan = estado.planes.find(item => item.id === planEditandoId);
+    const nombre = (document.getElementById('nombrePlanEdicion')?.value || '').trim();
+    const codigos = Array.from(document.querySelectorAll('#coberturasPlanEdicion input:checked'))
+        .map(checkbox => checkbox.value);
+    const coberturas = codigos.map(codigo => coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)).filter(Boolean);
+    if (!plan || !nombre || coberturas.length === 0) {
+        mostrarToast('Indica el nombre y selecciona al menos una cobertura.', 'warning');
+        return;
+    }
+
+    const nuevosCodigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+    const nuevoSubgrupoId = generarIdSubgrupo(nuevosCodigos);
+    if (!estado.subgrupos.some(subgrupo => subgrupo.id === nuevoSubgrupoId)) {
+        estado.subgrupos.push({ id: nuevoSubgrupoId, nombre: `Grupo ${estado.subgrupos.length + 1}`, coberturas: nuevosCodigos, asegurados: [] });
+    }
+    coberturas.forEach(cobertura => {
+        if (!estado.coberturasCatalogo.some(item => item.codigo === cobertura.codigo)) {
+            estado.coberturasCatalogo.push({ ...cobertura, tasaBase: TASA_BASE_SISTEMA, obligatoria: cobertura.codigo === 'WET' });
+        }
+    });
+
+    const valoresActualizados = Object.fromEntries(nuevosCodigos.map(codigo => [codigo, plan.valoresCobertura?.[codigo] || 0]));
+    plan.nombre = nombre;
+    plan.subgrupoId = nuevoSubgrupoId;
+    plan.valoresCobertura = valoresActualizados;
+    plan.asegurados.forEach(aseguradoId => {
+        const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
+        if (!asegurado) return;
+        asegurado.subgrupoId = nuevoSubgrupoId;
+        asegurado.coberturas = (asegurado.coberturas || []).filter(cobertura => nuevosCodigos.includes(cobertura.codigo));
+        coberturas.forEach(cobertura => {
+            if (!asegurado.coberturas.some(item => item.codigo === cobertura.codigo)) {
+                asegurado.coberturas.push({ codigo: cobertura.codigo, codigoAmparo: cobertura.codigoAmparo, nombre: cobertura.nombre, activa: true, valorAsegurado: 0, tasa: TASA_BASE_SISTEMA, prima: 0 });
+            }
+        });
+    });
+
+    recalcularPrimaPlan(plan);
+    guardarEstado();
+    cerrarModalEditarPlan();
+    subgrupoActivoEnPlanes = nuevoSubgrupoId;
+    renderizarTablaCoberturas();
+    renderizarPlanesSubgrupoTabs();
+    renderizarTablaCalculos();
+    mostrarToast('Plan actualizado.', 'success');
 }
 
 function obtenerTasaPorEdad(cobertura, edad) {
@@ -939,7 +1213,7 @@ function renderizarAmparosDisponibles() {
         return !codigosConfigurados.has(cobertura.codigo) && normalizarTexto(textoAmparo).includes(busqueda);
     });
     selector.innerHTML = '<option value="">Selecciona un amparo...</option>' + disponibles
-        .map(cobertura => `<option value="${cobertura.codigo}">${cobertura.codigo} · ${cobertura.nombre} · Cód. ${cobertura.codigoAmparo}</option>`)
+        .map(cobertura => `<option value="${cobertura.codigo}">${cobertura.nombre}</option>`)
         .join('');
     selector.disabled = disponibles.length === 0;
 }
@@ -1134,10 +1408,10 @@ function setupEventListeners() {
 
     // Botones de acción generales
     // Navegación por botones de siguiente en cada paso
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => irAlPaso(i + 1));
     }
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         document.getElementById(`btnAtras${i}`)?.addEventListener('click', () => irAlPaso(i));
     }
 
@@ -1294,21 +1568,51 @@ async function cargarCatalogoCoberturas() {
         if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
 
         const amparos = await respuesta.json();
-        coberturasDisponibles = amparos.map(amparo => ({
+        const catalogoCompleto = amparos.map(amparo => ({
             codigo: amparo.Codigo_Amparo_Op,
             codigoAmparo: amparo.Codigo_Amparo,
             nombre: amparo.Amparo_Detallado,
             tasaBase: TASA_BASE_SISTEMA,
-            obligatoria: amparo.Codigo_Amparo_Op === 'VID'
+            obligatoria: amparo.Codigo_Amparo_Op === 'WET'
         }));
+
+        const codigosAmparo = catalogoCompleto
+            .map(cobertura => String(cobertura.codigoAmparo).replace(/\.0$/, ''))
+            .join(',');
+        const filasApi = await consultarTasasEnApi(codigosAmparo);
+        const resumenesCoreGW = new Map();
+        filasApi
+            .filter(fila => String(fila.Core ?? '').trim().toUpperCase() === 'GW')
+            .forEach(fila => {
+                const codigo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
+                if (!resumenesCoreGW.has(codigo)) {
+                    resumenesCoreGW.set(codigo, fila.Amparo_Resumido ?? '');
+                }
+            });
+        coberturasDisponibles = catalogoCompleto
+            .filter(cobertura => resumenesCoreGW.has(String(cobertura.codigoAmparo).replace(/\.0$/, '')))
+            .map(cobertura => ({
+                ...cobertura,
+                amparoResumido: resumenesCoreGW.get(String(cobertura.codigoAmparo).replace(/\.0$/, ''))
+            }));
+
+        if (coberturasDisponibles.length === 0) {
+            throw new Error('La API no devolvió amparos pertenecientes al Core GW.');
+        }
 
         if (estado.asegurados.length === 0) {
             estado.coberturasCatalogo = crearCatalogoInicial();
+        } else {
+            sincronizarVidaObligatoria();
         }
         renderizarTablaCoberturas();
+        console.info(`Catálogo Core GW cargado: ${coberturasDisponibles.length} amparos.`);
     } catch (error) {
         console.warn('No se pudo cargar CoberturasVG.json:', error);
-        mostrarToast('No se pudo cargar el catálogo de amparos; se usará Vida como valor inicial.', 'warning');
+        coberturasDisponibles = [];
+        if (estado.asegurados.length === 0) estado.coberturasCatalogo = [];
+        renderizarTablaCoberturas();
+        mostrarToast('No fue posible cargar los amparos del Core GW.', 'warning');
     }
 }
 
@@ -2522,6 +2826,7 @@ function renderizarPlanesWorkspace(subgrupoId) {
                 <td style="text-align:center;">${numAseg}</td>
                 <td class="plan-prima-cell">${prima}</td>
                 <td>
+                    <button class="btn btn-small btn-secondary" onclick="abrirModalEditarPlan('${plan.id}')">Editar</button>
                     <button class="btn btn-small btn-secondary" onclick="abrirAsignadorPlan('${plan.id}')">Asignar</button>
                     <button class="btn btn-small btn-danger" onclick="eliminarPlan('${plan.id}')">Eliminar</button>
                 </td>
@@ -2542,8 +2847,6 @@ function agregarPlanAlSubgrupo() {
     const subgrupo = estado.subgrupos.find(sg => sg.id === subgrupoActivoEnPlanes);
     if (!subgrupo) return;
 
-    const numPlanes = estado.planes.filter(p => p.subgrupoId === subgrupoActivoEnPlanes).length + 1;
-
     // Valores por defecto (0)
     const valoresCobertura = {};
     subgrupo.coberturas.forEach(cod => { valoresCobertura[cod] = 0; });
@@ -2551,7 +2854,7 @@ function agregarPlanAlSubgrupo() {
     const plan = {
         id: generarUUID(),
         subgrupoId: subgrupoActivoEnPlanes,
-        nombre: `Plan ${numPlanes}`,
+        nombre: siguienteNombrePlan(),
         valoresCobertura,
         asegurados: [],
         primaTotal: 0
@@ -2841,18 +3144,18 @@ function pasosNavegacion() {
     });
 
     // Actualizar barra de progreso
-    const progreso = ((pasoActual - 1) / 5) * 100;
+    const progreso = ((pasoActual - 1) / 6) * 100;
     const progressFill = document.querySelector('.progress-fill');
     if (progressFill) {
         progressFill.style.width = progreso + '%';
     }
 
     // Mostrar/ocultar botones de navegación apropiados
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         const btnSiguiente = document.getElementById(`btnSiguiente${i}`);
         if (btnSiguiente) btnSiguiente.style.display = pasoActual === i ? 'inline-block' : 'none';
     }
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         const btnAtras = document.getElementById(`btnAtras${i}`);
         if (btnAtras) btnAtras.style.display = pasoActual === i + 1 ? 'inline-block' : 'none';
     }
@@ -2875,8 +3178,77 @@ function mostrarSeccionAsegurados() {
     // barraAsignacionMasiva permanece controlada por su propia lógica (solo si hay subgrupos)
 }
 
+function renderizarAsignacionPlanes() {
+    const cuerpoRangos = document.getElementById('tbody-rangos-planes');
+    const cuerpoAsignacion = document.getElementById('tbody-asignacion-planes');
+    if (!cuerpoRangos || !cuerpoAsignacion) return;
+
+    if (estado.planes.length === 0) {
+        cuerpoRangos.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
+        cuerpoAsignacion.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        return;
+    }
+
+    cuerpoRangos.innerHTML = estado.planes.map(plan => `
+        <tr>
+            <td>${plan.nombre}</td>
+            <td><input type="number" min="0" step="1000000" value="${plan.valorDesde ?? ''}" placeholder="Sin mínimo" onchange="actualizarRangoPlan('${plan.id}', 'desde', this.value)"></td>
+            <td><input type="number" min="0" step="1000000" value="${plan.valorHasta ?? ''}" placeholder="Sin máximo" onchange="actualizarRangoPlan('${plan.id}', 'hasta', this.value)"></td>
+        </tr>`).join('');
+
+    const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${plan.nombre}</option>`).join('');
+    cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
+        <tr>
+            <td>${asegurado.numeroDocumento || '—'}</td>
+            <td>${asegurado.nombreCompleto || '—'}</td>
+            <td>${formatearDinero(obtenerValorAseguradoBase(asegurado))}</td>
+            <td><select onchange="asignarPlanAAsegurado('${asegurado.id}', this.value)"><option value="">Sin asignar</option>${opcionesPlanes}</select></td>
+        </tr>`).join('');
+    estado.asegurados.forEach(asegurado => {
+        const selector = cuerpoAsignacion.querySelector(`select[onchange*="'${asegurado.id}'"]`);
+        if (selector) selector.value = asegurado.planId || '';
+    });
+}
+
+function actualizarRangoPlan(planId, limite, valor) {
+    const plan = estado.planes.find(item => item.id === planId);
+    if (!plan) return;
+    plan[limite === 'desde' ? 'valorDesde' : 'valorHasta'] = valor === '' ? null : Number(valor);
+    guardarEstado();
+}
+
+function asignarPlanAAsegurado(aseguradoId, planId) {
+    const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
+    if (!asegurado) return;
+    estado.planes.forEach(plan => { plan.asegurados = (plan.asegurados || []).filter(id => id !== aseguradoId); });
+    asegurado.planId = planId || null;
+    const plan = estado.planes.find(item => item.id === planId);
+    if (plan) {
+        plan.asegurados = [...new Set([...(plan.asegurados || []), aseguradoId])];
+        asegurado.subgrupoId = plan.subgrupoId;
+    }
+    guardarEstado();
+    renderizarAsignacionPlanes();
+}
+
+function asignarPlanesPorRango() {
+    let asignados = 0;
+    estado.asegurados.forEach(asegurado => {
+        const valor = obtenerValorAseguradoBase(asegurado);
+        const plan = estado.planes.find(item =>
+            (item.valorDesde === null || item.valorDesde === undefined || valor >= item.valorDesde)
+            && (item.valorHasta === null || item.valorHasta === undefined || valor <= item.valorHasta)
+        );
+        if (plan) {
+            asignarPlanAAsegurado(asegurado.id, plan.id);
+            asignados++;
+        }
+    });
+    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.`, 'success');
+}
+
 function irAlPaso(numero) {
-    if (numero < 1 || numero > 6) return;
+    if (numero < 1 || numero > 7) return;
 
     pasoActual = numero;
     pasosNavegacion();
@@ -2891,10 +3263,12 @@ function irAlPaso(numero) {
             mostrarSeccionAsegurados();
         }
     } else if (numero === 4) {
-        renderizarTablaCalculos();
+        renderizarAsignacionPlanes();
     } else if (numero === 5) {
-        renderizarPlanesSubgrupoTabs();
+        renderizarTablaCalculos();
     } else if (numero === 6) {
+        renderizarPlanesSubgrupoTabs();
+    } else if (numero === 7) {
         renderizarDashboard();
     }
 
@@ -2940,7 +3314,7 @@ function parsearValorAsegurado(valor) {
 
 function obtenerValorAseguradoBase(asegurado) {
     const coberturaVida = asegurado.coberturas?.find(cobertura =>
-        cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
+        cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
     );
     return coberturaVida?.valorAsegurado || 0;
 }
@@ -2960,7 +3334,7 @@ function generarCoberturasPorDefecto(valorVida = 0) {
     return estado.coberturasCatalogo.map(c => {
         let va = 0;
         if (valorVida > 0) {
-            if (c.codigo === 'VID') va = valorVida;
+            if (c.codigo === 'WET' || c.codigo === 'VID') va = valorVida;
             else if (c.obligatoria) va = valorVida;
             // otras coberturas: por defecto 0 (el asesor las configurará)
         }
