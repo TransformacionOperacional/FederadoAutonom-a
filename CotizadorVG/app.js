@@ -13,6 +13,7 @@ const CONFIG = {
     OCUPACIONES: ['Ejecutivo', 'Administrativo', 'Operario', 'Independiente', 'Docente', 'Médico'],
     GENERO: ['Masculino', 'Femenino'],
     TIPO_DOCUMENTO: ['Cédula', 'Pasaporte', 'Cédula Extranjería', 'NIT'],
+    TIPO_ASEGURADO: ['Empleado', 'Conyugue', 'Hijos', 'Hijastros', 'Hermanos', 'Sobrinos', 'Nietos', 'Padres', 'Padrastos'],
     CANAL_COMERCIAL: ['Directo', 'Broker', 'Corredor', 'Digital'],
     FACTORES_EDAD: {
         '18-25': 0.95,
@@ -1237,6 +1238,7 @@ function renderizarTablaAsegurados() {
         fila.innerHTML = `
             <td>${asegurado.numeroDocumento}</td>
             <td>${asegurado.nombreCompleto}</td>
+            <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${asegurado.edad}</td>
             <td>${valorAseguradoTexto}</td>
             <td>
@@ -2304,10 +2306,18 @@ function importarExcel(evento) {
                 if (!fila || fila.every(c => c === '' || c === null || c === undefined)) continue;
 
                 const documento = String(fila[0] ?? '').trim();
-                const edadRaw = fila[1];
-                const valorAseguradoRaw = fila[2];
+                const tipoAseguradoRaw = String(fila[1] ?? '').trim();
+                const edadRaw = fila[2];
+                const valorAseguradoRaw = fila[3];
 
                 if (!documento) { errores.push(`Fila ${i + 1}: documento vacío`); continue; }
+
+                const tipoAsegurado = CONFIG.TIPO_ASEGURADO.find(tipo =>
+                    tipo.toLowerCase() === tipoAseguradoRaw.toLowerCase()
+                );
+                if (!tipoAsegurado) {
+                    errores.push(`Fila ${i + 1}: Tipo_Asegurado inválido (${tipoAseguradoRaw || 'vacío'})`); continue;
+                }
 
                 const edad = parseInt(edadRaw);
                 if (isNaN(edad) || edad < 18 || edad > 100) {
@@ -2326,6 +2336,7 @@ function importarExcel(evento) {
                     id: generarUUID(),
                     tipoDocumento: 'Cédula',
                     numeroDocumento: documento,
+                    tipoAsegurado,
                     nombreCompleto: `Asegurado ${documento}`,
                     edad,
                     sexo: 'Masculino',
@@ -2364,32 +2375,60 @@ function importarExcel(evento) {
     lector.readAsArrayBuffer(archivo);
 }
 
-function descargarPlantillaExcel() {
-    if (typeof XLSX === 'undefined') {
-        mostrarToast('La librería Excel no está disponible', 'error');
+async function descargarPlantillaExcel() {
+    if (typeof ExcelJS === 'undefined') {
+        mostrarToast('La librería Excel no está disponible. Verifica tu conexión.', 'error');
         return;
     }
 
     // Datos de la plantilla: encabezados + filas de ejemplo
     const datos = [
-        ['Numero_Documento', 'Edad', 'Valor_Asegurado_COP'],
-        ['1012345678', 28, 67000000],
-        ['1023456789', 35, 132000000],
-        ['1034567890', 42, 36000000],
-        ['1045678901', 31, 216000000],
-        ['1056789012', 25, 48000000]
+        ['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP'],
+        ['1012345678', 'Empleado', 28, 67000000],
+        ['1023456789', 'Conyugue', 35, 132000000],
+        ['1034567890', 'Hijos', 42, 36000000],
+        ['1045678901', 'Padres', 31, 216000000],
+        ['1056789012', 'Padrastos', 25, 48000000]
     ];
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(datos);
+    const libro = new ExcelJS.Workbook();
+    const hoja = libro.addWorksheet('Asegurados');
+    hoja.addRows(datos);
 
-    // Ancho de columnas
-    ws['!cols'] = [{ wch: 22 }, { wch: 8 }, { wch: 22 }];
+    hoja.columns = [
+        { width: 22 },
+        { width: 20 },
+        { width: 8 },
+        { width: 22 }
+    ];
+    hoja.getColumn(1).numFmt = '@';
+    hoja.getRow(1).font = { bold: true };
+    hoja.getRow(1).alignment = { horizontal: 'center' };
 
-    // Estilo de encabezado (solo compatible con xlsx-style, pero la estructura queda)
-    XLSX.utils.book_append_sheet(wb, ws, 'Asegurados');
+    const opcionesTipoAsegurado = `"${CONFIG.TIPO_ASEGURADO.join(',')}"`;
+    hoja.getCell('B2').dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: [opcionesTipoAsegurado],
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: 'Tipo de asegurado inválido',
+        error: 'Selecciona un valor de la lista.',
+        promptTitle: 'Tipo_Asegurado',
+        prompt: 'Selecciona el tipo de asegurado.'
+    };
+    for (let fila = 3; fila <= 1000; fila++) {
+        hoja.getCell(`B${fila}`).dataValidation = { ...hoja.getCell('B2').dataValidation };
+    }
 
-    XLSX.writeFile(wb, 'Plantilla_Asegurados_VidaGrupo.xlsx');
+    const contenido = await libro.xlsx.writeBuffer();
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(new Blob([contenido], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }));
+    enlace.download = 'Plantilla_Asegurados_VidaGrupo.xlsx';
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
     mostrarToast('Plantilla descargada correctamente', 'success');
 }
 
@@ -3186,7 +3225,7 @@ function renderizarAsignacionPlanes() {
 
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
-        cuerpoAsignacion.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        cuerpoAsignacion.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         return;
     }
 
@@ -3202,6 +3241,8 @@ function renderizarAsignacionPlanes() {
         <tr>
             <td>${asegurado.numeroDocumento || '—'}</td>
             <td>${asegurado.nombreCompleto || '—'}</td>
+            <td>${asegurado.edad ?? '—'}</td>
+            <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${formatearDinero(obtenerValorAseguradoBase(asegurado))}</td>
             <td><select onchange="asignarPlanAAsegurado('${asegurado.id}', this.value)"><option value="">Sin asignar</option>${opcionesPlanes}</select></td>
         </tr>`).join('');

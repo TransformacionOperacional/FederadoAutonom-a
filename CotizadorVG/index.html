@@ -65,7 +65,7 @@
             <div class="card-opcion card-opcion-cotizacion" onclick="seleccionarSubtipo('cotizacion')">
                 <div class="card-opcion-icono">&#128196;</div>
                 <h2 class="card-opcion-titulo">Cotización con datos reales</h2>
-                <p class="card-opcion-desc">Cargarás un archivo Excel con la base de asegurados: documento, edad y valor asegurado.</p>
+                        <p class="card-opcion-desc">Cargarás un archivo Excel con la base de asegurados: documento, tipo de asegurado, edad y valor asegurado.</p>
                 <span class="card-opcion-cta">Cargar Excel &rarr;</span>
             </div>
         </div>
@@ -363,11 +363,12 @@
                     <div class="excel-upload-area">
                         <div class="excel-icon">&#128196;</div>
                         <h4>Archivo Excel (.xlsx)</h4>
-                        <p>El archivo debe contener exactamente 3 columnas:</p>
+                        <p>El archivo debe contener exactamente 4 columnas:</p>
                         <ul class="excel-columnas">
                             <li><strong>Columna A:</strong> Documento del cliente</li>
-                            <li><strong>Columna B:</strong> Edad</li>
-                            <li><strong>Columna C:</strong> Valor asegurado (COP)</li>
+                            <li><strong>Columna B:</strong> Tipo de asegurado</li>
+                            <li><strong>Columna C:</strong> Edad</li>
+                            <li><strong>Columna D:</strong> Valor asegurado (COP)</li>
                         </ul>
                         <input type="file" id="fileExcel" accept=".xlsx,.xls" style="display:none;" onchange="importarExcel(event)">
                         <div class="excel-acciones">
@@ -395,6 +396,7 @@
                             <tr>
                                 <th>Documento</th>
                                 <th>Nombre</th>
+                                <th>Tipo de asegurado</th>
                                 <th>Edad</th>
                                 <th>Valor asegurado</th>
                                 <th>Acciones</th>
@@ -426,7 +428,7 @@
                 <h3 style="font-size:16px;margin:0 0 10px;">Asignación manual</h3>
                 <div style="overflow-x:auto;">
                     <table class="table-editable">
-                        <thead><tr><th>Documento</th><th>Nombre</th><th>Valor asegurado</th><th>Plan</th></tr></thead>
+                        <thead><tr><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Valor asegurado</th><th>Plan</th></tr></thead>
                         <tbody id="tbody-asignacion-planes"></tbody>
                     </table>
                 </div>
@@ -758,6 +760,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
