@@ -122,6 +122,7 @@ let estado = {
     coberturasCatalogo: crearCatalogoInicial(),
     tasasPorCoberturaEdad: {},
     porcentajesFactorPorCoberturaEdad: {},
+    edadesMaximasPorCobertura: {},
     asegurados: [],
     subgrupos: [],   // estructura explícita: { id, nombre, coberturas[], asegurados[] }
     planes: [],      // estructura: { id, subgrupoId, nombre, valoresCobertura{}, asegurados[], primaTotal }
@@ -168,6 +169,7 @@ function cargarEstado() {
         
         if (estadoGuardado) {
             estado = JSON.parse(estadoGuardado);
+            estado.edadesMaximasPorCobertura = estado.edadesMaximasPorCobertura || {};
         }
         
         if (pasoGuardado) {
@@ -208,6 +210,7 @@ function limpiarEstado() {
             coberturasCatalogo: crearCatalogoInicial(),
             tasasPorCoberturaEdad: {},
             porcentajesFactorPorCoberturaEdad: {},
+            edadesMaximasPorCobertura: {},
             asegurados: [],
             subgrupos: [],
             planes: [],
@@ -380,26 +383,39 @@ async function consultarTasasCoberturas() {
         throw new Error('La API no devolvió tasas para amparos del Core GW.');
     }
 
+    actualizarDatosTasasDesdeFilas(filasCoreGW);
+
+    guardarEstado();
+    renderizarTablaCalculos();
+    renderizarAsignacionPlanes();
+    console.info('Tasas y edades máximas Core GW actualizadas:', estado.tasasPorCoberturaEdad, estado.edadesMaximasPorCobertura);
+}
+
+function actualizarDatosTasasDesdeFilas(filas) {
     const tasasPorCoberturaEdad = {};
     const porcentajesFactorPorCoberturaEdad = {};
-    filasCoreGW.forEach(fila => {
+    const edadesMaximasPorCobertura = {};
+
+    filas.forEach(fila => {
         const codigoAmparo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
         const edad = Number(fila.Edad);
         const tasa = Number(fila['Tasa -20%']);
         const porcentajeFactor = Number(fila.Porcentaje_Factor);
+        const edadMaxima = Number(fila.Edad_Maxima ?? fila['Edad Maxima'] ?? fila['Edad Máxima']);
         if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(tasa)) {
             tasasPorCoberturaEdad[`${codigoAmparo}-${edad}`] = tasa;
         }
         if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(porcentajeFactor)) {
             porcentajesFactorPorCoberturaEdad[`${codigoAmparo}-${edad}`] = porcentajeFactor;
         }
+        if (codigoAmparo && Number.isFinite(edadMaxima)) {
+            edadesMaximasPorCobertura[codigoAmparo] = Math.min(edadesMaximasPorCobertura[codigoAmparo] ?? edadMaxima, edadMaxima);
+        }
     });
+
     estado.tasasPorCoberturaEdad = tasasPorCoberturaEdad;
     estado.porcentajesFactorPorCoberturaEdad = porcentajesFactorPorCoberturaEdad;
-
-    guardarEstado();
-    renderizarTablaCalculos();
-    console.info('Tasas Core GW por edad actualizadas:', estado.tasasPorCoberturaEdad);
+    estado.edadesMaximasPorCobertura = edadesMaximasPorCobertura;
 }
 
 async function consultarTasasEnApi(codigosAmparo) {
@@ -1583,10 +1599,10 @@ async function cargarCatalogoCoberturas() {
             .map(cobertura => String(cobertura.codigoAmparo).replace(/\.0$/, ''))
             .join(',');
         const filasApi = await consultarTasasEnApi(codigosAmparo);
+        const filasCoreGW = filasApi.filter(fila => String(fila.Core ?? '').trim().toUpperCase() === 'GW');
+        actualizarDatosTasasDesdeFilas(filasCoreGW);
         const resumenesCoreGW = new Map();
-        filasApi
-            .filter(fila => String(fila.Core ?? '').trim().toUpperCase() === 'GW')
-            .forEach(fila => {
+        filasCoreGW.forEach(fila => {
                 const codigo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
                 if (!resumenesCoreGW.has(codigo)) {
                     resumenesCoreGW.set(codigo, fila.Amparo_Resumido ?? '');
@@ -1609,6 +1625,8 @@ async function cargarCatalogoCoberturas() {
             sincronizarVidaObligatoria();
         }
         renderizarTablaCoberturas();
+        renderizarAsignacionPlanes();
+        guardarEstado();
         console.info(`Catálogo Core GW cargado: ${coberturasDisponibles.length} amparos.`);
     } catch (error) {
         console.warn('No se pudo cargar CoberturasVG.json:', error);
@@ -2935,8 +2953,11 @@ function recalcularPrimaPlan(plan) {
         // Actualizar coberturas del asegurado con los valores del plan
         subgrupo.coberturas.forEach(cod => {
             const cob = asegurado.coberturas.find(c => c.codigo === cod);
+            const valorConfiguradoPlan = Number(plan.valoresCobertura?.[cod]);
             if (cob) {
-                cob.valorAsegurado = plan.valoresCobertura[cod] || 0;
+                if (Number.isFinite(valorConfiguradoPlan) && valorConfiguradoPlan > 0) {
+                    cob.valorAsegurado = valorConfiguradoPlan;
+                }
                 cob.activa = true;
             }
         });
@@ -3224,7 +3245,7 @@ function renderizarAsignacionPlanes() {
     if (!cuerpoRangos || !cuerpoAsignacion) return;
 
     if (estado.planes.length === 0) {
-        cuerpoRangos.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
+        cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
         cuerpoAsignacion.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         return;
     }
@@ -3232,8 +3253,10 @@ function renderizarAsignacionPlanes() {
     cuerpoRangos.innerHTML = estado.planes.map(plan => `
         <tr>
             <td>${plan.nombre}</td>
-            <td><input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="desde" value="${formatearValorMonetario(plan.valorDesde)}" placeholder="$ 0" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'desde', this.value, this)"></td>
-            <td><input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="hasta" value="${formatearValorMonetario(plan.valorHasta)}" placeholder="Sin máximo" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'hasta', this.value, this)"></td>
+            <td>${formatearCoberturasPlan(plan)}</td>
+            <td>${plan.generadoPorEdad ? formatearValorMonetario(plan.valorDesde) || 'Sin mínimo' : `<input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="desde" value="${formatearValorMonetario(plan.valorDesde)}" placeholder="$ 0" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'desde', this.value, this)">`}</td>
+            <td>${plan.generadoPorEdad ? formatearValorMonetario(plan.valorHasta) || 'Sin máximo' : `<input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="hasta" value="${formatearValorMonetario(plan.valorHasta)}" placeholder="Sin máximo" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'hasta', this.value, this)">`}</td>
+            <td>${formatearEdadMaximaPlan(plan)}</td>
         </tr>`).join('');
 
     const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${plan.nombre}</option>`).join('');
@@ -3305,6 +3328,7 @@ function revisarRangosEnFormulario(campoActivo = null) {
 
 function validarRangosPlanes() {
     const rangos = estado.planes
+        .filter(plan => !plan.generadoPorEdad)
         .filter(plan => plan.valorDesde !== null && plan.valorDesde !== undefined && plan.valorHasta !== null && plan.valorHasta !== undefined)
         .map(plan => ({ nombre: plan.nombre, desde: plan.valorDesde, hasta: plan.valorHasta }))
         .sort((a, b) => a.desde - b.desde);
@@ -3359,15 +3383,94 @@ function actualizarRangoPlan(planId, limite, valor, campo) {
 function asignarPlanAAsegurado(aseguradoId, planId) {
     const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
     if (!asegurado) return;
-    estado.planes.forEach(plan => { plan.asegurados = (plan.asegurados || []).filter(id => id !== aseguradoId); });
-    asegurado.planId = planId || null;
     const plan = estado.planes.find(item => item.id === planId);
+    if (plan) {
+        const edadMaxima = obtenerEdadMaximaPlan(plan);
+        if (edadMaxima !== null && Number(asegurado.edad) > edadMaxima) {
+            mostrarToast(`${asegurado.nombreCompleto || 'El asegurado'} supera la edad máxima de ${edadMaxima} años para ${plan.nombre}.`, 'warning');
+            renderizarAsignacionPlanes();
+            return;
+        }
+    }
+    estado.planes.forEach(item => { item.asegurados = (item.asegurados || []).filter(id => id !== aseguradoId); });
+    asegurado.planId = planId || null;
     if (plan) {
         plan.asegurados = [...new Set([...(plan.asegurados || []), aseguradoId])];
         asegurado.subgrupoId = plan.subgrupoId;
     }
     guardarEstado();
     renderizarAsignacionPlanes();
+}
+
+function obtenerCoberturasPlan(plan) {
+    const subgrupo = estado.subgrupos.find(item => item.id === plan.subgrupoId);
+    return (subgrupo?.coberturas || []).map(codigo =>
+        coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)
+        || estado.coberturasCatalogo.find(cobertura => cobertura.codigo === codigo)
+    ).filter(Boolean);
+}
+
+function formatearCoberturasPlan(plan) {
+    const coberturas = obtenerCoberturasPlan(plan);
+    return coberturas.length > 0
+        ? coberturas.map(cobertura => cobertura.nombre || cobertura.codigo).join(', ')
+        : 'Sin coberturas';
+}
+
+function obtenerEdadMaximaCobertura(cobertura) {
+    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
+    const edadMaxima = estado.edadesMaximasPorCobertura?.[codigoAmparo];
+    return Number.isFinite(edadMaxima) ? edadMaxima : null;
+}
+
+function obtenerEdadMaximaPlan(plan) {
+    const edadesMaximas = obtenerCoberturasPlan(plan)
+        .map(obtenerEdadMaximaCobertura)
+        .filter(edad => edad !== null);
+    return edadesMaximas.length > 0 ? Math.min(...edadesMaximas) : null;
+}
+
+function formatearEdadMaximaPlan(plan) {
+    const edadMaxima = obtenerEdadMaximaPlan(plan);
+    return edadMaxima === null ? 'Sin información' : `${edadMaxima} años`;
+}
+
+function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
+    const codigos = coberturasElegibles.map(cobertura => cobertura.codigo).sort();
+    const subgrupoId = generarIdSubgrupo(codigos);
+    if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoId)) {
+        estado.subgrupos.push({ id: subgrupoId, nombre: `Grupo ${estado.subgrupos.length + 1}`, coberturas: codigos, asegurados: [] });
+    }
+
+    const plan = {
+        id: generarUUID(),
+        subgrupoId,
+        nombre: `${planBase.nombre} — coberturas por edad`,
+        generadoPorEdad: true,
+        valorDesde: planBase.valorDesde,
+        valorHasta: planBase.valorHasta,
+        valoresCobertura: Object.fromEntries(codigos.map(codigo => [codigo, planBase.valoresCobertura?.[codigo] || 0])),
+        asegurados: [],
+        primaTotal: 0
+    };
+    estado.planes.push(plan);
+    return plan;
+}
+
+function asignarAseguradoAPlanElegible(asegurado, plan) {
+    estado.planes.forEach(item => { item.asegurados = (item.asegurados || []).filter(id => id !== asegurado.id); });
+    asegurado.planId = plan.id;
+    asegurado.subgrupoId = plan.subgrupoId;
+    plan.asegurados.push(asegurado.id);
+
+    const coberturasPlan = obtenerCoberturasPlan(plan);
+    const codigosPlan = new Set(coberturasPlan.map(cobertura => cobertura.codigo));
+    asegurado.coberturas = (asegurado.coberturas || []).filter(cobertura => codigosPlan.has(cobertura.codigo));
+    coberturasPlan.forEach(cobertura => {
+        if (!asegurado.coberturas.some(item => item.codigo === cobertura.codigo)) {
+            asegurado.coberturas.push({ codigo: cobertura.codigo, codigoAmparo: cobertura.codigoAmparo, nombre: cobertura.nombre, activa: true, valorAsegurado: 0, tasa: TASA_BASE_SISTEMA, prima: 0 });
+        }
+    });
 }
 
 function asignarPlanesPorRango() {
@@ -3377,18 +3480,49 @@ function asignarPlanesPorRango() {
         return;
     }
     let asignados = 0;
+    let planesPorEdadCreados = 0;
+    let sinCoberturasElegibles = 0;
+    const planesElegibles = new Map();
     estado.asegurados.forEach(asegurado => {
         const valor = obtenerValorAseguradoBase(asegurado);
-        const plan = estado.planes.find(item =>
+        const plan = estado.planes.find(item => !item.generadoPorEdad
+            &&
             (item.valorDesde === null || item.valorDesde === undefined || valor >= item.valorDesde)
             && (item.valorHasta === null || item.valorHasta === undefined || valor <= item.valorHasta)
         );
         if (plan) {
-            asignarPlanAAsegurado(asegurado.id, plan.id);
+            const coberturasPlan = obtenerCoberturasPlan(plan);
+            const coberturasElegibles = coberturasPlan.filter(cobertura => {
+                const edadMaxima = obtenerEdadMaximaCobertura(cobertura);
+                return edadMaxima === null || Number(asegurado.edad) <= edadMaxima;
+            });
+            if (coberturasElegibles.length === 0) {
+                sinCoberturasElegibles++;
+                return;
+            }
+
+            let planAsignado = plan;
+            if (coberturasElegibles.length !== coberturasPlan.length) {
+                const llave = `${plan.id}:${coberturasElegibles.map(cobertura => cobertura.codigo).sort().join(',')}`;
+                planAsignado = planesElegibles.get(llave);
+                if (!planAsignado) {
+                    planAsignado = crearPlanElegiblePorEdad(plan, coberturasElegibles);
+                    planesElegibles.set(llave, planAsignado);
+                    planesPorEdadCreados++;
+                }
+            }
+            asignarAseguradoAPlanElegible(asegurado, planAsignado);
             asignados++;
         }
     });
-    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.`, 'success');
+    estado.planes.forEach(recalcularPrimaPlan);
+    guardarEstado();
+    renderizarAsignacionPlanes();
+    renderizarPlanesSubgrupoTabs();
+    renderizarTablaCalculos();
+    const detalleEdad = planesPorEdadCreados > 0 ? ` Se crearon ${planesPorEdadCreados} plan(es) con coberturas elegibles por edad.` : '';
+    const detalleSinCobertura = sinCoberturasElegibles > 0 ? ` ${sinCoberturasElegibles} asegurado(s) no tienen coberturas habilitadas para su edad.` : '';
+    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.${detalleEdad}${detalleSinCobertura}`, sinCoberturasElegibles > 0 ? 'warning' : 'success');
 }
 
 function irAlPaso(numero) {
