@@ -187,8 +187,11 @@
                     <span class="form-section-title">Datos de la P&oacute;liza</span>
 
                     <div class="form-group">
-                        <label for="numeroPoliza">N&uacute;mero de P&oacute;liza</label>
-                        <input type="text" id="numeroPoliza" placeholder="Ej: VG-2024-001">
+                        <label for="modalidadPlan">Modalidad del Plan</label>
+                        <select id="modalidadPlan">
+                            <option value="Voluntaria (Contributiva)">Voluntaria (Contributiva)</option>
+                            <option value="Patronal (No Contributiva)">Patronal (No Contributiva)</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="oficina">Oficina</label>
@@ -212,7 +215,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="fechaCobro">Fecha de Cobro</label>
+                        <label for="fechaCobro">Fecha de Facturación</label>
                         <input type="date" id="fechaCobro">
                     </div>
 
@@ -225,26 +228,37 @@
                     <div class="form-group">
                         <label for="canalComercial">Canal Comercial</label>
                         <select id="canalComercial">
-                            <option>Directo</option>
-                            <option>Broker</option>
-                            <option>Corredor</option>
-                            <option>Corporativo</option>
-                            <option>Digital</option>
+                            <option>Sucursal</option>
+                            <option>Promotora</option>
                         </select>
                     </div>
 
                     <div class="comisiones-grid">
                         <div class="form-group">
                             <label for="comision">Comisi&oacute;n %</label>
-                            <input type="number" id="comision" min="0" max="100" step="0.1" value="20" placeholder="Ej: 20">
+                            <input type="number" id="comision" min="0" max="30" step="0.1" value="20" placeholder="Ej: 20" aria-describedby="ayudaComision">
+                            <small id="ayudaComision">Máximo permitido: 30%</small>
                         </div>
-                        <div class="form-group">
-                            <label for="honorarioAdmon">Honorario Admon &amp; Recaudo (Retorno) %</label>
-                            <input type="number" id="honorarioAdmon" min="0" max="100" step="0.1" value="0" placeholder="Ej: 5">
-                        </div>
-                        <div class="form-group">
+                        <div class="form-group" id="grupoHonorarioPromotora">
                             <label for="honorarioPromotora">Honorario Promotora %</label>
-                            <input type="number" id="honorarioPromotora" min="0" max="100" step="0.1" value="10" placeholder="Ej: 10">
+                            <input type="number" id="honorarioPromotora" min="0" max="10" step="0.1" value="10" placeholder="Ej: 10" aria-describedby="ayudaHonorarioPromotora">
+                            <small id="ayudaHonorarioPromotora">Máximo permitido: 10%</small>
+                        </div>
+                    </div>
+
+                    <div class="siniestralidad-grid">
+                        <span class="form-section-title">Siniestralidad</span>
+                        <div class="form-group">
+                            <label for="valorSiniestrosTotales">Valor de siniestros totales</label>
+                            <input type="text" id="valorSiniestrosTotales" inputmode="numeric" placeholder="$ 0" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="anosExposicion">Cantidad de a&ntilde;os de exposici&oacute;n</label>
+                            <input type="number" id="anosExposicion" min="0" step="0.1" placeholder="Ej: 3">
+                        </div>
+                        <div class="form-group">
+                            <label for="siniestrosPromedio">Siniestros promedio</label>
+                            <input type="text" id="siniestrosPromedio" placeholder="$ 0" readonly aria-readonly="true">
                         </div>
                     </div>
 
@@ -420,7 +434,7 @@
                 <h3 style="font-size:16px;margin:20px 0 10px;">Rangos de valor asegurado por plan</h3>
                 <div style="overflow-x:auto;">
                     <table class="table-editable">
-                        <thead><tr><th>Plan</th><th>Coberturas</th><th>Desde (COP)</th><th>Hasta (COP)</th><th>Edad máxima</th></tr></thead>
+                        <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor asegurado desde (COP)</th><th>Valor asegurado hasta (COP)</th><th>Edad máxima</th></tr></thead>
                         <tbody id="tbody-rangos-planes"></tbody>
                     </table>
                 </div>
@@ -621,11 +635,50 @@
     <!-- Toast notifications -->
     <div id="toast" class="toast"></div>
 
-    <!-- Alerta de validación de rangos -->
+    <!-- Modal para crear o editar asegurados -->
+    <div id="modalAsegurado" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloModalAsegurado">
+        <div class="modal-content" style="max-width:620px;">
+            <div class="modal-header">
+                <h3 id="tituloModalAsegurado">Agregar asegurado</h3>
+                <button class="btn-close" type="button" onclick="cerrarModalAsegurado()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formAsegurado" class="form-grid">
+                    <div class="form-group">
+                        <label for="aseguradoNumeroDocumento">Número de documento *</label>
+                        <input type="text" id="aseguradoNumeroDocumento" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aseguradoNombreCompleto">Nombre completo *</label>
+                        <input type="text" id="aseguradoNombreCompleto" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aseguradoTipo">Tipo de asegurado *</label>
+                        <select id="aseguradoTipo" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aseguradoEdad">Edad *</label>
+                        <input type="number" id="aseguradoEdad" min="18" max="100" required>
+                    </div>
+                    <div class="form-group form-full">
+                        <label for="aseguradoValor">Valor asegurado (COP) *</label>
+                        <input type="text" id="aseguradoValor" inputmode="numeric" placeholder="$ 10.000.000" required>
+                        <small>El valor mínimo para cotizar es $ 10.000.000.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="guardarAseguradoDesdeModal()">Guardar</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalAsegurado()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta de validación parametrizable -->
     <div id="modalAlertaRango" class="modal modal-alerta-rango" style="display:none;" role="alertdialog" aria-modal="true" aria-labelledby="tituloAlertaRango">
         <div class="modal-content alerta-rango-contenido">
             <div class="alerta-rango-icono">!</div>
-            <h3 id="tituloAlertaRango">Revisa el rango de valor asegurado</h3>
+            <h3 id="tituloAlertaRango"></h3>
             <p id="mensajeAlertaRango"></p>
             <div class="modal-footer alerta-rango-footer">
                 <button class="btn btn-primary" type="button" id="btnAceptarAlertaRango" onclick="cerrarAlertaRango()">Entendido</button>

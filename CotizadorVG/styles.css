@@ -2105,12 +2105,35 @@ body {
 
 .comisiones-grid {
     display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    grid-column: 1 / -1;
+}
+
+.comisiones-grid.solo-comision {
+    grid-template-columns: 1fr;
+}
+
+.siniestralidad-grid {
+    display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     grid-column: 1 / -1;
 }
 
+.siniestralidad-grid .form-section-title {
+    margin-top: 8px;
+}
+
+#siniestrosPromedio {
+    background: var(--color-light);
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
     .comisiones-grid { grid-template-columns: 1fr; }
+    .siniestralidad-grid { grid-template-columns: 1fr; }
     .form-group-inline { grid-template-columns: 1fr; }
 }

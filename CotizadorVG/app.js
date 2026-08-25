@@ -13,8 +13,22 @@ const CONFIG = {
     OCUPACIONES: ['Ejecutivo', 'Administrativo', 'Operario', 'Independiente', 'Docente', 'Médico'],
     GENERO: ['Masculino', 'Femenino'],
     TIPO_DOCUMENTO: ['Cédula', 'Pasaporte', 'Cédula Extranjería', 'NIT'],
-    TIPO_ASEGURADO: ['Empleado', 'Conyugue', 'Hijos', 'Hijastros', 'Hermanos', 'Sobrinos', 'Nietos', 'Padres', 'Padrastos'],
-    CANAL_COMERCIAL: ['Directo', 'Broker', 'Corredor', 'Digital'],
+    TIPO_ASEGURADO: ['Afiliado principal', 'Conyugue', 'Hijos', 'Hijastros', 'Hermanos', 'Sobrinos', 'Nietos', 'Padres', 'Padrastos'],
+    COBERTURAS_EXCLUIDAS_POR_PARENTESCO: {
+        // Cónyuge y descendientes no pueden contratar estos amparos.
+        Conyugue: ['IPP', 'WE6', 'WE9'],
+        Hijos: ['IPP', 'WE6', 'WE9'],
+        Hijastros: ['IPP', 'WE6', 'WE9'],
+        Hermanos: ['IPP', 'WE6', 'WE9'],
+        Sobrinos: ['IPP', 'WE6', 'WE9'],
+        Nietos: ['IPP', 'WE6', 'WE9']
+    },
+    COBERTURAS_HABILITADAS_POR_PARENTESCO: {
+        // Se conservan las dos modalidades disponibles de auxilio funerario.
+        Padres: ['WET', 'ITP', 'GEN', 'AFC'],
+        Padrastos: ['WET', 'ITP', 'GEN', 'AFC']
+    },
+    CANAL_COMERCIAL: ['Sucursal', 'Promotora'],
     FACTORES_EDAD: {
         '18-25': 0.95,
         '26-35': 1.0,
@@ -35,7 +49,7 @@ const CONFIG = {
         maxSubgrupos: 8,
         maxPlanesPorSubgrupo: 6,
         maxPlanes: 20,
-        minAsegurados: 3,
+        minAsegurados: 4,
         tolerancia: 0.1 // 10%
     }
 };
@@ -51,12 +65,36 @@ const coberturaVidaPredeterminada = {
 };
 let coberturasDisponibles = [coberturaVidaPredeterminada];
 
+// La API conserva la columna Amparo_Resumido, pero ahora entrega estas etiquetas.
+// Las referencias anteriores se mantienen como alias para cotizaciones ya guardadas.
+const NOMBRES_AMPARO_RESUMIDO = {
+    'INVALIDEZ POR ENFERMEDAD': 'Invalidez, Pérdida O Inutilización Por Enfermedad',
+    'EG INDEPENDIENTE': 'Enfermedades graves Independientes',
+    'EG ANTICIPO': 'Enfermedades graves',
+    'INVALIDEZ POR ACCIDENTE': 'Invalidez Por Accidente',
+    'ITP': 'Invalidez o pérdida por un accidente o enfermedad',
+    'BONO PARA ADECUACIONES DEL HOGAR': 'Bono para adecuaciones del hogar',
+    'AUXILIO DE REPATRIACIÓN': 'Auxilio de repatriación',
+    'MUERTE ACCIDENTAL': 'Muerte Accidental',
+    'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL': 'Pérdida Parcial De La Capacidad Laboral',
+    'VIDA': 'Vida',
+    'AUXILIO FUNERARIO': 'Bono funerario',
+    'BONO PARA EDUCACIÓN': 'Bono para educación',
+    'BONO CANASTA': 'Bono Canasta',
+    'GASTOS DE CURACIÓN': 'Gastos de curación',
+    'AUXILIO POR MATERNIDAD/PATERNIDAD': 'Auxilio Por Maternidad O Paternidad',
+    'RENTA POR HOSPITALIZACIÓN BÁSICO': 'Renta por hospitalización',
+    'RENTA POR HOSPITALIZACIÓN UCI': 'Renta por hospitalización en UCI',
+    'RENTA POR INCAPACIDAD POR ACCIDENTE': 'Renta Por Incapacidad Por Accidente',
+    'RENTA POR INCAPACIDAD': 'Renta por incapacidad por accidente y enfermedad'
+};
+
 const PLANES_SUGERIDOS = [
-    { nombre: 'Plan 1', coberturas: ['VIDA', 'ITP', 'BONO FUNERARIO'] },
-    { nombre: 'Plan 2', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO'] },
-    { nombre: 'Plan 3', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR INCAPACIDAD'] },
-    { nombre: 'Plan 4', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR HOSPITALIZACIÓN BÁSICO'] },
-    { nombre: 'Plan 5', coberturas: ['VIDA', 'ITP', 'EG INDEPENDIENTE', 'MUERTE ACCIDENTAL', 'BONO FUNERARIO', 'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL', 'BONO CANASTA', 'GASTOS DE CURACIÓN', 'RENTA POR HOSPITALIZACIÓN BÁSICO', 'RENTA POR INCAPACIDAD'] }
+    { nombre: 'Plan 1', coberturas: ['Vida', 'Invalidez o pérdida por un accidente o enfermedad', 'Bono funerario'] },
+    { nombre: 'Plan 2', coberturas: ['Vida', 'Invalidez o pérdida por un accidente o enfermedad', 'Enfermedades graves Independientes', 'Muerte Accidental', 'Bono funerario'] },
+    { nombre: 'Plan 3', coberturas: ['Vida', 'Invalidez o pérdida por un accidente o enfermedad', 'Enfermedades graves Independientes', 'Muerte Accidental', 'Bono funerario', 'Pérdida Parcial De La Capacidad Laboral', 'Bono Canasta', 'Gastos de curación', 'Renta por incapacidad por accidente y enfermedad'] },
+    { nombre: 'Plan 4', coberturas: ['Vida', 'Invalidez o pérdida por un accidente o enfermedad', 'Enfermedades graves Independientes', 'Muerte Accidental', 'Bono funerario', 'Pérdida Parcial De La Capacidad Laboral', 'Bono Canasta', 'Gastos de curación', 'Renta por hospitalización'] },
+    { nombre: 'Plan 5', coberturas: ['Vida', 'Invalidez o pérdida por un accidente o enfermedad', 'Enfermedades graves Independientes', 'Muerte Accidental', 'Bono funerario', 'Pérdida Parcial De La Capacidad Laboral', 'Bono Canasta', 'Gastos de curación', 'Renta por hospitalización', 'Renta por incapacidad por accidente y enfermedad'] }
 ];
 let planEditandoId = null;
 let campoRangoConError = null;
@@ -95,6 +133,18 @@ function sincronizarVidaObligatoria() {
     });
 }
 
+function sincronizarNombresVisiblesCoberturas() {
+    const nombrePorCodigo = new Map(coberturasDisponibles.map(cobertura => [cobertura.codigo, cobertura.nombre]));
+    estado.coberturasCatalogo.forEach(cobertura => {
+        cobertura.nombre = nombrePorCodigo.get(cobertura.codigo) || cobertura.nombre;
+    });
+    estado.asegurados.forEach(asegurado => {
+        (asegurado.coberturas || []).forEach(cobertura => {
+            cobertura.nombre = nombrePorCodigo.get(cobertura.codigo) || cobertura.nombre;
+        });
+    });
+}
+
 /* ============================================================
    SECCIÓN 2: ESTADO GLOBAL
    ============================================================ */
@@ -105,7 +155,7 @@ let estado = {
         tomador: '',
         tipoIdentificacion: 'NIT',
         numeroIdentificacion: '',
-        numeroPoliza: '',
+        modalidadPlan: 'Voluntaria (Contributiva)',
         actividad: '',
         vigenciaDesde: '',
         vigenciaHasta: '',
@@ -113,10 +163,12 @@ let estado = {
         formaPago: 'Mensual',
         fechaCobro: '',
         comision: 20,
-        honorarioAdmon: 0,
         honorarioPromotora: 10,
+        valorSiniestrosTotales: 0,
+        anosExposicion: 0,
+        siniestrosPromedio: 0,
         asesor: '',
-        canalComercial: 'Directo',
+        canalComercial: 'Sucursal',
         observaciones: ''
     },
     coberturasCatalogo: crearCatalogoInicial(),
@@ -132,6 +184,7 @@ let estado = {
 
 let pasoActual = 1;
 let demoData = null;
+let aseguradoEditandoId = null;
 
 // Estado del flujo de negocio
 let flujo = {
@@ -170,6 +223,20 @@ function cargarEstado() {
         if (estadoGuardado) {
             estado = JSON.parse(estadoGuardado);
             estado.edadesMaximasPorCobertura = estado.edadesMaximasPorCobertura || {};
+            estado.asegurados = (estado.asegurados || []).map(asegurado => ({
+                ...asegurado,
+                tipoAsegurado: asegurado.tipoAsegurado === 'Empleado'
+                    ? 'Afiliado principal'
+                    : asegurado.tipoAsegurado
+            }));
+            estado.poliza.modalidadPlan = estado.poliza.modalidadPlan || 'Voluntaria (Contributiva)';
+            estado.poliza.canalComercial = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
+            estado.poliza.comision = Math.min(Math.max(Number(estado.poliza.comision) || 0, 0), 30);
+            estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
+            if (estado.poliza.canalComercial === 'Sucursal') estado.poliza.honorarioPromotora = 0;
+            estado.poliza.valorSiniestrosTotales = Number(estado.poliza.valorSiniestrosTotales) || 0;
+            estado.poliza.anosExposicion = Number(estado.poliza.anosExposicion) || 0;
+            estado.poliza.siniestrosPromedio = Number(estado.poliza.siniestrosPromedio) || 0;
         }
         
         if (pasoGuardado) {
@@ -193,7 +260,7 @@ function limpiarEstado() {
                 tomador: '',
                 tipoIdentificacion: 'NIT',
                 numeroIdentificacion: '',
-                numeroPoliza: '',
+                modalidadPlan: 'Voluntaria (Contributiva)',
                 actividad: '',
                 vigenciaDesde: '',
                 vigenciaHasta: '',
@@ -201,10 +268,12 @@ function limpiarEstado() {
                 formaPago: 'Mensual',
                 fechaCobro: '',
                 comision: 20,
-                honorarioAdmon: 0,
                 honorarioPromotora: 10,
+                valorSiniestrosTotales: 0,
+                anosExposicion: 0,
+                siniestrosPromedio: 0,
                 asesor: '',
-                canalComercial: 'Directo',
+                canalComercial: 'Sucursal',
                 observaciones: ''
             },
             coberturasCatalogo: crearCatalogoInicial(),
@@ -229,40 +298,58 @@ function limpiarEstado() {
    ============================================================ */
 
 function agregarAsegurado(asegurado = null) {
-    const modal = document.getElementById('modalAgregar');
-    if (!modal) return;
+    const modal = document.getElementById('modalAsegurado');
+    const tipo = document.getElementById('aseguradoTipo');
+    if (!modal || !tipo) return;
 
-    let titulo = 'Agregar Asegurado';
-    let datos = {
-        id: generarUUID(),
-        tipoDocumento: 'Cédula',
-        numeroDocumento: '',
-        nombreCompleto: '',
-        edad: '',
-        sexo: 'Masculino',
-        ocupacion: 'Administrativo',
-        salario: '',
-        coberturas: estado.coberturasCatalogo.map(c => ({
-            codigo: c.codigo,
-            codigoAmparo: c.codigoAmparo,
-            nombre: c.nombre,
-            activa: c.obligatoria,
-            valorAsegurado: 0,
-            tasa: c.tasaBase,
-            prima: 0
-        })),
-        subgrupoId: null,
-        planId: null,
-        primaIndividual: 0
-    };
+    aseguradoEditandoId = asegurado?.id || null;
+    document.getElementById('tituloModalAsegurado').textContent = asegurado ? 'Editar asegurado' : 'Agregar asegurado';
+    document.getElementById('aseguradoNumeroDocumento').value = asegurado?.numeroDocumento || '';
+    document.getElementById('aseguradoNombreCompleto').value = asegurado?.nombreCompleto || '';
+    document.getElementById('aseguradoEdad').value = asegurado?.edad ?? '';
+    tipo.innerHTML = CONFIG.TIPO_ASEGURADO.map(valor => `<option value="${valor}">${valor}</option>`).join('');
+    tipo.value = asegurado?.tipoAsegurado || 'Afiliado principal';
+    document.getElementById('aseguradoValor').value = formatearValorMonetario(asegurado ? obtenerValorAseguradoBase(asegurado) : null);
+    modal.style.display = 'flex';
+}
 
-    if (asegurado) {
-        titulo = 'Editar Asegurado';
-        datos = { ...asegurado };
+function cerrarModalAsegurado() {
+    document.getElementById('modalAsegurado').style.display = 'none';
+    aseguradoEditandoId = null;
+}
+
+function guardarAseguradoDesdeModal() {
+    const numeroDocumento = document.getElementById('aseguradoNumeroDocumento').value.trim();
+    const nombreCompleto = document.getElementById('aseguradoNombreCompleto').value.trim();
+    const tipoAsegurado = document.getElementById('aseguradoTipo').value;
+    const edad = Number(document.getElementById('aseguradoEdad').value);
+    const valorAsegurado = obtenerValorMonetario(document.getElementById('aseguradoValor').value) || 0;
+    const asegurado = estado.asegurados.find(item => item.id === aseguradoEditandoId);
+
+    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !validarEdad(edad).valido) {
+        mostrarToast('Completa correctamente los campos obligatorios del asegurado.', 'warning');
+        return;
+    }
+    if (estado.asegurados.some(item => item.id !== aseguradoEditandoId && item.tipoDocumento === 'Cédula' && item.numeroDocumento === numeroDocumento)) {
+        mostrarToast('Este documento ya está registrado.', 'warning');
+        return;
     }
 
-    mostrarToast(titulo + ' - Complete los datos requeridos', 'warning');
-    guardarEstado();
+    const datos = asegurado || {
+        id: generarUUID(), tipoDocumento: 'Cédula', sexo: 'Masculino', ocupacion: 'Administrativo', salario: 0,
+        coberturas: generarCoberturasPorDefecto(valorAsegurado), subgrupoId: null, planId: null, primaIndividual: 0, simulado: false
+    };
+    datos.numeroDocumento = numeroDocumento;
+    datos.nombreCompleto = nombreCompleto;
+    datos.tipoAsegurado = tipoAsegurado;
+    datos.edad = edad;
+    const vida = datos.coberturas.find(cobertura => cobertura.codigo === 'WET');
+    if (vida) vida.valorAsegurado = valorAsegurado;
+
+    if (!asegurado) estado.asegurados.push(datos);
+    recalcularTodo();
+    cerrarModalAsegurado();
+    mostrarToast(`Asegurado ${asegurado ? 'actualizado' : 'agregado'} correctamente.`, 'success');
 }
 
 function editarAsegurado(id) {
@@ -270,6 +357,39 @@ function editarAsegurado(id) {
     if (asegurado) {
         agregarAsegurado(asegurado);
     }
+}
+
+function validarValoresMinimosParaCotizar() {
+    const valorMinimo = 10_000_000;
+    const minimoAsegurados = CONFIG.REGLAS_COMPLEJIDAD.minAsegurados;
+    if (estado.asegurados.length < minimoAsegurados) {
+        mostrarAlertaRango(
+            `Actualmente tienes ${estado.asegurados.length} asegurado(s). Para continuar con la cotización debes contar con al menos ${minimoAsegurados} asegurados. Agrega los faltantes o carga una nueva base.`,
+            null,
+            'Cantidad mínima de asegurados'
+        );
+        return false;
+    }
+    const noElegibles = estado.asegurados.filter(asegurado => obtenerValorAseguradoBase(asegurado) < valorMinimo);
+    if (noElegibles.length === 0) return true;
+
+    const detalle = noElegibles.slice(0, 5)
+        .map(asegurado => `${asegurado.nombreCompleto || asegurado.numeroDocumento}: ${formatearDinero(obtenerValorAseguradoBase(asegurado))}.`)
+        .join(' ');
+    const adicionales = noElegibles.length > 5 ? ` Hay ${noElegibles.length - 5} asegurado(s) adicional(es) con esta condición.` : '';
+    mostrarAlertaRango(
+        `No es posible continuar con la cotización mientras existan valores asegurados inferiores a ${formatearDinero(valorMinimo)}. Edita los siguientes registros: ${detalle}${adicionales}`,
+        null,
+        'Valor asegurado mínimo requerido'
+    );
+    return false;
+}
+
+function reemplazarBaseAsegurados(nuevosAsegurados) {
+    estado.asegurados = nuevosAsegurados;
+    estado.subgrupos = [];
+    estado.planes = [];
+    subgrupoActivoEnPlanes = null;
 }
 
 function duplicarAsegurado(id) {
@@ -820,6 +940,7 @@ function importarCSV(evento) {
 
             // Saltar encabezado
             const nuevosAsegurados = [];
+            const documentosEnArchivo = new Set();
             for (let i = 1; i < lineas.length; i++) {
                 const campos = lineas[i].split(',').map(c => c.trim());
                 
@@ -841,17 +962,29 @@ function importarCSV(evento) {
                 };
 
                 // Validar
-                const valDocumento = validarDocumento(asegurado.tipoDocumento, asegurado.numeroDocumento);
                 const valEdad = validarEdad(asegurado.edad);
+                const llaveDocumento = `${asegurado.tipoDocumento}|${asegurado.numeroDocumento}`;
+                const documentoValido = asegurado.numeroDocumento && !documentosEnArchivo.has(llaveDocumento);
 
-                if (valDocumento.valido && valEdad.valido) {
+                if (documentoValido && valEdad.valido) {
                     nuevosAsegurados.push(asegurado);
+                    documentosEnArchivo.add(llaveDocumento);
                 }
             }
 
-            estado.asegurados.push(...nuevosAsegurados);
+            if (nuevosAsegurados.length < CONFIG.REGLAS_COMPLEJIDAD.minAsegurados) {
+                mostrarAlertaRango(
+                    `La base contiene ${nuevosAsegurados.length} asegurado(s) válido(s). Para continuar, debes cargar al menos ${CONFIG.REGLAS_COMPLEJIDAD.minAsegurados} asegurados. No se agregaron registros.`,
+                    null,
+                    'Cantidad mínima de asegurados'
+                );
+                evento.target.value = '';
+                return;
+            }
+
+            reemplazarBaseAsegurados(nuevosAsegurados);
             recalcularTodo();
-            mostrarToast(`${nuevosAsegurados.length} asegurados importados correctamente`, 'success');
+            mostrarToast(`${nuevosAsegurados.length} asegurados importados correctamente. La base anterior fue reemplazada.`, 'success');
         } catch (err) {
             mostrarToast('Error al importar: ' + err.message, 'error');
         }
@@ -983,7 +1116,10 @@ function renderizarResumenPlanesConfigurados() {
             <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#f8fbff;">
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
                     <strong>${plan.nombre}</strong>
-                    <button class="btn btn-secondary btn-small" type="button" onclick="abrirModalEditarPlan('${plan.id}')">Editar plan</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                        <button class="btn btn-secondary btn-small" type="button" onclick="abrirModalEditarPlan('${plan.id}')">Editar plan</button>
+                        <button class="btn btn-danger btn-small" type="button" onclick="eliminarPlan('${plan.id}')">Eliminar</button>
+                    </div>
                 </div>
                 <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--color-gray);">${coberturas.join(' · ')}</p>
             </article>`;
@@ -997,6 +1133,7 @@ function buscarCoberturaPorReferencia(referencia) {
     }
     return coberturasDisponibles.find(cobertura =>
         normalizarTexto(cobertura.amparoResumido) === referenciaNormalizada
+        || (cobertura.aliasesAmparoResumido || []).some(alias => normalizarTexto(alias) === referenciaNormalizada)
         || normalizarTexto(cobertura.nombre) === referenciaNormalizada
     );
 }
@@ -1358,11 +1495,12 @@ function renderizarDashboard() {
         infoPoliza.innerHTML = `
             <p><strong>Tomador:</strong> ${p.tomador || '—'}</p>
             <p><strong>Identificación:</strong> ${p.tipoIdentificacion} ${p.numeroIdentificacion || '—'}</p>
-            <p><strong>N° Póliza:</strong> ${p.numeroPoliza || '—'}</p>
+            <p><strong>Modalidad del plan:</strong> ${p.modalidadPlan || '—'}</p>
             <p><strong>Vigencia:</strong> ${p.vigenciaDesde || '—'} → ${p.vigenciaHasta || '—'}</p>
             <p><strong>Asesor:</strong> ${p.asesor || '—'}</p>
             <p><strong>Canal:</strong> ${p.canalComercial || '—'}</p>
-            <p><strong>Comisión:</strong> ${p.comision || 0}% | Honorario Admon: ${p.honorarioAdmon || 0}% | Promotora: ${p.honorarioPromotora || 0}%</p>
+            <p><strong>Comisión:</strong> ${p.comision || 0}%${p.canalComercial === 'Promotora' ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
+            <p><strong>Siniestralidad:</strong> ${formatearDinero(p.valorSiniestrosTotales || 0)} en ${p.anosExposicion || 0} año(s) de exposición | Promedio: ${formatearDinero(p.siniestrosPromedio || 0)}</p>
         `;
     }
 
@@ -1419,6 +1557,25 @@ function renderizarSugerencias() {
    SECCIÓN 13: EVENT LISTENERS
    ============================================================ */
 
+function actualizarCamposComerciales() {
+    const canal = document.getElementById('canalComercial');
+    const contenedorComisiones = document.querySelector('.comisiones-grid');
+    const grupoPromotora = document.getElementById('grupoHonorarioPromotora');
+    const honorarioPromotora = document.getElementById('honorarioPromotora');
+    const esPromotora = canal?.value === 'Promotora';
+
+    if (grupoPromotora) grupoPromotora.hidden = !esPromotora;
+    contenedorComisiones?.classList.toggle('solo-comision', !esPromotora);
+    if (honorarioPromotora) {
+        honorarioPromotora.disabled = !esPromotora;
+        if (!esPromotora) honorarioPromotora.value = '0';
+    }
+
+    estado.poliza.canalComercial = esPromotora ? 'Promotora' : 'Sucursal';
+    if (!esPromotora) estado.poliza.honorarioPromotora = 0;
+    guardarEstado();
+}
+
 function setupEventListeners() {
     // Navegación de pasos
     document.querySelectorAll('.step').forEach((step, index) => {
@@ -1428,7 +1585,10 @@ function setupEventListeners() {
     // Botones de acción generales
     // Navegación por botones de siguiente en cada paso
     for (let i = 1; i <= 6; i++) {
-        document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => irAlPaso(i + 1));
+        document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => {
+            if (i === 2 && !validarValoresMinimosParaCotizar()) return;
+            irAlPaso(i + 1);
+        });
     }
     for (let i = 1; i <= 6; i++) {
         document.getElementById(`btnAtras${i}`)?.addEventListener('click', () => irAlPaso(i));
@@ -1436,7 +1596,7 @@ function setupEventListeners() {
 
     // Paso 1: Póliza - campos actualizados
     const camposPoliza = [
-        'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'numeroPoliza',
+        'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'modalidadPlan',
         'actividad', 'vigenciaDesde', 'vigenciaHasta', 'oficina',
         'formaPago', 'fechaCobro', 'asesor', 'canalComercial', 'observaciones'
     ];
@@ -1446,12 +1606,22 @@ function setupEventListeners() {
             guardarEstado();
         });
     });
-    ['comision', 'honorarioAdmon', 'honorarioPromotora'].forEach(campo => {
+    document.getElementById('canalComercial')?.addEventListener('change', actualizarCamposComerciales);
+    ['comision', 'honorarioPromotora'].forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
-            estado.poliza[campo] = parseFloat(e.target.value) || 0;
+            const maximo = campo === 'comision' ? 30 : 10;
+            const valor = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), maximo);
+            if (valor !== parseFloat(e.target.value)) {
+                e.target.value = valor;
+                mostrarToast(`${campo === 'comision' ? 'La comisión' : 'El honorario de promotora'} no puede superar el ${maximo}%.`, 'warning');
+            }
+            estado.poliza[campo] = valor;
             guardarEstado();
         });
     });
+    actualizarCamposComerciales();
+    document.getElementById('valorSiniestrosTotales')?.addEventListener('input', actualizarSiniestralidad);
+    document.getElementById('anosExposicion')?.addEventListener('input', actualizarSiniestralidad);
 
     // Paso 3: Coberturas
     document.getElementById('btnAgregarCobertura')?.addEventListener('click', agregarCobertura);
@@ -1469,6 +1639,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('btnAgregarAsegurado')?.addEventListener('click', () => agregarAsegurado());
+    document.getElementById('aseguradoValor')?.addEventListener('input', (evento) => formatearCampoMoneda(evento.target));
     document.getElementById('btnCargarDemo')?.addEventListener('click', cargarDemoData);
     document.getElementById('btnImportarCSV')?.addEventListener('click', () => {
         document.getElementById('fileCSV')?.click();
@@ -1538,9 +1709,10 @@ function seleccionarSubtipo(subtipo) {
     estado.poliza = {
         id: generarUUID(),
         tomador: '', tipoIdentificacion: 'NIT', numeroIdentificacion: '',
-        numeroPoliza: '', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
+        modalidadPlan: 'Voluntaria (Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         oficina: '', formaPago: 'Mensual', fechaCobro: '',
-        comision: 20, honorarioAdmon: 0, honorarioPromotora: 10,
+        comision: 20, honorarioPromotora: 10,
+        valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
         asesor: '', canalComercial: '', observaciones: ''
     };
     mostrarWizard();
@@ -1605,15 +1777,28 @@ async function cargarCatalogoCoberturas() {
         filasCoreGW.forEach(fila => {
                 const codigo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
                 if (!resumenesCoreGW.has(codigo)) {
-                    resumenesCoreGW.set(codigo, fila.Amparo_Resumido ?? '');
+                    resumenesCoreGW.set(codigo,
+                        fila['Amparo_Resumido(Nuevo Nombre)']
+                        ?? fila.Amparo_Resumido_Nuevo_Nombre
+                        ?? fila.Amparo_Resumido
+                        ?? ''
+                    );
                 }
             });
         coberturasDisponibles = catalogoCompleto
             .filter(cobertura => resumenesCoreGW.has(String(cobertura.codigoAmparo).replace(/\.0$/, '')))
-            .map(cobertura => ({
-                ...cobertura,
-                amparoResumido: resumenesCoreGW.get(String(cobertura.codigoAmparo).replace(/\.0$/, ''))
-            }));
+            .map(cobertura => {
+                const amparoResumido = resumenesCoreGW.get(String(cobertura.codigoAmparo).replace(/\.0$/, ''));
+                return {
+                    ...cobertura,
+                    amparoDetallado: cobertura.nombre,
+                    nombre: amparoResumido || cobertura.nombre,
+                    amparoResumido,
+                    aliasesAmparoResumido: Object.entries(NOMBRES_AMPARO_RESUMIDO)
+                        .filter(([, nombreNuevo]) => normalizarTexto(nombreNuevo) === normalizarTexto(amparoResumido))
+                        .map(([nombreAnterior]) => nombreAnterior)
+                };
+            });
 
         if (coberturasDisponibles.length === 0) {
             throw new Error('La API no devolvió amparos pertenecientes al Core GW.');
@@ -1624,6 +1809,7 @@ async function cargarCatalogoCoberturas() {
         } else {
             sincronizarVidaObligatoria();
         }
+        sincronizarNombresVisiblesCoberturas();
         renderizarTablaCoberturas();
         renderizarAsignacionPlanes();
         guardarEstado();
@@ -1999,7 +2185,7 @@ function seleccionarPolizaRenovacion(poliza) {
     const oficinas = ['Medellín Centro', 'Bogotá Norte', 'Cali Principal', 'Barranquilla', 'Bucaramanga'];
     const asesores = ['Juan Pérez Restrepo', 'María García López', 'Carlos Martínez Ruiz', 'Ana Rodríguez Cruz'];
     const formasPago = ['Mensual', 'Trimestral', 'Semestral', 'Anual'];
-    const canales = ['Agente', 'Corredor', 'Banca Seguros', 'Directo'];
+    const canales = CONFIG.CANAL_COMERCIAL;
 
     const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -2013,7 +2199,7 @@ function seleccionarPolizaRenovacion(poliza) {
     estado.poliza.tomador             = rand(empresas);
     estado.poliza.tipoIdentificacion  = 'NIT';
     estado.poliza.numeroIdentificacion = poliza.tomador;
-    estado.poliza.numeroPoliza        = poliza.numero + '-R';
+    estado.poliza.modalidadPlan       = 'Voluntaria (Contributiva)';
     estado.poliza.actividad           = rand(actividades);
     estado.poliza.vigenciaDesde       = vigNuevaDesde;
     estado.poliza.vigenciaHasta       = vigNuevaHasta.toISOString().split('T')[0];
@@ -2021,7 +2207,6 @@ function seleccionarPolizaRenovacion(poliza) {
     estado.poliza.formaPago           = rand(formasPago);
     estado.poliza.fechaCobro          = fechaCobroDate.toISOString().split('T')[0];
     estado.poliza.comision            = 20;
-    estado.poliza.honorarioAdmon      = 5;
     estado.poliza.honorarioPromotora  = 10;
     estado.poliza.asesor              = rand(asesores);
     estado.poliza.canalComercial      = rand(canales);
@@ -2068,7 +2253,7 @@ function seleccionarPolizaRenovacion(poliza) {
             tomador:              estado.poliza.tomador,
             tipoIdentificacion:   estado.poliza.tipoIdentificacion,
             numeroIdentificacion: estado.poliza.numeroIdentificacion,
-            numeroPoliza:         estado.poliza.numeroPoliza,
+            modalidadPlan:         estado.poliza.modalidadPlan,
             actividad:            estado.poliza.actividad,
             vigenciaDesde:        estado.poliza.vigenciaDesde,
             vigenciaHasta:        estado.poliza.vigenciaHasta,
@@ -2076,14 +2261,15 @@ function seleccionarPolizaRenovacion(poliza) {
             formaPago:            estado.poliza.formaPago,
             fechaCobro:           estado.poliza.fechaCobro,
             comision:             estado.poliza.comision,
-            honorarioAdmon:       estado.poliza.honorarioAdmon,
             honorarioPromotora:   estado.poliza.honorarioPromotora,
-            asesor:               estado.poliza.asesor
+            asesor:               estado.poliza.asesor,
+            canalComercial:       estado.poliza.canalComercial
         };
         for (const [id, valor] of Object.entries(campos)) {
             const el = document.getElementById(id);
             if (el) el.value = valor;
         }
+        actualizarCamposComerciales();
     }, 150);
 }
 
@@ -2318,6 +2504,7 @@ function importarExcel(evento) {
 
             const nuevos = [];
             const errores = [];
+            const documentosEnArchivo = new Set();
 
             for (let i = inicio; i < filas.length; i++) {
                 const fila = filas[i];
@@ -2347,8 +2534,10 @@ function importarExcel(evento) {
                     errores.push(`Fila ${i + 1}: valor asegurado inválido (${valorAseguradoRaw})`); continue;
                 }
 
-                const valDoc = validarDocumento('Cédula', documento);
-                if (!valDoc.valido) { errores.push(`Fila ${i + 1}: ${valDoc.mensaje}`); continue; }
+                if (documentosEnArchivo.has(documento)) {
+                    errores.push(`Fila ${i + 1}: documento duplicado dentro del archivo`); continue;
+                }
+                documentosEnArchivo.add(documento);
 
                 nuevos.push({
                     id: generarUUID(),
@@ -2368,17 +2557,42 @@ function importarExcel(evento) {
                 });
             }
 
-            estado.asegurados.push(...nuevos);
+            if (nuevos.length < CONFIG.REGLAS_COMPLEJIDAD.minAsegurados) {
+                const mensajeMinimo = `La base contiene ${nuevos.length} asegurado(s) válido(s). Para continuar, debes cargar al menos ${CONFIG.REGLAS_COMPLEJIDAD.minAsegurados} asegurados. No se agregaron registros.`;
+                mostrarAlertaRango(mensajeMinimo, null, 'Cantidad mínima de asegurados');
+                mostrarToast(mensajeMinimo, 'warning');
+                if (statusDiv) {
+                    statusDiv.textContent = mensajeMinimo;
+                    statusDiv.className = 'excel-status error';
+                }
+                evento.target.value = '';
+                return;
+            }
+
+            reemplazarBaseAsegurados(nuevos);
             if (nuevos.length > 0) mostrarSeccionAsegurados();
             recalcularTodo();
 
-            const msgOk = `${nuevos.length} asegurado(s) cargado(s) correctamente.`;
+            const msgOk = `${nuevos.length} asegurado(s) cargado(s) correctamente. La base anterior fue reemplazada.`;
             const msgErr = errores.length > 0 ? ` ${errores.length} fila(s) con error omitidas.` : '';
             mostrarToast(msgOk + msgErr, nuevos.length > 0 ? 'success' : 'error');
 
             if (statusDiv) {
                 statusDiv.textContent = msgOk + msgErr;
                 statusDiv.className = `excel-status ${nuevos.length > 0 ? 'ok' : 'error'}`;
+            }
+
+            const erroresEdad = errores.filter(error => /edad inválida/i.test(error));
+            if (erroresEdad.length > 0) {
+                const detalle = erroresEdad.slice(0, 5).join(' ');
+                const adicionales = erroresEdad.length > 5
+                    ? ` Además, hay ${erroresEdad.length - 5} fila(s) adicional(es) con el mismo problema.`
+                    : '';
+                mostrarAlertaRango(
+                    `Se omitieron ${erroresEdad.length} registro(s) porque la edad permitida debe estar entre 18 y 100 años. ${detalle}${adicionales}`,
+                    null,
+                    'Registros omitidos por edad'
+                );
             }
 
             // Limpiar input para permitir recargar el mismo archivo
@@ -2402,7 +2616,7 @@ async function descargarPlantillaExcel() {
     // Datos de la plantilla: encabezados + filas de ejemplo
     const datos = [
         ['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP'],
-        ['1012345678', 'Empleado', 28, 67000000],
+        ['1012345678', 'Afiliado principal', 28, 67000000],
         ['1023456789', 'Conyugue', 35, 132000000],
         ['1034567890', 'Hijos', 42, 36000000],
         ['1045678901', 'Padres', 31, 216000000],
@@ -2984,6 +3198,9 @@ function eliminarPlan(planId) {
     estado.planes = estado.planes.filter(p => p.id !== planId);
     guardarEstado();
     renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
+    renderizarTablaCoberturas();
+    renderizarPlanesSubgrupoTabs();
+    renderizarAsignacionPlanes();
     mostrarToast('Plan eliminado', 'success');
 }
 
@@ -3147,6 +3364,7 @@ function inicializar() {
     cargarEstado();
     establecerFechasDefault();
     setupEventListeners();
+    actualizarSiniestralidad(true);
     renderizarTablaCoberturas();
     renderizarTablaAsegurados();
     renderizarTablaSubgrupos();
@@ -3290,6 +3508,27 @@ function formatearCampoMoneda(campo) {
     campo.value = formatearValorMonetario(valor);
 }
 
+function actualizarSiniestralidad(restaurarValoresGuardados = false) {
+    const campoTotal = document.getElementById('valorSiniestrosTotales');
+    const campoAnos = document.getElementById('anosExposicion');
+    const campoPromedio = document.getElementById('siniestrosPromedio');
+    if (!campoTotal || !campoAnos || !campoPromedio) return;
+
+    const total = obtenerValorMonetario(campoTotal.value)
+        ?? (restaurarValoresGuardados ? Number(estado.poliza.valorSiniestrosTotales) || 0 : 0);
+    const anos = Number(campoAnos.value)
+        || (restaurarValoresGuardados ? Number(estado.poliza.anosExposicion) || 0 : 0);
+    const promedio = anos > 0 ? total / anos : 0;
+
+    campoTotal.value = formatearValorMonetario(total);
+    campoAnos.value = anos || '';
+    campoPromedio.value = formatearValorMonetario(promedio);
+    estado.poliza.valorSiniestrosTotales = total;
+    estado.poliza.anosExposicion = anos;
+    estado.poliza.siniestrosPromedio = promedio;
+    guardarEstado();
+}
+
 function revisarRangosEnFormulario(campoActivo = null) {
     const campos = Array.from(document.querySelectorAll('#tbody-rangos-planes input[data-plan-id]'));
     campos.forEach(campo => campo.classList.remove('rango-plan-error'));
@@ -3346,11 +3585,13 @@ function validarRangosPlanes() {
     return { valido: true };
 }
 
-function mostrarAlertaRango(mensaje, campo) {
+function mostrarAlertaRango(mensaje, campo, titulo = 'Revisa el rango de valor asegurado') {
     const modal = document.getElementById('modalAlertaRango');
     const texto = document.getElementById('mensajeAlertaRango');
-    if (!modal || !texto) return;
+    const encabezado = document.getElementById('tituloAlertaRango');
+    if (!modal || !texto || !encabezado) return;
     campoRangoConError = campo || null;
+    encabezado.textContent = titulo;
     texto.textContent = mensaje;
     modal.style.display = 'flex';
     document.getElementById('btnAceptarAlertaRango')?.focus();
@@ -3383,20 +3624,30 @@ function actualizarRangoPlan(planId, limite, valor, campo) {
 function asignarPlanAAsegurado(aseguradoId, planId) {
     const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
     if (!asegurado) return;
-    const plan = estado.planes.find(item => item.id === planId);
+    let plan = estado.planes.find(item => item.id === planId);
     if (plan) {
+        const planOriginal = plan;
+        plan = crearPlanFiltradoPorParentesco(plan, asegurado.tipoAsegurado);
         const edadMaxima = obtenerEdadMaximaPlan(plan);
         if (edadMaxima !== null && Number(asegurado.edad) > edadMaxima) {
-            mostrarToast(`${asegurado.nombreCompleto || 'El asegurado'} supera la edad máxima de ${edadMaxima} años para ${plan.nombre}.`, 'warning');
+            mostrarAlertaRango(
+                `${asegurado.nombreCompleto || 'El asegurado'} tiene ${asegurado.edad} años y supera la edad máxima de ${edadMaxima} años para ${plan.nombre}. No se realizó la asignación.`,
+                null,
+                'Restricción de edad para el plan'
+            );
             renderizarAsignacionPlanes();
             return;
         }
+        if (plan !== planOriginal) {
+            mostrarToast(`${plan.nombre} fue creado con las coberturas habilitadas para ${asegurado.tipoAsegurado}.`, 'info');
+        }
     }
     estado.planes.forEach(item => { item.asegurados = (item.asegurados || []).filter(id => id !== aseguradoId); });
-    asegurado.planId = planId || null;
+    asegurado.planId = plan?.id || null;
     if (plan) {
         plan.asegurados = [...new Set([...(plan.asegurados || []), aseguradoId])];
         asegurado.subgrupoId = plan.subgrupoId;
+        sincronizarCoberturasAseguradoConPlan(asegurado, plan);
     }
     guardarEstado();
     renderizarAsignacionPlanes();
@@ -3408,6 +3659,82 @@ function obtenerCoberturasPlan(plan) {
         coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)
         || estado.coberturasCatalogo.find(cobertura => cobertura.codigo === codigo)
     ).filter(Boolean);
+}
+
+function obtenerCoberturasPermitidasPorParentesco(coberturas, tipoAsegurado) {
+    const habilitadas = CONFIG.COBERTURAS_HABILITADAS_POR_PARENTESCO[tipoAsegurado];
+    if (habilitadas) {
+        return coberturas.filter(cobertura => habilitadas.includes(cobertura.codigo));
+    }
+
+    const excluidas = CONFIG.COBERTURAS_EXCLUIDAS_POR_PARENTESCO[tipoAsegurado] || [];
+    return coberturas.filter(cobertura => !excluidas.includes(cobertura.codigo));
+}
+
+function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
+    const coberturasBase = obtenerCoberturasPlan(planBase);
+    const coberturasPermitidas = obtenerCoberturasPermitidasPorParentesco(coberturasBase, tipoAsegurado);
+    const codigosBase = coberturasBase.map(cobertura => cobertura.codigo).sort().join(',');
+    const codigosPermitidos = coberturasPermitidas.map(cobertura => cobertura.codigo).sort().join(',');
+
+    if (codigosPermitidos === codigosBase) return planBase;
+
+    const planExistente = estado.planes.find(plan =>
+        plan.generadoPorParentesco
+        && plan.planBaseId === planBase.id
+        && plan.parentescoRestriccion === tipoAsegurado
+        && obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo).sort().join(',') === codigosPermitidos
+    );
+    if (planExistente) return planExistente;
+
+    const subgrupoId = generarIdSubgrupo(coberturasPermitidas.map(cobertura => cobertura.codigo));
+    if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoId)) {
+        estado.subgrupos.push({
+            id: subgrupoId,
+            nombre: `Grupo ${estado.subgrupos.length + 1}`,
+            coberturas: coberturasPermitidas.map(cobertura => cobertura.codigo).sort(),
+            asegurados: []
+        });
+    }
+
+    const plan = {
+        id: generarUUID(),
+        subgrupoId,
+        nombre: `${siguienteNombrePlan()} — ${tipoAsegurado}`,
+        planBaseId: planBase.id,
+        generadoPorParentesco: true,
+        generadoPorEdad: Boolean(planBase.generadoPorEdad),
+        parentescoRestriccion: tipoAsegurado,
+        valorDesde: planBase.valorDesde,
+        valorHasta: planBase.valorHasta,
+        valoresCobertura: Object.fromEntries(coberturasPermitidas.map(cobertura => [
+            cobertura.codigo,
+            planBase.valoresCobertura?.[cobertura.codigo] || 0
+        ])),
+        asegurados: [],
+        primaTotal: 0
+    };
+    estado.planes.push(plan);
+    return plan;
+}
+
+function sincronizarCoberturasAseguradoConPlan(asegurado, plan) {
+    const coberturasPlan = obtenerCoberturasPlan(plan);
+    const codigosPlan = new Set(coberturasPlan.map(cobertura => cobertura.codigo));
+    asegurado.coberturas = (asegurado.coberturas || []).filter(cobertura => codigosPlan.has(cobertura.codigo));
+    coberturasPlan.forEach(cobertura => {
+        if (!asegurado.coberturas.some(item => item.codigo === cobertura.codigo)) {
+            asegurado.coberturas.push({
+                codigo: cobertura.codigo,
+                codigoAmparo: cobertura.codigoAmparo,
+                nombre: cobertura.nombre,
+                activa: true,
+                valorAsegurado: 0,
+                tasa: TASA_BASE_SISTEMA,
+                prima: 0
+            });
+        }
+    });
 }
 
 function formatearCoberturasPlan(plan) {
@@ -3445,7 +3772,7 @@ function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
     const plan = {
         id: generarUUID(),
         subgrupoId,
-        nombre: `${planBase.nombre} — coberturas por edad`,
+        nombre: `${siguienteNombrePlan()} — coberturas por edad`,
         generadoPorEdad: true,
         valorDesde: planBase.valorDesde,
         valorHasta: planBase.valorHasta,
@@ -3462,15 +3789,7 @@ function asignarAseguradoAPlanElegible(asegurado, plan) {
     asegurado.planId = plan.id;
     asegurado.subgrupoId = plan.subgrupoId;
     plan.asegurados.push(asegurado.id);
-
-    const coberturasPlan = obtenerCoberturasPlan(plan);
-    const codigosPlan = new Set(coberturasPlan.map(cobertura => cobertura.codigo));
-    asegurado.coberturas = (asegurado.coberturas || []).filter(cobertura => codigosPlan.has(cobertura.codigo));
-    coberturasPlan.forEach(cobertura => {
-        if (!asegurado.coberturas.some(item => item.codigo === cobertura.codigo)) {
-            asegurado.coberturas.push({ codigo: cobertura.codigo, codigoAmparo: cobertura.codigoAmparo, nombre: cobertura.nombre, activa: true, valorAsegurado: 0, tasa: TASA_BASE_SISTEMA, prima: 0 });
-        }
-    });
+    sincronizarCoberturasAseguradoConPlan(asegurado, plan);
 }
 
 function asignarPlanesPorRango() {
@@ -3482,10 +3801,11 @@ function asignarPlanesPorRango() {
     let asignados = 0;
     let planesPorEdadCreados = 0;
     let sinCoberturasElegibles = 0;
+    const ajustesPorEdad = [];
     const planesElegibles = new Map();
     estado.asegurados.forEach(asegurado => {
         const valor = obtenerValorAseguradoBase(asegurado);
-        const plan = estado.planes.find(item => !item.generadoPorEdad
+        const plan = estado.planes.find(item => !item.generadoPorEdad && !item.generadoPorParentesco
             &&
             (item.valorDesde === null || item.valorDesde === undefined || valor >= item.valorDesde)
             && (item.valorHasta === null || item.valorHasta === undefined || valor <= item.valorHasta)
@@ -3498,11 +3818,16 @@ function asignarPlanesPorRango() {
             });
             if (coberturasElegibles.length === 0) {
                 sinCoberturasElegibles++;
+                ajustesPorEdad.push(`${asegurado.nombreCompleto || asegurado.numeroDocumento || 'Asegurado sin nombre'}: no tiene coberturas habilitadas.`);
                 return;
             }
 
             let planAsignado = plan;
             if (coberturasElegibles.length !== coberturasPlan.length) {
+                const coberturasRetiradas = coberturasPlan
+                    .filter(cobertura => !coberturasElegibles.some(elegible => elegible.codigo === cobertura.codigo))
+                    .map(cobertura => cobertura.nombre || cobertura.codigo);
+                ajustesPorEdad.push(`${asegurado.nombreCompleto || asegurado.numeroDocumento || 'Asegurado sin nombre'}: se retiraron ${coberturasRetiradas.join(', ')}.`);
                 const llave = `${plan.id}:${coberturasElegibles.map(cobertura => cobertura.codigo).sort().join(',')}`;
                 planAsignado = planesElegibles.get(llave);
                 if (!planAsignado) {
@@ -3511,6 +3836,7 @@ function asignarPlanesPorRango() {
                     planesPorEdadCreados++;
                 }
             }
+            planAsignado = crearPlanFiltradoPorParentesco(planAsignado, asegurado.tipoAsegurado);
             asignarAseguradoAPlanElegible(asegurado, planAsignado);
             asignados++;
         }
@@ -3523,10 +3849,20 @@ function asignarPlanesPorRango() {
     const detalleEdad = planesPorEdadCreados > 0 ? ` Se crearon ${planesPorEdadCreados} plan(es) con coberturas elegibles por edad.` : '';
     const detalleSinCobertura = sinCoberturasElegibles > 0 ? ` ${sinCoberturasElegibles} asegurado(s) no tienen coberturas habilitadas para su edad.` : '';
     mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.${detalleEdad}${detalleSinCobertura}`, sinCoberturasElegibles > 0 ? 'warning' : 'success');
+    if (ajustesPorEdad.length > 0) {
+        const detalle = ajustesPorEdad.slice(0, 5).join(' ');
+        const adicionales = ajustesPorEdad.length > 5 ? ` Además, hay ${ajustesPorEdad.length - 5} caso(s) adicional(es).` : '';
+        mostrarAlertaRango(
+            `Se aplicaron restricciones de edad a ${ajustesPorEdad.length} asegurado(s). ${detalle}${adicionales}`,
+            null,
+            'Coberturas ajustadas por edad'
+        );
+    }
 }
 
 function irAlPaso(numero) {
     if (numero < 1 || numero > 7) return;
+    if (numero === 3 && !validarValoresMinimosParaCotizar()) return;
 
     pasoActual = numero;
     pasosNavegacion();
