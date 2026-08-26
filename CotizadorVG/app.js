@@ -621,7 +621,9 @@ function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
 }
 
 function aplicarRecargoATasa(tasaBase) {
-    return Number(tasaBase) * (1 + obtenerRecargoComercial().total / 100);
+    const factorGasto = obtenerRecargoComercial().total / 100;
+    if (factorGasto >= 1) return Number(tasaBase);
+    return Number(tasaBase) / (1 - factorGasto);
 }
 
 function obtenerRecargoComercial() {
@@ -659,7 +661,7 @@ function mostrarConfirmacionRecargoComercial() {
         <p>Canal comercial: <strong>${detalle.canal}</strong>. El recargo se aplicará a la prima base de cada cobertura seleccionada.</p>
         <table class="tabla-recargo-comercial"><thead><tr><th>Concepto</th><th>Porcentaje</th><th>Cálculo</th></tr></thead>
         <tbody>${filas.map(([concepto, porcentaje, calculo]) => `<tr><td>${concepto}</td><td>${porcentaje.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>${calculo}</td></tr>`).join('')}</tbody>
-        <tfoot><tr><td>Recargo total</td><td>${detalle.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>Prima final = Prima base × ${(1 + detalle.total / 100).toLocaleString('es-CO', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</td></tr></tfoot></table>`;
+        <tfoot><tr><td>Factor de gasto total</td><td>${detalle.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>Tasa final = Tasa base ÷ (1 − ${(detalle.total / 100).toLocaleString('es-CO', { minimumFractionDigits: 4, maximumFractionDigits: 4 })})</td></tr></tfoot></table>`;
     modal.style.display = 'flex';
 }
 
