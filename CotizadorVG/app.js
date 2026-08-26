@@ -111,8 +111,8 @@ const AMPAROS_RESUMIDOS_DEFINITIVOS = [
     { nombre: 'Renta por hospitalización en UCI', codigo: 'WE8' },
     { nombre: 'Renta Por Incapacidad Por Accidente', codigo: 'WE9' },
     { nombre: 'Renta por incapacidad por accidente y enfermedad', codigo: 'WFA' },
-    { nombre: 'Auxilio de repatriación', codigo: 'XRE' },
-    { nombre: 'Invalidez, Pérdida O Inutilización Por Enfermedad', codigo: 'IVE' }
+    { nombre: 'Auxilio de repatriación', codigo: 'WEP' },
+    { nombre: 'Invalidez, Pérdida O Inutilización Por Enfermedad', codigo: 'WE0' }
 ];
 
 const PLANES_SUGERIDOS = [
