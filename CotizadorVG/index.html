@@ -245,6 +245,11 @@
                             <small id="ayudaHonorarioPromotora">Máximo permitido: 10%</small>
                         </div>
                     </div>
+                    <div class="form-group form-full">
+                        <label for="factorGasto">Factor de gasto %</label>
+                        <input type="text" id="factorGasto" readonly aria-readonly="true" aria-describedby="ayudaFactorGasto">
+                        <small id="ayudaFactorGasto">Calculado automáticamente según el canal, comisión, honorario, retorno, costo de contrato, IVA, gasto administrativo y utilidad.</small>
+                    </div>
 
                     <div class="siniestralidad-grid">
                         <span class="form-section-title">Siniestralidad</span>
@@ -682,6 +687,21 @@
             <p id="mensajeAlertaRango"></p>
             <div class="modal-footer alerta-rango-footer">
                 <button class="btn btn-primary" type="button" id="btnAceptarAlertaRango" onclick="cerrarAlertaRango()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmación de recargos comerciales -->
+    <div id="modalRecargoComercial" class="modal modal-recargo-comercial" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloRecargoComercial">
+        <div class="modal-content recargo-comercial-contenido">
+            <div class="modal-header">
+                <h3 id="tituloRecargoComercial">Recargos comerciales aplicados</h3>
+                <button class="btn-close" type="button" onclick="cancelarConfirmacionRecargoComercial()">&times;</button>
+            </div>
+            <div class="modal-body" id="detalleRecargoComercial"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="confirmarRecargoComercial()">Aplicar recargos y continuar</button>
+                <button class="btn btn-secondary" type="button" onclick="cancelarConfirmacionRecargoComercial()">Revisar datos</button>
             </div>
         </div>
     </div>

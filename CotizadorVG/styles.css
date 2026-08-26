@@ -548,6 +548,49 @@ body {
     font-weight: 700;
 }
 
+.modal-recargo-comercial {
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(4, 42, 86, 0.48);
+    backdrop-filter: blur(3px);
+}
+
+.recargo-comercial-contenido {
+    width: min(100%, 780px);
+}
+
+.tabla-recargo-comercial {
+    width: 100%;
+    margin-top: 16px;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.tabla-recargo-comercial th,
+.tabla-recargo-comercial td {
+    padding: 10px;
+    border: 1px solid var(--color-border, #d5dce8);
+    text-align: left;
+}
+
+.tabla-recargo-comercial th {
+    background: var(--color-primary, #003b75);
+    color: #fff;
+}
+
+.tabla-recargo-comercial td:nth-child(2) {
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.tabla-recargo-comercial tfoot {
+    background: #fff7cc;
+    color: var(--color-primary, #003b75);
+    font-weight: 700;
+}
+
 .alerta-rango-contenido h3 {
     margin: 0 0 10px;
     color: var(--color-primary-dark);

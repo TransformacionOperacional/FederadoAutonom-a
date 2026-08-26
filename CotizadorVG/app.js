@@ -212,6 +212,7 @@ let estado = {
 let pasoActual = 1;
 let demoData = null;
 let aseguradoEditandoId = null;
+let confirmarRecargoAntesDeContinuar = false;
 
 // Estado del flujo de negocio
 let flujo = {
@@ -611,11 +612,65 @@ function eliminarCobertura(codigo) {
 function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaPorEdad = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
-    const tasa = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
+    const tasaBase = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
+    const tasaRecargada = aplicarRecargoATasa(tasaBase);
     const prima = tasaPorEdad !== undefined
-        ? valorAsegurado * tasa
-        : valorAsegurado * tasa * obtenerFactorEdad(edad) / 100;
+        ? valorAsegurado * tasaRecargada
+        : valorAsegurado * tasaRecargada * obtenerFactorEdad(edad) / 100;
     return Math.round(prima * 100) / 100;
+}
+
+function aplicarRecargoATasa(tasaBase) {
+    return Number(tasaBase) * (1 + obtenerRecargoComercial().total / 100);
+}
+
+function obtenerRecargoComercial() {
+    const canal = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
+    const comision = Math.min(Math.max(Number(estado.poliza.comision) || 0, 0), 30);
+    const honorarioPromotora = canal === 'Promotora'
+        ? Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10)
+        : 0;
+    const retorno = 0;
+    const costoContrato = 1.64;
+    const gastoAdministracion = canal === 'Promotora' ? 8 : 13;
+    const utilidad = 1.6;
+    const iva = (comision + honorarioPromotora + retorno) * 0.19;
+    const total = comision + honorarioPromotora + retorno + costoContrato + iva + gastoAdministracion + utilidad;
+
+    return { canal, comision, honorarioPromotora, retorno, costoContrato, iva, gastoAdministracion, utilidad, total };
+}
+
+function mostrarConfirmacionRecargoComercial() {
+    const detalle = obtenerRecargoComercial();
+    const modal = document.getElementById('modalRecargoComercial');
+    const contenido = document.getElementById('detalleRecargoComercial');
+    if (!modal || !contenido) return;
+
+    const filas = [
+        ['Comisión', detalle.comision, 'Variable, diligenciada en la primera pestaña'],
+        ['Honorario promotora', detalle.honorarioPromotora, detalle.canal === 'Promotora' ? 'Variable, diligenciado en la primera pestaña' : 'No aplica para Sucursal'],
+        ['Retorno', detalle.retorno, 'Fijo'],
+        ['Costo contrato', detalle.costoContrato, 'Fijo'],
+        ['IVA', detalle.iva, `Calculado: (Comisión + Honorario promotora + Retorno) × 19%`],
+        ['Gasto administrativo', detalle.gastoAdministracion, 'Fijo'],
+        ['Utilidad', detalle.utilidad, 'Fijo']
+    ];
+    contenido.innerHTML = `
+        <p>Canal comercial: <strong>${detalle.canal}</strong>. El recargo se aplicará a la prima base de cada cobertura seleccionada.</p>
+        <table class="tabla-recargo-comercial"><thead><tr><th>Concepto</th><th>Porcentaje</th><th>Cálculo</th></tr></thead>
+        <tbody>${filas.map(([concepto, porcentaje, calculo]) => `<tr><td>${concepto}</td><td>${porcentaje.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>${calculo}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td>Recargo total</td><td>${detalle.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>Prima final = Prima base × ${(1 + detalle.total / 100).toLocaleString('es-CO', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</td></tr></tfoot></table>`;
+    modal.style.display = 'flex';
+}
+
+function cancelarConfirmacionRecargoComercial() {
+    document.getElementById('modalRecargoComercial').style.display = 'none';
+}
+
+function confirmarRecargoComercial() {
+    document.getElementById('modalRecargoComercial').style.display = 'none';
+    confirmarRecargoAntesDeContinuar = true;
+    irAlPaso(2);
 }
 
 function calcularPrimaIndividual(asegurado) {
@@ -1338,7 +1393,8 @@ function guardarEdicionPlan() {
 
 function obtenerTasaPorEdad(cobertura, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
-    return estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+    const tasaBase = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+    return tasaBase === undefined ? undefined : aplicarRecargoATasa(tasaBase);
 }
 
 function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
@@ -1635,7 +1691,18 @@ function actualizarCamposComerciales() {
 
     estado.poliza.canalComercial = esPromotora ? 'Promotora' : 'Sucursal';
     if (!esPromotora) estado.poliza.honorarioPromotora = 0;
+    actualizarFactorGasto();
     guardarEstado();
+}
+
+function actualizarFactorGasto() {
+    const campo = document.getElementById('factorGasto');
+    const detalle = obtenerRecargoComercial();
+    estado.poliza.factorGasto = detalle.total;
+    if (campo) {
+        campo.value = `${detalle.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+    }
+    renderizarTablaCalculos();
 }
 
 function setupEventListeners() {
@@ -1649,6 +1716,10 @@ function setupEventListeners() {
     for (let i = 1; i <= 6; i++) {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => {
             if (i === 2 && !validarValoresMinimosParaCotizar()) return;
+            if (i === 1) {
+                mostrarConfirmacionRecargoComercial();
+                return;
+            }
             irAlPaso(i + 1);
         });
     }
@@ -1678,6 +1749,7 @@ function setupEventListeners() {
                 mostrarToast(`${campo === 'comision' ? 'La comisión' : 'El honorario de promotora'} no puede superar el ${maximo}%.`, 'warning');
             }
             estado.poliza[campo] = valor;
+            actualizarFactorGasto();
             guardarEstado();
         });
     });
@@ -3954,6 +4026,11 @@ function asignarPlanesPorRango() {
 
 function irAlPaso(numero) {
     if (numero < 1 || numero > 7) return;
+    if (numero === 2 && pasoActual === 1 && !confirmarRecargoAntesDeContinuar) {
+        mostrarConfirmacionRecargoComercial();
+        return;
+    }
+    confirmarRecargoAntesDeContinuar = false;
     if (numero === 3 && !validarValoresMinimosParaCotizar()) return;
 
     pasoActual = numero;
