@@ -65,15 +65,17 @@ const coberturaVidaPredeterminada = {
 };
 let coberturasDisponibles = [coberturaVidaPredeterminada];
 
-// La API conserva la columna Amparo_Resumido, pero ahora entrega estas etiquetas.
-// Las referencias anteriores se mantienen como alias para cotizaciones ya guardadas.
+// La API entrega el nombre funcional en Amparo_Resumido_Definitivo.
+// Los valores anteriores se mantienen como alias para cotizaciones ya guardadas.
 const NOMBRES_AMPARO_RESUMIDO = {
     'INVALIDEZ POR ENFERMEDAD': 'Invalidez, Pérdida O Inutilización Por Enfermedad',
     'EG INDEPENDIENTE': 'Enfermedades graves Independientes',
+    'EG': 'Enfermedades graves',
     'EG ANTICIPO': 'Enfermedades graves',
     'INVALIDEZ POR ACCIDENTE': 'Invalidez Por Accidente',
     'ITP': 'Invalidez o pérdida por un accidente o enfermedad',
     'BONO PARA ADECUACIONES DEL HOGAR': 'Bono para adecuaciones del hogar',
+    'AUXILIO DE REPATRIACION': 'Auxilio de repatriación',
     'AUXILIO DE REPATRIACIÓN': 'Auxilio de repatriación',
     'MUERTE ACCIDENTAL': 'Muerte Accidental',
     'PÉRDIDA PARCIAL DE LA CAPACIDAD LABORAL': 'Pérdida Parcial De La Capacidad Laboral',
@@ -88,6 +90,30 @@ const NOMBRES_AMPARO_RESUMIDO = {
     'RENTA POR INCAPACIDAD POR ACCIDENTE': 'Renta Por Incapacidad Por Accidente',
     'RENTA POR INCAPACIDAD': 'Renta por incapacidad por accidente y enfermedad'
 };
+
+// Esta lista define las coberturas que se ofrecen para crear planes. No depende
+// de que la API responda una fila para cada una; la API solo complementa tasas.
+const AMPAROS_RESUMIDOS_DEFINITIVOS = [
+    { nombre: 'Enfermedades graves Independientes', codigo: 'WEV' },
+    { nombre: 'Enfermedades graves', codigo: 'WEU' },
+    { nombre: 'Invalidez o pérdida por un accidente o enfermedad', codigo: 'WEZ' },
+    { nombre: 'Invalidez Por Accidente', codigo: 'WEY' },
+    { nombre: 'Bono para adecuaciones del hogar', codigo: 'WES' },
+    { nombre: 'Muerte Accidental', codigo: 'WE1' },
+    { nombre: 'Pérdida Parcial De La Capacidad Laboral', codigo: 'WE6' },
+    { nombre: 'Vida', codigo: 'WET' },
+    { nombre: 'Bono para educación', codigo: 'WER' },
+    { nombre: 'Bono funerario', codigo: 'WEN' },
+    { nombre: 'Bono Canasta', codigo: 'WEQ' },
+    { nombre: 'Gastos de curación', codigo: 'WEW' },
+    { nombre: 'Auxilio Por Maternidad O Paternidad', codigo: 'WEO' },
+    { nombre: 'Renta por hospitalización', codigo: 'WE7' },
+    { nombre: 'Renta por hospitalización en UCI', codigo: 'WE8' },
+    { nombre: 'Renta Por Incapacidad Por Accidente', codigo: 'WE9' },
+    { nombre: 'Renta por incapacidad por accidente y enfermedad', codigo: 'WFA' },
+    { nombre: 'Auxilio de repatriación', codigo: 'XRE' },
+    { nombre: 'Invalidez, Pérdida O Inutilización Por Enfermedad', codigo: 'IVE' }
+];
 
 const PLANES_SUGERIDOS = [
     { nombre: 'Plan 1', coberturas: ['Vida', 'Invalidez o pérdida por un accidente o enfermedad', 'Bono funerario'] },
@@ -136,7 +162,8 @@ function sincronizarVidaObligatoria() {
 function sincronizarNombresVisiblesCoberturas() {
     const nombrePorCodigo = new Map(coberturasDisponibles.map(cobertura => [cobertura.codigo, cobertura.nombre]));
     estado.coberturasCatalogo.forEach(cobertura => {
-        cobertura.nombre = nombrePorCodigo.get(cobertura.codigo) || cobertura.nombre;
+            const amparoResumidoOriginal = nombrePorCodigo.get(cobertura.codigo) || cobertura.nombre;
+            cobertura.nombre = obtenerAmparoResumidoDefinitivo(amparoResumidoOriginal);
     });
     estado.asegurados.forEach(asegurado => {
         (asegurado.coberturas || []).forEach(cobertura => {
@@ -1377,6 +1404,13 @@ function normalizarTexto(valor) {
     return String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+function obtenerAmparoResumidoDefinitivo(nombre) {
+    const nombreNormalizado = normalizarTexto(nombre);
+    const equivalencia = Object.entries(NOMBRES_AMPARO_RESUMIDO)
+        .find(([nombreAnterior]) => normalizarTexto(nombreAnterior) === nombreNormalizado);
+    return equivalencia?.[1] || nombre;
+}
+
 function renderizarTablaAsegurados() {
     const tbody = document.querySelector('.table-asegurados tbody');
     if (!tbody) return;
@@ -1778,17 +1812,20 @@ async function cargarCatalogoCoberturas() {
                 const codigo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
                 if (!resumenesCoreGW.has(codigo)) {
                     resumenesCoreGW.set(codigo,
-                        fila['Amparo_Resumido(Nuevo Nombre)']
+                        fila.Amparo_Resumido_Definitivo
+                        ?? fila['Amparo_Resumido Definitivo']
+                        ?? fila['Amparo_Resumido(Nuevo Nombre)']
                         ?? fila.Amparo_Resumido_Nuevo_Nombre
                         ?? fila.Amparo_Resumido
                         ?? ''
                     );
                 }
             });
-        coberturasDisponibles = catalogoCompleto
+        const coberturasCoreGW = catalogoCompleto
             .filter(cobertura => resumenesCoreGW.has(String(cobertura.codigoAmparo).replace(/\.0$/, '')))
             .map(cobertura => {
-                const amparoResumido = resumenesCoreGW.get(String(cobertura.codigoAmparo).replace(/\.0$/, ''));
+                const amparoResumidoOriginal = resumenesCoreGW.get(String(cobertura.codigoAmparo).replace(/\.0$/, ''));
+                const amparoResumido = obtenerAmparoResumidoDefinitivo(amparoResumidoOriginal);
                 return {
                     ...cobertura,
                     amparoDetallado: cobertura.nombre,
@@ -1799,6 +1836,30 @@ async function cargarCatalogoCoberturas() {
                         .map(([nombreAnterior]) => nombreAnterior)
                 };
             });
+
+        // Un mismo amparo puede llegar con más de un código del Core GW. Para crear
+        // planes solo se muestra una vez, usando el nuevo nombre definitivo como llave.
+        const coberturaApiPorNombre = new Map(
+            coberturasCoreGW.map(cobertura => [normalizarTexto(cobertura.amparoResumido || cobertura.nombre), cobertura])
+        );
+        const coberturaLocalPorCodigo = new Map(
+            catalogoCompleto.map(cobertura => [cobertura.codigo, cobertura])
+        );
+        coberturasDisponibles = AMPAROS_RESUMIDOS_DEFINITIVOS.map(({ nombre, codigo }) => {
+            const coberturaApi = coberturaApiPorNombre.get(normalizarTexto(nombre));
+            const coberturaLocal = coberturaLocalPorCodigo.get(codigo);
+            const cobertura = coberturaLocal || coberturaApi;
+
+            if (!cobertura) return null;
+            return {
+                ...cobertura,
+                nombre,
+                amparoResumido: nombre,
+                aliasesAmparoResumido: Object.entries(NOMBRES_AMPARO_RESUMIDO)
+                    .filter(([, nombreDefinitivo]) => normalizarTexto(nombreDefinitivo) === normalizarTexto(nombre))
+                    .map(([nombreAnterior]) => nombreAnterior)
+            };
+        }).filter(Boolean);
 
         if (coberturasDisponibles.length === 0) {
             throw new Error('La API no devolvió amparos pertenecientes al Core GW.');
