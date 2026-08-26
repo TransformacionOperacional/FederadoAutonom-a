@@ -620,7 +620,9 @@ function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
 
 function calcularPrimaIndividual(asegurado) {
     let prima = 0;
-    asegurado.coberturas.forEach(cob => {
+    const plan = estado.planes.find(item => item.id === asegurado.planId);
+    const codigosPlan = plan ? new Set(obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo)) : null;
+    asegurado.coberturas.filter(cobertura => !codigosPlan || codigosPlan.has(cobertura.codigo)).forEach(cob => {
         const coberturaCatalogo = estado.coberturasCatalogo.find(item => item.codigo === cob.codigo) || cob;
         const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
         if (cob.activa && valorAsegurado !== null && valorAsegurado > 0) {
@@ -1355,33 +1357,59 @@ function formatearTasa(tasa) {
 }
 
 function renderizarTablaCalculos() {
-    const thead = document.getElementById('thead-calculos');
-    const tbody = document.getElementById('tbody-calculos');
-    if (!thead || !tbody) return;
-
-    const coberturas = estado.coberturasCatalogo;
-    thead.innerHTML = `<tr>
-        <th>Documento</th>
-        <th>Edad</th>
-        ${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}
-    </tr>`;
+    const contenedor = document.querySelector('.calculos-container');
+    if (!contenedor) return;
+    const planesPorId = new Map(estado.planes.map(plan => [plan.id, plan]));
 
     if (estado.asegurados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${2 + coberturas.length * 3}" class="calculos-vacio">No hay asegurados cargados.</td></tr>`;
+        contenedor.innerHTML = '<p class="calculos-vacio">No hay asegurados cargados.</p>';
         return;
     }
 
-    tbody.innerHTML = estado.asegurados.map(asegurado => {
-        const celdas = coberturas.map(cobertura => {
-            const tasa = obtenerTasaPorEdad(cobertura, asegurado.edad);
-            const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
-            const prima = tasa === undefined || valorAsegurado === null
-                ? null
-                : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
-            return `<td>${formatearTasa(tasa)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
+    const aseguradosPorPlan = new Map();
+    estado.asegurados.forEach(asegurado => {
+        const plan = planesPorId.get(asegurado.planId) || null;
+        const llave = plan?.id || 'sin-plan';
+        if (!aseguradosPorPlan.has(llave)) aseguradosPorPlan.set(llave, { plan, asegurados: [] });
+        aseguradosPorPlan.get(llave).asegurados.push(asegurado);
+    });
+
+    let primaTotalPoliza = 0;
+    const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
+        const coberturas = plan ? obtenerCoberturasPlan(plan) : [];
+        const columnas = 2 + coberturas.length * 3;
+        let primaTotalPlan = 0;
+        const filas = asegurados.map(asegurado => {
+            const celdas = coberturas.map(cobertura => {
+                const tasa = obtenerTasaPorEdad(cobertura, asegurado.edad);
+                const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
+                const prima = tasa === undefined || valorAsegurado === null
+                    ? null
+                    : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                if (prima !== null) primaTotalPlan += prima;
+                return `<td>${formatearTasa(tasa)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
+            }).join('');
+            return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
         }).join('');
-        return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
+
+        if (plan) {
+            plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
+            primaTotalPoliza += plan.primaTotal;
+        }
+        return `<section class="calculos-plan-card">
+            <header class="calculos-plan-header">
+                <div><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span></div>
+                <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
+            </header>
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot><tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
+        </section>`;
     }).join('');
+
+    contenedor.innerHTML = `${tarjetasPlanes}
+        <section class="calculos-total-poliza">
+            <span>Prima total de la póliza</span>
+            <strong>${formatearDinero(primaTotalPoliza)}</strong>
+        </section>`;
 }
 
 function renderizarAmparosDisponibles() {
@@ -3212,6 +3240,8 @@ function actualizarValorPlan(planId, coberturaCod, valor) {
 
     // Recalcular prima del plan
     recalcularPrimaPlan(plan);
+    renderizarTablaCalculos();
+    renderizarPlanesWorkspace(plan.subgrupoId);
     guardarEstado();
 }
 
@@ -3712,6 +3742,7 @@ function asignarPlanAAsegurado(aseguradoId, planId) {
     }
     guardarEstado();
     renderizarAsignacionPlanes();
+    renderizarTablaCalculos();
 }
 
 function obtenerCoberturasPlan(plan) {
