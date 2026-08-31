@@ -435,8 +435,11 @@
             <!-- PASO 4: Asignación de asegurados a planes -->
             <section class="step-section" id="step4">
                 <h2>Asignación de Planes</h2>
-                <p class="info-box">Asigna cada asegurado manualmente a un plan o define rangos de valor asegurado para realizar la asignación automática.</p>
-                <h3 style="font-size:16px;margin:20px 0 10px;">Rangos de valor asegurado por plan</h3>
+                <p class="info-box">Define los rangos para seleccionar el plan base. Durante la asignación, se crea un plan espejo por cada valor asegurado en Vida distinto, además de las agrupaciones por coberturas, edad y parentesco.</p>
+                <div style="margin:12px 0;display:flex;justify-content:flex-end;">
+                    <button class="btn btn-outline btn-small" id="btnReiniciarAsignacion" type="button" onclick="reiniciarAsignacionAutomatica()">Reiniciar asignación</button>
+                </div>
+                <h3 style="font-size:16px;margin:20px 0 10px;">Planes base</h3>
                 <div style="overflow-x:auto;">
                     <table class="table-editable">
                         <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor asegurado desde (COP)</th><th>Valor asegurado hasta (COP)</th><th>Edad máxima</th></tr></thead>
@@ -444,7 +447,14 @@
                     </table>
                 </div>
                 <div style="margin:12px 0 24px;"><button class="btn btn-secondary" type="button" onclick="asignarPlanesPorRango()">Asignar automáticamente por rango</button></div>
-                <h3 style="font-size:16px;margin:0 0 10px;">Asignación manual</h3>
+                <h3 style="font-size:16px;margin:0 0 10px;">Planes asignados</h3>
+                <div style="overflow-x:auto;">
+                    <table class="table-editable">
+                        <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor asegurado en Vida (COP)</th><th>Valor asegurado desde (COP)</th><th>Valor asegurado hasta (COP)</th><th>Asegurados</th><th>Edad máxima</th></tr></thead>
+                        <tbody id="tbody-planes-asignados"></tbody>
+                    </table>
+                </div>
+                <h3 style="font-size:16px;margin:24px 0 10px;">Asignación manual</h3>
                 <div style="overflow-x:auto;">
                     <table class="table-editable">
                         <thead><tr><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Valor asegurado</th><th>Plan</th></tr></thead>

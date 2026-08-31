@@ -363,6 +363,13 @@ function guardarAseguradoDesdeModal() {
         return;
     }
 
+    // Un plan automático conserva el valor de Vida con el que fue creado.
+    // Al editar un asegurado se debe retirar esa asignación antes de guardar,
+    // para que el plan no reemplace el nuevo dato al recalcular las primas.
+    const habiaAsignacionAutomatica = Boolean(asegurado?.planId)
+        && estado.planes.some(plan => plan.id === asegurado.planId && plan.creadoPorAsignacionAutomatica);
+    if (habiaAsignacionAutomatica) reiniciarAsignacionAutomatica(false);
+
     const datos = asegurado || {
         id: generarUUID(), tipoDocumento: 'Cédula', sexo: 'Masculino', ocupacion: 'Administrativo', salario: 0,
         coberturas: generarCoberturasPorDefecto(valorAsegurado), subgrupoId: null, planId: null, primaIndividual: 0, simulado: false
@@ -1238,7 +1245,12 @@ function aplicarPlanSugerido(sugeridoId) {
 }
 
 function siguienteNombrePlan() {
-    let numero = estado.planes.length;
+    const numeroPorLetra = letras => [...letras].reduce((total, letra) => total * 26 + letra.charCodeAt(0) - 64, 0) - 1;
+    const ultimoNumero = estado.planes.reduce((maximo, plan) => {
+        const coincidencia = String(plan.nombre || '').match(/^Plan\s+([A-Z]+)(?:\s|$)/i);
+        return coincidencia ? Math.max(maximo, numeroPorLetra(coincidencia[1].toUpperCase())) : maximo;
+    }, -1);
+    let numero = ultimoNumero + 1;
     let letras = '';
     do {
         letras = String.fromCharCode(65 + (numero % 26)) + letras;
@@ -3624,25 +3636,45 @@ function mostrarSeccionAsegurados() {
 
 function renderizarAsignacionPlanes() {
     const cuerpoRangos = document.getElementById('tbody-rangos-planes');
+    const cuerpoPlanesAsignados = document.getElementById('tbody-planes-asignados');
     const cuerpoAsignacion = document.getElementById('tbody-asignacion-planes');
-    if (!cuerpoRangos || !cuerpoAsignacion) return;
+    if (!cuerpoRangos || !cuerpoPlanesAsignados || !cuerpoAsignacion) return;
+    actualizarEstadoBotonReiniciarAsignacion();
 
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
+        cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes generados por la asignación automática.</td></tr>';
         cuerpoAsignacion.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         return;
     }
 
-    cuerpoRangos.innerHTML = estado.planes.map(plan => `
+    const planesBase = estado.planes.filter(plan => !plan.creadoPorAsignacionAutomatica
+        && !plan.generadoPorParentesco
+        && !plan.generadoPorEdad
+        && !plan.generadoPorValorAsegurado);
+    const planesAsignados = estado.planes.filter(plan => plan.creadoPorAsignacionAutomatica);
+
+    cuerpoRangos.innerHTML = planesBase.length > 0 ? planesBase.map(plan => `
         <tr>
             <td>${plan.nombre}</td>
             <td>${formatearCoberturasPlan(plan)}</td>
             <td>${plan.generadoPorEdad ? formatearValorMonetario(plan.valorDesde) || 'Sin mínimo' : `<input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="desde" value="${formatearValorMonetario(plan.valorDesde)}" placeholder="$ 0" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'desde', this.value, this)">`}</td>
             <td>${plan.generadoPorEdad ? formatearValorMonetario(plan.valorHasta) || 'Sin máximo' : `<input type="text" inputmode="numeric" data-plan-id="${plan.id}" data-limite="hasta" value="${formatearValorMonetario(plan.valorHasta)}" placeholder="Sin máximo" oninput="formatearCampoMoneda(this); revisarRangosEnFormulario(this)" onchange="actualizarRangoPlan('${plan.id}', 'hasta', this.value, this)">`}</td>
             <td>${formatearEdadMaximaPlan(plan)}</td>
-        </tr>`).join('');
+        </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted">No hay planes base disponibles.</td></tr>';
 
-    const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${plan.nombre}</option>`).join('');
+    cuerpoPlanesAsignados.innerHTML = planesAsignados.length > 0 ? planesAsignados.map(plan => `
+        <tr>
+            <td>${obtenerNombreCortoPlan(plan)}</td>
+            <td>${formatearCoberturasPlan(plan)}</td>
+            <td>${formatearDinero(plan.valorAseguradoVidaAgrupacion)}</td>
+            <td>${formatearValorMonetario(plan.valorDesde) || 'Sin mínimo'}</td>
+            <td>${formatearValorMonetario(plan.valorHasta) || 'Sin máximo'}</td>
+            <td>${(plan.asegurados || []).length}</td>
+            <td>${formatearEdadMaximaPlan(plan)}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes generados por la asignación automática.</td></tr>';
+
+    const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${obtenerNombreCortoPlan(plan)}</option>`).join('');
     cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
         <tr>
             <td>${asegurado.numeroDocumento || '—'}</td>
@@ -3656,6 +3688,10 @@ function renderizarAsignacionPlanes() {
         const selector = cuerpoAsignacion.querySelector(`select[onchange*="'${asegurado.id}'"]`);
         if (selector) selector.value = asegurado.planId || '';
     });
+}
+
+function obtenerNombreCortoPlan(plan) {
+    return String(plan.nombre || '').match(/^Plan\s+[A-Z]+/i)?.[0] || plan.nombre;
 }
 
 function obtenerValorMonetario(valor) {
@@ -3750,6 +3786,42 @@ function validarRangosPlanes() {
     return { valido: true };
 }
 
+function validarPlanesBaseParaAsignacionAutomatica() {
+    const planesBase = estado.planes.filter(plan => !plan.creadoPorAsignacionAutomatica
+        && !plan.generadoPorParentesco
+        && !plan.generadoPorEdad
+        && !plan.generadoPorValorAsegurado);
+    const planSinRango = planesBase.find(plan =>
+        plan.valorDesde === null || plan.valorDesde === undefined
+        || plan.valorHasta === null || plan.valorHasta === undefined
+    );
+    if (planSinRango) {
+        mostrarAlertaRango(
+            `Diligencia los valores “desde” y “hasta” del ${planSinRango.nombre} antes de usar la asignación automática.`,
+            null,
+            'Rangos requeridos para la asignación automática'
+        );
+        return false;
+    }
+    return true;
+}
+
+function validarAseguradosAsignadosParaCalculos() {
+    const sinPlan = estado.asegurados.filter(asegurado => !asegurado.planId);
+    if (sinPlan.length === 0) return true;
+
+    const nombres = sinPlan.slice(0, 5)
+        .map(asegurado => asegurado.nombreCompleto || asegurado.numeroDocumento || 'Asegurado sin nombre')
+        .join(', ');
+    const adicionales = sinPlan.length > 5 ? ` y ${sinPlan.length - 5} más` : '';
+    mostrarAlertaRango(
+        `No es posible ver los cálculos mientras existan asegurados sin plan asignado: ${nombres}${adicionales}. Asigna los planes faltantes o ajusta los rangos y vuelve a ejecutar la asignación automática.`,
+        null,
+        'Asegurados sin plan asignado'
+    );
+    return false;
+}
+
 function mostrarAlertaRango(mensaje, campo, titulo = 'Revisa el rango de valor asegurado') {
     const modal = document.getElementById('modalAlertaRango');
     const texto = document.getElementById('mensajeAlertaRango');
@@ -3767,6 +3839,39 @@ function cerrarAlertaRango() {
     if (modal) modal.style.display = 'none';
     campoRangoConError?.focus();
     campoRangoConError = null;
+}
+
+function actualizarEstadoBotonReiniciarAsignacion() {
+    const boton = document.getElementById('btnReiniciarAsignacion');
+    if (boton) boton.disabled = !estado.planes.some(plan => plan.creadoPorAsignacionAutomatica);
+}
+
+function reiniciarAsignacionAutomatica(mostrarConfirmacion = true) {
+    const planesAutomaticos = estado.planes.filter(plan => plan.creadoPorAsignacionAutomatica);
+    if (planesAutomaticos.length === 0) {
+        mostrarToast('No hay una asignación automática para reiniciar.', 'info');
+        return;
+    }
+
+    const idsPlanesAutomaticos = new Set(planesAutomaticos.map(plan => plan.id));
+    estado.asegurados.forEach(asegurado => {
+        if (idsPlanesAutomaticos.has(asegurado.planId)) {
+            asegurado.planId = null;
+            asegurado.subgrupoId = null;
+        }
+    });
+    estado.planes = estado.planes.filter(plan => !idsPlanesAutomaticos.has(plan.id));
+    const subgruposConPlan = new Set(estado.planes.map(plan => plan.subgrupoId));
+    estado.subgrupos = estado.subgrupos.filter(subgrupo => subgruposConPlan.has(subgrupo.id));
+    if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoActivoEnPlanes)) subgrupoActivoEnPlanes = null;
+
+    guardarEstado();
+    renderizarAsignacionPlanes();
+    renderizarPlanesSubgrupoTabs();
+    renderizarTablaCalculos();
+    if (mostrarConfirmacion) {
+        mostrarToast('Asignación automática reiniciada. Puedes ajustar nuevamente los rangos.', 'success');
+    }
 }
 
 function actualizarRangoPlan(planId, limite, valor, campo) {
@@ -3806,6 +3911,7 @@ function asignarPlanAAsegurado(aseguradoId, planId) {
         if (plan !== planOriginal) {
             mostrarToast(`${plan.nombre} fue creado con las coberturas habilitadas para ${asegurado.tipoAsegurado}.`, 'info');
         }
+        plan = crearPlanFiltradoPorValorAsegurado(plan, asegurado);
     }
     estado.planes.forEach(item => { item.asegurados = (item.asegurados || []).filter(id => id !== aseguradoId); });
     asegurado.planId = plan?.id || null;
@@ -3884,6 +3990,59 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
     return plan;
 }
 
+function crearPlanFiltradoPorValorAsegurado(planBase, asegurado) {
+    const valorAseguradoVida = obtenerValorAseguradoBase(asegurado);
+    if (planBase.generadoPorValorAsegurado && planBase.valorAseguradoVidaAgrupacion === valorAseguradoVida) {
+        return planBase;
+    }
+    const planExistente = estado.planes.find(plan =>
+        plan.generadoPorValorAsegurado
+        && plan.planBaseId === planBase.id
+        && plan.valorAseguradoVidaAgrupacion === valorAseguradoVida
+    );
+    if (planExistente) return planExistente;
+
+    const coberturasPlan = obtenerCoberturasPlan(planBase);
+    const valoresCobertura = Object.fromEntries(coberturasPlan.map(cobertura => [
+        cobertura.codigo,
+        planBase.valoresCobertura?.[cobertura.codigo] || 0
+    ]));
+    const coberturaVida = coberturasPlan.find(cobertura =>
+        cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
+    );
+    if (coberturaVida) valoresCobertura[coberturaVida.codigo] = valorAseguradoVida;
+    const rangoPlanBase = obtenerRangoPlanBase(planBase);
+
+    const plan = {
+        id: generarUUID(),
+        subgrupoId: planBase.subgrupoId,
+        nombre: siguienteNombrePlan(),
+        planBaseId: planBase.id,
+        generadoPorValorAsegurado: true,
+        valorAseguradoVidaAgrupacion: valorAseguradoVida,
+        valorDesde: rangoPlanBase.desde,
+        valorHasta: rangoPlanBase.hasta,
+        valoresCobertura,
+        asegurados: [],
+        primaTotal: 0
+    };
+    estado.planes.push(plan);
+    return plan;
+}
+
+function obtenerRangoPlanBase(plan) {
+    let planActual = plan;
+    const planesVisitados = new Set();
+    while (planActual && !planesVisitados.has(planActual.id)) {
+        planesVisitados.add(planActual.id);
+        if (planActual.valorDesde !== undefined || planActual.valorHasta !== undefined) {
+            return { desde: planActual.valorDesde, hasta: planActual.valorHasta };
+        }
+        planActual = estado.planes.find(item => item.id === planActual.planBaseId);
+    }
+    return { desde: null, hasta: null };
+}
+
 function sincronizarCoberturasAseguradoConPlan(asegurado, plan) {
     const coberturasPlan = obtenerCoberturasPlan(plan);
     const codigosPlan = new Set(coberturasPlan.map(cobertura => cobertura.codigo));
@@ -3959,19 +4118,22 @@ function asignarAseguradoAPlanElegible(asegurado, plan) {
 }
 
 function asignarPlanesPorRango() {
+    if (!validarPlanesBaseParaAsignacionAutomatica()) return;
     const validacion = validarRangosPlanes();
     if (!validacion.valido) {
         mostrarToast(validacion.mensaje, 'warning');
         return;
     }
+    const idsPlanesAntesDeAsignar = new Set(estado.planes.map(plan => plan.id));
     let asignados = 0;
     let planesPorEdadCreados = 0;
+    let planesPorValorAseguradoCreados = 0;
     let sinCoberturasElegibles = 0;
     const ajustesPorEdad = [];
     const planesElegibles = new Map();
     estado.asegurados.forEach(asegurado => {
         const valor = obtenerValorAseguradoBase(asegurado);
-        const plan = estado.planes.find(item => !item.generadoPorEdad && !item.generadoPorParentesco
+        const plan = estado.planes.find(item => !item.generadoPorEdad && !item.generadoPorParentesco && !item.generadoPorValorAsegurado && !item.creadoPorAsignacionAutomatica
             &&
             (item.valorDesde === null || item.valorDesde === undefined || valor >= item.valorDesde)
             && (item.valorHasta === null || item.valorHasta === undefined || valor <= item.valorHasta)
@@ -4003,18 +4165,30 @@ function asignarPlanesPorRango() {
                 }
             }
             planAsignado = crearPlanFiltradoPorParentesco(planAsignado, asegurado.tipoAsegurado);
+            const totalPlanesAntesDeValor = estado.planes.length;
+            planAsignado = crearPlanFiltradoPorValorAsegurado(planAsignado, asegurado);
+            if (estado.planes.length > totalPlanesAntesDeValor) planesPorValorAseguradoCreados++;
             asignarAseguradoAPlanElegible(asegurado, planAsignado);
             asignados++;
         }
     });
+    estado.planes.forEach(plan => {
+        if (!idsPlanesAntesDeAsignar.has(plan.id)) plan.creadoPorAsignacionAutomatica = true;
+    });
+    // Los planes creados como paso intermedio por edad o parentesco se reemplazan
+    // por su plan espejo de valor asegurado. No deben mostrarse si quedan vacíos.
+    estado.planes = estado.planes.filter(plan =>
+        !plan.creadoPorAsignacionAutomatica || (plan.asegurados || []).length > 0
+    );
     estado.planes.forEach(recalcularPrimaPlan);
     guardarEstado();
     renderizarAsignacionPlanes();
     renderizarPlanesSubgrupoTabs();
     renderizarTablaCalculos();
     const detalleEdad = planesPorEdadCreados > 0 ? ` Se crearon ${planesPorEdadCreados} plan(es) con coberturas elegibles por edad.` : '';
+    const detalleValor = planesPorValorAseguradoCreados > 0 ? ` Se crearon ${planesPorValorAseguradoCreados} plan(es) espejo por valor asegurado en Vida.` : '';
     const detalleSinCobertura = sinCoberturasElegibles > 0 ? ` ${sinCoberturasElegibles} asegurado(s) no tienen coberturas habilitadas para su edad.` : '';
-    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.${detalleEdad}${detalleSinCobertura}`, sinCoberturasElegibles > 0 ? 'warning' : 'success');
+    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.${detalleEdad}${detalleValor}${detalleSinCobertura}`, sinCoberturasElegibles > 0 ? 'warning' : 'success');
     if (ajustesPorEdad.length > 0) {
         const detalle = ajustesPorEdad.slice(0, 5).join(' ');
         const adicionales = ajustesPorEdad.length > 5 ? ` Además, hay ${ajustesPorEdad.length - 5} caso(s) adicional(es).` : '';
@@ -4034,6 +4208,7 @@ function irAlPaso(numero) {
     }
     confirmarRecargoAntesDeContinuar = false;
     if (numero === 3 && !validarValoresMinimosParaCotizar()) return;
+    if (numero === 5 && !validarAseguradosAsignadosParaCalculos()) return;
 
     pasoActual = numero;
     pasosNavegacion();
