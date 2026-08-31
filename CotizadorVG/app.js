@@ -24,9 +24,9 @@ const CONFIG = {
         Nietos: ['IPP', 'WE6', 'WE9']
     },
     COBERTURAS_HABILITADAS_POR_PARENTESCO: {
-        // Se conservan las dos modalidades disponibles de auxilio funerario.
-        Padres: ['WET', 'ITP', 'GEN', 'AFC'],
-        Padrastos: ['WET', 'ITP', 'GEN', 'AFC']
+        // Los códigos deben corresponder a los amparos operativos del catálogo.
+        Padres: ['WET', 'WEZ', 'WEN'],
+        Padrastos: ['WET', 'WEZ', 'WEN']
     },
     CANAL_COMERCIAL: ['Sucursal', 'Promotora'],
     FACTORES_EDAD: {
@@ -3768,7 +3768,13 @@ function revisarRangosEnFormulario(campoActivo = null) {
 
 function validarRangosPlanes() {
     const rangos = estado.planes
-        .filter(plan => !plan.generadoPorEdad)
+        // Solo los planes base definen rangos. Los planes espejo creados por
+        // asignaciones previas conservan el rango de origen y no pueden
+        // participar en esta validación, porque generarían falsos cruces.
+        .filter(plan => !plan.creadoPorAsignacionAutomatica
+            && !plan.generadoPorParentesco
+            && !plan.generadoPorEdad
+            && !plan.generadoPorValorAsegurado)
         .filter(plan => plan.valorDesde !== null && plan.valorDesde !== undefined && plan.valorHasta !== null && plan.valorHasta !== undefined)
         .map(plan => ({ nombre: plan.nombre, desde: plan.valorDesde, hasta: plan.valorHasta }))
         .sort((a, b) => a.desde - b.desde);
@@ -3951,13 +3957,30 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
 
     if (codigosPermitidos === codigosBase) return planBase;
 
+    // La restricción se determina por las coberturas resultantes, no por el
+    // parentesco. Por ejemplo, Padres y Padrastos tienen hoy la misma regla;
+    // si los valores y el rango también coinciden, deben compartir un plan.
+    const firmaValores = coberturasPermitidas
+        .map(cobertura => `${cobertura.codigo}:${Number(planBase.valoresCobertura?.[cobertura.codigo]) || 0}`)
+        .sort()
+        .join('|');
+    const rangoPlanBase = obtenerRangoPlanBase(planBase);
     const planExistente = estado.planes.find(plan =>
         plan.generadoPorParentesco
-        && plan.planBaseId === planBase.id
-        && plan.parentescoRestriccion === tipoAsegurado
         && obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo).sort().join(',') === codigosPermitidos
+        && obtenerCoberturasPlan(plan)
+            .map(cobertura => `${cobertura.codigo}:${Number(plan.valoresCobertura?.[cobertura.codigo]) || 0}`)
+            .sort()
+            .join('|') === firmaValores
+        && plan.valorDesde === rangoPlanBase.desde
+        && plan.valorHasta === rangoPlanBase.hasta
     );
-    if (planExistente) return planExistente;
+    if (planExistente) {
+        const parentescos = new Set(planExistente.parentescosRestriccion || [planExistente.parentescoRestriccion]);
+        parentescos.add(tipoAsegurado);
+        planExistente.parentescosRestriccion = [...parentescos].filter(Boolean);
+        return planExistente;
+    }
 
     const subgrupoId = generarIdSubgrupo(coberturasPermitidas.map(cobertura => cobertura.codigo));
     if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoId)) {
@@ -3977,6 +4000,7 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
         generadoPorParentesco: true,
         generadoPorEdad: Boolean(planBase.generadoPorEdad),
         parentescoRestriccion: tipoAsegurado,
+        parentescosRestriccion: [tipoAsegurado],
         valorDesde: planBase.valorDesde,
         valorHasta: planBase.valorHasta,
         valoresCobertura: Object.fromEntries(coberturasPermitidas.map(cobertura => [
@@ -4124,6 +4148,14 @@ function asignarPlanesPorRango() {
         mostrarToast(validacion.mensaje, 'warning');
         return;
     }
+
+    // La asignación automática siempre se calcula desde los planes base. Si
+    // existe una ejecución anterior, se limpia en silencio para no conservar
+    // planes espejo ni asignaciones desactualizadas entre ejecuciones.
+    if (estado.planes.some(plan => plan.creadoPorAsignacionAutomatica)) {
+        reiniciarAsignacionAutomatica(false);
+    }
+
     const idsPlanesAntesDeAsignar = new Set(estado.planes.map(plan => plan.id));
     let asignados = 0;
     let planesPorEdadCreados = 0;
