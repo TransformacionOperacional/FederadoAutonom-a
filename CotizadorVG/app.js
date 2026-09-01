@@ -1426,6 +1426,12 @@ function formatearTasa(tasa) {
     return Number.isFinite(tasa) ? tasa.toLocaleString('es-CO', { maximumFractionDigits: 12 }) : 'Sin tasa';
 }
 
+function formatearTasaUnica(primaTotal, valorAseguradoTotal) {
+    if (!Number.isFinite(primaTotal) || !Number.isFinite(valorAseguradoTotal) || valorAseguradoTotal <= 0) return '—';
+    return ((primaTotal / valorAseguradoTotal) * 1000)
+        .toLocaleString('es-CO', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+}
+
 function renderizarTablaCalculos() {
     const contenedor = document.querySelector('.calculos-container');
     if (!contenedor) return;
@@ -1445,10 +1451,15 @@ function renderizarTablaCalculos() {
     });
 
     let primaTotalPoliza = 0;
+    const totalesPolizaPorCobertura = new Map();
     const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
         const coberturas = plan ? obtenerCoberturasPlan(plan) : [];
         const columnas = 2 + coberturas.length * 3;
         let primaTotalPlan = 0;
+        const totalesPlanPorCobertura = new Map(coberturas.map(cobertura => [cobertura.codigo, {
+            valorAsegurado: 0,
+            prima: 0
+        }]));
         const filas = asegurados.map(asegurado => {
             const celdas = coberturas.map(cobertura => {
                 const tasa = obtenerTasaPorEdad(cobertura, asegurado.edad);
@@ -1457,6 +1468,9 @@ function renderizarTablaCalculos() {
                     ? null
                     : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
                 if (prima !== null) primaTotalPlan += prima;
+                const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
+                if (valorAsegurado !== null) totalPlan.valorAsegurado += valorAsegurado;
+                if (prima !== null) totalPlan.prima += prima;
                 return `<td>${formatearTasa(tasa)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
             }).join('');
             return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
@@ -1465,20 +1479,52 @@ function renderizarTablaCalculos() {
         if (plan) {
             plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
             primaTotalPoliza += plan.primaTotal;
+            coberturas.forEach(cobertura => {
+                const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
+                const totalPoliza = totalesPolizaPorCobertura.get(cobertura.codigo) || {
+                    nombre: cobertura.nombre || cobertura.codigo,
+                    valorAsegurado: 0,
+                    prima: 0
+                };
+                totalPoliza.valorAsegurado += totalPlan.valorAsegurado;
+                totalPoliza.prima += totalPlan.prima;
+                totalesPolizaPorCobertura.set(cobertura.codigo, totalPoliza);
+            });
         }
+        const totalVidaPlan = totalesPlanPorCobertura.get('WET')?.valorAsegurado || 0;
+        const tasaUnicaPlan = formatearTasaUnica(primaTotalPlan, totalVidaPlan);
+        const filaTotalesCobertura = `<tr class="tasa-unica-row"><td colspan="2"><strong>Totales por cobertura ${plan?.nombre || ''}</strong></td>${coberturas.map(cobertura => {
+            const total = totalesPlanPorCobertura.get(cobertura.codigo);
+            return `<td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.prima)}</strong></td>`;
+        }).join('')}</tr>`;
+        const filaTasaUnicaPlan = `<tr class="tasa-unica-row"><td colspan="${columnas - 1}"><strong>Tasa única total ${plan?.nombre || ''}</strong> <small>(Prima total del plan ÷ Valor asegurado total Vida × 1.000)</small></td><td><strong>${tasaUnicaPlan}</strong></td></tr>`;
         return `<section class="calculos-plan-card">
             <header class="calculos-plan-header">
                 <div><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span></div>
-                <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
+                <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong><span>Tasa única total</span><strong>${plan ? tasaUnicaPlan : '—'}</strong></div>
             </header>
-            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot><tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
         </section>`;
     }).join('');
 
+    const resumenTasaUnicaPoliza = [...totalesPolizaPorCobertura.entries()].map(([codigo, total]) => `
+        <tr>
+            <td>${total.nombre} (${codigo})</td>
+            <td>${formatearDinero(total.valorAsegurado)}</td>
+            <td>${formatearDinero(total.prima)}</td>
+            <td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td>
+        </tr>`).join('');
+
+    const totalVidaPoliza = totalesPolizaPorCobertura.get('WET')?.valorAsegurado || 0;
+    const tasaUnicaPoliza = formatearTasaUnica(primaTotalPoliza, totalVidaPoliza);
+
     contenedor.innerHTML = `${tarjetasPlanes}
+        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa única de la póliza</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa única</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
             <span>Prima total de la póliza</span>
             <strong>${formatearDinero(primaTotalPoliza)}</strong>
+            <span>Tasa única total de la póliza</span>
+            <strong>${tasaUnicaPoliza}</strong>
         </section>`;
 }
 
