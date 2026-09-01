@@ -26,7 +26,7 @@ def _connect_with_diagnostics(conn_string: str, context: str):
 
         host = _get_setting("TERADATA_HOST", "teradata.suranet.com")
         user = _get_setting("TERADATA_USER", "FREDARAN")
-        password = _get_setting("TERADATA_PASSWORD", "Articuno930618*")
+        password = _get_setting("TERADATA_PASSWORD", "Charizard930618*")
         database = _get_setting("TERADATA_DATABASE", "").strip()
         connect_kwargs = {
             "host": host,
