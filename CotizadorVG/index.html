@@ -251,7 +251,15 @@
                         <small id="ayudaFactorGasto">Calculado automáticamente según el canal, comisión, honorario, retorno, costo de contrato, IVA, gasto administrativo y utilidad.</small>
                     </div>
 
-                    <div class="siniestralidad-grid">
+                    <div class="form-group form-full">
+                        <label for="aplicaCredibilidad">¿Tiene información sobre los siniestros de la póliza?</label>
+                        <select id="aplicaCredibilidad">
+                            <option value="no" selected>No</option>
+                            <option value="si">Sí</option>
+                        </select>
+                    </div>
+
+                    <div class="siniestralidad-grid" id="seccionSiniestralidad" hidden>
                         <span class="form-section-title">Siniestralidad</span>
                         <div class="form-group">
                             <label for="valorSiniestrosTotales">Valor de siniestros totales</label>

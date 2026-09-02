@@ -191,6 +191,7 @@ let estado = {
         fechaCobro: '',
         comision: 20,
         honorarioPromotora: 10,
+        aplicaCredibilidad: false,
         valorSiniestrosTotales: 0,
         anosExposicion: 0,
         siniestrosPromedio: 0,
@@ -262,6 +263,7 @@ function cargarEstado() {
             estado.poliza.comision = Math.min(Math.max(Number(estado.poliza.comision) || 0, 0), 30);
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
             if (estado.poliza.canalComercial === 'Sucursal') estado.poliza.honorarioPromotora = 0;
+            estado.poliza.aplicaCredibilidad = estado.poliza.aplicaCredibilidad === true;
             estado.poliza.valorSiniestrosTotales = Number(estado.poliza.valorSiniestrosTotales) || 0;
             estado.poliza.anosExposicion = Number(estado.poliza.anosExposicion) || 0;
             estado.poliza.siniestrosPromedio = Number(estado.poliza.siniestrosPromedio) || 0;
@@ -297,6 +299,7 @@ function limpiarEstado() {
                 fechaCobro: '',
                 comision: 20,
                 honorarioPromotora: 10,
+                aplicaCredibilidad: false,
                 valorSiniestrosTotales: 0,
                 anosExposicion: 0,
                 siniestrosPromedio: 0,
@@ -620,8 +623,11 @@ function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaPorEdad = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
     const tasaBase = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
-    const tasaRecargada = aplicarRecargoATasa(tasaBase);
-    const prima = tasaPorEdad !== undefined
+    const tasaCredibilidad = esCoberturaVida(cobertura) ? obtenerTasaComercialConCredibilidad() : null;
+    const tasaRecargada = tasaCredibilidad !== null
+        ? tasaCredibilidad
+        : aplicarRecargoATasa(tasaBase);
+    const prima = tasaCredibilidad !== null || tasaPorEdad !== undefined
         ? valorAsegurado * tasaRecargada
         : valorAsegurado * tasaRecargada * obtenerFactorEdad(edad) / 100;
     return Math.round(prima * 100) / 100;
@@ -647,6 +653,78 @@ function obtenerRecargoComercial() {
     const total = comision + honorarioPromotora + retorno + costoContrato + iva + gastoAdministracion + utilidad;
 
     return { canal, comision, honorarioPromotora, retorno, costoContrato, iva, gastoAdministracion, utilidad, total };
+}
+
+function esCoberturaVida(cobertura) {
+    return ['WET', 'VID', 'VIDA'].includes(String(cobertura?.codigo || '').toUpperCase());
+}
+
+function obtenerTasaPuraCobertura(asegurado, cobertura) {
+    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
+    const tasaApi = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(asegurado.edad)}`];
+    if (tasaApi !== undefined) return Number(tasaApi);
+
+    const tasaBase = Number(cobertura.tasa ?? cobertura.tasaBase ?? TASA_BASE_SISTEMA);
+    return tasaBase * obtenerFactorEdad(asegurado.edad) / 100;
+}
+
+function obtenerCalculoCredibilidad() {
+    if (estado.poliza.aplicaCredibilidad !== true) return null;
+
+    const anosExposicion = Number(estado.poliza.anosExposicion);
+    const siniestrosTotales = Number(estado.poliza.valorSiniestrosTotales);
+    if (!Number.isFinite(anosExposicion) || anosExposicion <= 0 || !Number.isFinite(siniestrosTotales) || siniestrosTotales < 0) return null;
+
+    const aseguradosConVida = estado.asegurados.map(asegurado => {
+        const coberturaVida = asegurado.coberturas?.find(esCoberturaVida);
+        const valorAsegurado = Number(coberturaVida?.valorAsegurado) || 0;
+        return { asegurado, valorAsegurado };
+    }).filter(({ valorAsegurado }) => valorAsegurado > 0);
+
+    const valorAseguradoVigenciaActual = aseguradosConVida.reduce((total, item) => total + item.valorAsegurado, 0);
+    if (valorAseguradoVigenciaActual <= 0 || aseguradosConVida.length === 0) return null;
+
+    const valorAseguradoExposicion = valorAseguradoVigenciaActual * anosExposicion;
+    const primaPuraTotal = estado.asegurados.reduce((total, asegurado) => {
+        const plan = estado.planes.find(item => item.id === asegurado.planId);
+        const codigosPlan = plan ? new Set(obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo)) : null;
+        return total + (asegurado.coberturas || []).filter(cobertura => cobertura.activa && (!codigosPlan || codigosPlan.has(cobertura.codigo)))
+            .reduce((primaPura, cobertura) => {
+                const coberturaCatalogo = estado.coberturasCatalogo.find(item => item.codigo === cobertura.codigo) || cobertura;
+                const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
+                const tasaPura = obtenerTasaPuraCobertura(asegurado, cobertura);
+                return valorAsegurado !== null && valorAsegurado > 0 && Number.isFinite(tasaPura)
+                    ? primaPura + (tasaPura * valorAsegurado)
+                    : primaPura;
+            }, 0);
+    }, 0);
+    const tprTeorica = (primaPuraTotal / valorAseguradoVigenciaActual) * 1000;
+    if (!Number.isFinite(tprTeorica) || tprTeorica <= 0) return null;
+
+    const tprReal = siniestrosTotales * 1000 / valorAseguradoExposicion;
+    const factorZ = Math.min(1, Math.sqrt((aseguradosConVida.length * anosExposicion) / 1900));
+    const tprCredibilidad = (tprReal * factorZ) + ((1 - factorZ) * tprTeorica);
+    const factorGasto = obtenerRecargoComercial().total / 100;
+    if (factorGasto >= 1) return null;
+
+    return {
+        cantidadAsegurados: aseguradosConVida.length,
+        valorAseguradoVigenciaActual,
+        valorAseguradoExposicion,
+        tprReal,
+        tprTeorica,
+        variacionTasaRealTeorica: (tprReal / tprTeorica) - 1,
+        z6: 1900,
+        factorZ,
+        tprCredibilidad,
+        incrementoDisminucion: (tprCredibilidad / tprTeorica) - 1,
+        tasaComercialConCredibilidad: tprCredibilidad / (1 - factorGasto)
+    };
+}
+
+function obtenerTasaComercialConCredibilidad() {
+    const calculo = obtenerCalculoCredibilidad();
+    return calculo ? calculo.tasaComercialConCredibilidad / 1000 : null;
 }
 
 function mostrarConfirmacionRecargoComercial() {
@@ -691,7 +769,7 @@ function calcularPrimaIndividual(asegurado) {
         const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
         if (cob.activa && valorAsegurado !== null && valorAsegurado > 0) {
             prima += calcularPrimaCobertura(
-                { codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
+                { codigo: cob.codigo, codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
                 valorAsegurado,
                 asegurado.edad
             );
@@ -1408,7 +1486,10 @@ function guardarEdicionPlan() {
 function obtenerTasaPorEdad(cobertura, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaBase = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
-    return tasaBase === undefined ? undefined : aplicarRecargoATasa(tasaBase);
+    if (tasaBase === undefined) return undefined;
+    return esCoberturaVida(cobertura)
+        ? obtenerTasaComercialConCredibilidad() ?? aplicarRecargoATasa(tasaBase)
+        : aplicarRecargoATasa(tasaBase);
 }
 
 function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
@@ -1430,6 +1511,37 @@ function formatearTasaUnica(primaTotal, valorAseguradoTotal) {
     if (!Number.isFinite(primaTotal) || !Number.isFinite(valorAseguradoTotal) || valorAseguradoTotal <= 0) return '—';
     return ((primaTotal / valorAseguradoTotal) * 1000)
         .toLocaleString('es-CO', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+}
+
+function formatearPorcentaje(valor) {
+    return Number.isFinite(valor)
+        ? valor.toLocaleString('es-CO', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : '—';
+}
+
+function renderizarResumenCredibilidad() {
+    if (estado.poliza.aplicaCredibilidad !== true) return '';
+
+    const calculo = obtenerCalculoCredibilidad();
+    if (!calculo) {
+        return '<p class="info-box">La credibilidad se aplicará a la cobertura Vida cuando se cuente con siniestros, años de exposición, valores asegurados y tasas puras válidas.</p>';
+    }
+
+    return `<section class="calculos-plan-card">
+        <header class="calculos-plan-header"><div><strong>Cálculo de credibilidad — Vida</strong><span>La tasa comercial con credibilidad reemplaza la tasa comercial actual de la cobertura Vida.</span></div></header>
+        <div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><tbody>
+            <tr><td>Valor asegurado vigencia actual</td><td><strong>${formatearDinero(calculo.valorAseguradoVigenciaActual)}</strong></td></tr>
+            <tr><td>Valor asegurado por exposición</td><td><strong>${formatearDinero(calculo.valorAseguradoExposicion)}</strong></td></tr>
+            <tr><td>TPR real</td><td><strong>${formatearTasa(calculo.tprReal)}</strong></td></tr>
+            <tr><td>TPR teórica</td><td><strong>${formatearTasa(calculo.tprTeorica)}</strong></td></tr>
+            <tr><td>Variación de tasa real vs. teórica</td><td><strong>${formatearPorcentaje(calculo.variacionTasaRealTeorica)}</strong></td></tr>
+            <tr><td>Z6</td><td><strong>${calculo.z6}</strong></td></tr>
+            <tr><td>Factor Z (${calculo.cantidadAsegurados} asegurado(s))</td><td><strong>${formatearTasa(calculo.factorZ)}</strong></td></tr>
+            <tr><td>TPR credibilidad</td><td><strong>${formatearTasa(calculo.tprCredibilidad)}</strong></td></tr>
+            <tr><td>Incremento / disminución</td><td><strong>${formatearPorcentaje(calculo.incrementoDisminucion)}</strong></td></tr>
+            <tr><td>Tasa comercial con credibilidad</td><td><strong>${formatearTasa(calculo.tasaComercialConCredibilidad)}</strong></td></tr>
+        </tbody></table></div>
+    </section>`;
 }
 
 function renderizarTablaCalculos() {
@@ -1518,7 +1630,7 @@ function renderizarTablaCalculos() {
     const totalVidaPoliza = totalesPolizaPorCobertura.get('WET')?.valorAsegurado || 0;
     const tasaUnicaPoliza = formatearTasaUnica(primaTotalPoliza, totalVidaPoliza);
 
-    contenedor.innerHTML = `${tarjetasPlanes}
+    contenedor.innerHTML = `${renderizarResumenCredibilidad()}${tarjetasPlanes}
         ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa única de la póliza</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa única</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
             <span>Prima total de la póliza</span>
@@ -1814,6 +1926,7 @@ function setupEventListeners() {
         });
     });
     actualizarCamposComerciales();
+    document.getElementById('aplicaCredibilidad')?.addEventListener('change', () => actualizarAplicacionCredibilidad());
     document.getElementById('valorSiniestrosTotales')?.addEventListener('input', actualizarSiniestralidad);
     document.getElementById('anosExposicion')?.addEventListener('input', actualizarSiniestralidad);
 
@@ -1906,6 +2019,7 @@ function seleccionarSubtipo(subtipo) {
         modalidadPlan: 'Voluntaria (Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         oficina: '', formaPago: 'Mensual', fechaCobro: '',
         comision: 20, honorarioPromotora: 10,
+        aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
         asesor: '', canalComercial: '', observaciones: ''
     };
@@ -3587,6 +3701,7 @@ function inicializar() {
     cargarEstado();
     establecerFechasDefault();
     setupEventListeners();
+    actualizarAplicacionCredibilidad(true);
     actualizarSiniestralidad(true);
     renderizarTablaCoberturas();
     renderizarTablaAsegurados();
@@ -3755,11 +3870,44 @@ function formatearCampoMoneda(campo) {
     campo.value = formatearValorMonetario(valor);
 }
 
+function actualizarAplicacionCredibilidad(restaurarValorGuardado = false) {
+    const campoAplica = document.getElementById('aplicaCredibilidad');
+    const seccionSiniestralidad = document.getElementById('seccionSiniestralidad');
+    if (!campoAplica || !seccionSiniestralidad) return;
+
+    const aplica = restaurarValorGuardado
+        ? estado.poliza.aplicaCredibilidad === true
+        : campoAplica.value === 'si';
+
+    campoAplica.value = aplica ? 'si' : 'no';
+    seccionSiniestralidad.hidden = !aplica;
+    estado.poliza.aplicaCredibilidad = aplica;
+
+    if (!aplica) {
+        document.getElementById('valorSiniestrosTotales').value = '';
+        document.getElementById('anosExposicion').value = '';
+        document.getElementById('siniestrosPromedio').value = '';
+        estado.poliza.valorSiniestrosTotales = 0;
+        estado.poliza.anosExposicion = 0;
+        estado.poliza.siniestrosPromedio = 0;
+    }
+
+    guardarEstado();
+    if (!restaurarValorGuardado) recalcularTodo();
+}
+
 function actualizarSiniestralidad(restaurarValoresGuardados = false) {
     const campoTotal = document.getElementById('valorSiniestrosTotales');
     const campoAnos = document.getElementById('anosExposicion');
     const campoPromedio = document.getElementById('siniestrosPromedio');
     if (!campoTotal || !campoAnos || !campoPromedio) return;
+
+    if (estado.poliza.aplicaCredibilidad !== true) {
+        campoTotal.value = '';
+        campoAnos.value = '';
+        campoPromedio.value = '';
+        return;
+    }
 
     const total = obtenerValorMonetario(campoTotal.value)
         ?? (restaurarValoresGuardados ? Number(estado.poliza.valorSiniestrosTotales) || 0 : 0);
@@ -3774,6 +3922,7 @@ function actualizarSiniestralidad(restaurarValoresGuardados = false) {
     estado.poliza.anosExposicion = anos;
     estado.poliza.siniestrosPromedio = promedio;
     guardarEstado();
+    recalcularTodo();
 }
 
 function revisarRangosEnFormulario(campoActivo = null) {
