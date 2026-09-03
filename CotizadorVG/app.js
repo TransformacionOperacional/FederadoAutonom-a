@@ -623,11 +623,8 @@ function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaPorEdad = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
     const tasaBase = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
-    const tasaCredibilidad = esCoberturaVida(cobertura) ? obtenerTasaComercialConCredibilidad() : null;
-    const tasaRecargada = tasaCredibilidad !== null
-        ? tasaCredibilidad
-        : aplicarRecargoATasa(tasaBase);
-    const prima = tasaCredibilidad !== null || tasaPorEdad !== undefined
+    const tasaRecargada = aplicarRecargoATasa(tasaBase);
+    const prima = tasaPorEdad !== undefined
         ? valorAsegurado * tasaRecargada
         : valorAsegurado * tasaRecargada * obtenerFactorEdad(edad) / 100;
     return Math.round(prima * 100) / 100;
@@ -711,6 +708,7 @@ function obtenerCalculoCredibilidad() {
         cantidadAsegurados: aseguradosConVida.length,
         valorAseguradoVigenciaActual,
         valorAseguradoExposicion,
+        primaPuraTotal,
         tprReal,
         tprTeorica,
         variacionTasaRealTeorica: (tprReal / tprTeorica) - 1,
@@ -725,6 +723,57 @@ function obtenerCalculoCredibilidad() {
 function obtenerTasaComercialConCredibilidad() {
     const calculo = obtenerCalculoCredibilidad();
     return calculo ? calculo.tasaComercialConCredibilidad / 1000 : null;
+}
+
+function obtenerAjustesCredibilidad() {
+    const calculo = obtenerCalculoCredibilidad();
+    if (!calculo) return null;
+
+    const planes = estado.planes.filter(plan => plan.asegurados?.length);
+    if (!planes.length) return null;
+
+    const resultado = { ...calculo, primaComercial: 0, primaCredibilidad: 0, saldo: 0, planes: new Map() };
+    planes.forEach(plan => {
+        const totales = new Map();
+        const coberturas = obtenerCoberturasPlan(plan);
+        plan.asegurados.forEach(aseguradoId => {
+            const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
+            if (!asegurado) return;
+            coberturas.forEach(cobertura => {
+                const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
+                if (valorAsegurado === null || valorAsegurado <= 0) return;
+                const prima = calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                const total = totales.get(cobertura.codigo) || { valorAsegurado: 0, primaComercial: 0 };
+                total.valorAsegurado += valorAsegurado;
+                total.primaComercial += prima;
+                totales.set(cobertura.codigo, total);
+            });
+        });
+        resultado.planes.set(plan.id, { totales, primaComercial: [...totales.values()].reduce((total, item) => total + item.primaComercial, 0) });
+    });
+
+    resultado.primaComercial = [...resultado.planes.values()].reduce((total, plan) => total + plan.primaComercial, 0);
+    resultado.primaCredibilidad = calculo.tasaComercialConCredibilidad * calculo.valorAseguradoVigenciaActual / 1000;
+    resultado.saldo = resultado.primaComercial - resultado.primaCredibilidad;
+    resultado.tasaComercialActual = resultado.primaComercial * 1000 / calculo.valorAseguradoVigenciaActual;
+    const saldoPorPlan = resultado.saldo / planes.length;
+
+    resultado.planes.forEach(plan => {
+        const participacionesBase = { WET: 0.60, WEZ: 0.20, WEU: 0.20 };
+        const coberturasParticipantes = [...plan.totales.keys()].filter(codigo => participacionesBase[codigo] !== undefined);
+        const totalParticipacion = coberturasParticipantes.reduce((total, codigo) => total + participacionesBase[codigo], 0);
+        if (!totalParticipacion) return;
+
+        plan.totales.forEach((total, codigo) => {
+            const participacion = participacionesBase[codigo] ? participacionesBase[codigo] / totalParticipacion : 0;
+            if (!participacion) return;
+            total.ajusteCredibilidad = saldoPorPlan * participacion;
+            total.primaAjustada = total.primaComercial - total.ajusteCredibilidad;
+            total.tasaAjustada = total.valorAsegurado > 0 ? total.primaAjustada / total.valorAsegurado : null;
+        });
+    });
+
+    return resultado;
 }
 
 function mostrarConfirmacionRecargoComercial() {
@@ -763,16 +812,20 @@ function confirmarRecargoComercial() {
 function calcularPrimaIndividual(asegurado) {
     let prima = 0;
     const plan = estado.planes.find(item => item.id === asegurado.planId);
+    const ajustePlan = plan ? obtenerAjustesCredibilidad()?.planes.get(plan.id) : null;
     const codigosPlan = plan ? new Set(obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo)) : null;
     asegurado.coberturas.filter(cobertura => !codigosPlan || codigosPlan.has(cobertura.codigo)).forEach(cob => {
         const coberturaCatalogo = estado.coberturasCatalogo.find(item => item.codigo === cob.codigo) || cob;
         const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
         if (cob.activa && valorAsegurado !== null && valorAsegurado > 0) {
-            prima += calcularPrimaCobertura(
-                { codigo: cob.codigo, codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
-                valorAsegurado,
-                asegurado.edad
-            );
+            const ajusteCobertura = ajustePlan?.totales.get(cob.codigo);
+            prima += ajusteCobertura?.tasaAjustada !== undefined
+                ? Math.round(valorAsegurado * ajusteCobertura.tasaAjustada * 100) / 100
+                : calcularPrimaCobertura(
+                    { codigo: cob.codigo, codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
+                    valorAsegurado,
+                    asegurado.edad
+                );
         }
     });
     asegurado.primaIndividual = Math.round(prima * 100) / 100;
@@ -1486,10 +1539,7 @@ function guardarEdicionPlan() {
 function obtenerTasaPorEdad(cobertura, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaBase = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
-    if (tasaBase === undefined) return undefined;
-    return esCoberturaVida(cobertura)
-        ? obtenerTasaComercialConCredibilidad() ?? aplicarRecargoATasa(tasaBase)
-        : aplicarRecargoATasa(tasaBase);
+    return tasaBase === undefined ? undefined : aplicarRecargoATasa(tasaBase);
 }
 
 function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
@@ -1522,24 +1572,30 @@ function formatearPorcentaje(valor) {
 function renderizarResumenCredibilidad() {
     if (estado.poliza.aplicaCredibilidad !== true) return '';
 
-    const calculo = obtenerCalculoCredibilidad();
+    const calculo = obtenerAjustesCredibilidad();
     if (!calculo) {
         return '<p class="info-box">La credibilidad se aplicará a la cobertura Vida cuando se cuente con siniestros, años de exposición, valores asegurados y tasas puras válidas.</p>';
     }
 
     return `<section class="calculos-plan-card">
-        <header class="calculos-plan-header"><div><strong>Cálculo de credibilidad — Vida</strong><span>La tasa comercial con credibilidad reemplaza la tasa comercial actual de la cobertura Vida.</span></div></header>
+        <header class="calculos-plan-header"><div><strong>Cálculo de credibilidad</strong><span>Se compara la prima comercial actual con la prima de credibilidad y el saldo se distribuye entre las coberturas definidas.</span></div></header>
         <div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><tbody>
             <tr><td>Valor asegurado vigencia actual</td><td><strong>${formatearDinero(calculo.valorAseguradoVigenciaActual)}</strong></td></tr>
             <tr><td>Valor asegurado por exposición</td><td><strong>${formatearDinero(calculo.valorAseguradoExposicion)}</strong></td></tr>
             <tr><td>TPR real</td><td><strong>${formatearTasa(calculo.tprReal)}</strong></td></tr>
+            <tr><td>Sumatoria tasa pura × valor asegurado por cobertura</td><td><strong>${formatearDinero(calculo.primaPuraTotal)}</strong></td></tr>
+            <tr><td>Fórmula TPR teórica</td><td><strong>${formatearDinero(calculo.primaPuraTotal)} ÷ ${formatearDinero(calculo.valorAseguradoVigenciaActual)} × 1.000</strong></td></tr>
             <tr><td>TPR teórica</td><td><strong>${formatearTasa(calculo.tprTeorica)}</strong></td></tr>
             <tr><td>Variación de tasa real vs. teórica</td><td><strong>${formatearPorcentaje(calculo.variacionTasaRealTeorica)}</strong></td></tr>
             <tr><td>Z6</td><td><strong>${calculo.z6}</strong></td></tr>
             <tr><td>Factor Z (${calculo.cantidadAsegurados} asegurado(s))</td><td><strong>${formatearTasa(calculo.factorZ)}</strong></td></tr>
             <tr><td>TPR credibilidad</td><td><strong>${formatearTasa(calculo.tprCredibilidad)}</strong></td></tr>
             <tr><td>Incremento / disminución</td><td><strong>${formatearPorcentaje(calculo.incrementoDisminucion)}</strong></td></tr>
+            <tr><td>Tasa única comercial actual</td><td><strong>${formatearTasa(calculo.tasaComercialActual)}</strong></td></tr>
             <tr><td>Tasa comercial con credibilidad</td><td><strong>${formatearTasa(calculo.tasaComercialConCredibilidad)}</strong></td></tr>
+            <tr><td>Prima con tasa comercial</td><td><strong>${formatearDinero(calculo.primaComercial)}</strong></td></tr>
+            <tr><td>Prima con tasa de credibilidad</td><td><strong>${formatearDinero(calculo.primaCredibilidad)}</strong></td></tr>
+            <tr><td>Saldo a favor / en contra</td><td><strong>${formatearDinero(calculo.saldo)}</strong></td></tr>
         </tbody></table></div>
     </section>`;
 }
@@ -1564,8 +1620,10 @@ function renderizarTablaCalculos() {
 
     let primaTotalPoliza = 0;
     const totalesPolizaPorCobertura = new Map();
+    const ajustesCredibilidad = obtenerAjustesCredibilidad();
     const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
         const coberturas = plan ? obtenerCoberturasPlan(plan) : [];
+        const ajustePlan = plan ? ajustesCredibilidad?.planes.get(plan.id) : null;
         const columnas = 2 + coberturas.length * 3;
         let primaTotalPlan = 0;
         const totalesPlanPorCobertura = new Map(coberturas.map(cobertura => [cobertura.codigo, {
@@ -1574,11 +1632,15 @@ function renderizarTablaCalculos() {
         }]));
         const filas = asegurados.map(asegurado => {
             const celdas = coberturas.map(cobertura => {
-                const tasa = obtenerTasaPorEdad(cobertura, asegurado.edad);
+                const tasaComercial = obtenerTasaPorEdad(cobertura, asegurado.edad);
+                const ajusteCobertura = ajustePlan?.totales.get(cobertura.codigo);
+                const tasa = ajusteCobertura?.tasaAjustada ?? tasaComercial;
                 const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
                 const prima = tasa === undefined || valorAsegurado === null
                     ? null
-                    : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                    : ajusteCobertura?.tasaAjustada !== undefined
+                        ? Math.round(valorAsegurado * tasa * 100) / 100
+                        : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
                 if (prima !== null) primaTotalPlan += prima;
                 const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
                 if (valorAsegurado !== null) totalPlan.valorAsegurado += valorAsegurado;
@@ -1589,6 +1651,13 @@ function renderizarTablaCalculos() {
         }).join('');
 
         if (plan) {
+            if (ajustePlan) {
+                ajustePlan.totales.forEach((ajusteCobertura, codigo) => {
+                    const totalPlan = totalesPlanPorCobertura.get(codigo);
+                    if (totalPlan && ajusteCobertura.primaAjustada !== undefined) totalPlan.prima = ajusteCobertura.primaAjustada;
+                });
+                primaTotalPlan = [...totalesPlanPorCobertura.values()].reduce((total, item) => total + item.prima, 0);
+            }
             plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
             primaTotalPoliza += plan.primaTotal;
             coberturas.forEach(cobertura => {
