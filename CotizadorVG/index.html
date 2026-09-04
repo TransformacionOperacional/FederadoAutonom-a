@@ -181,7 +181,12 @@
                     </div>
                     <div class="form-group">
                         <label for="actividad">Actividad Econ&oacute;mica</label>
-                        <input type="text" id="actividad" placeholder="Ej: Manufactura, Comercio, Servicios...">
+                        <div class="actividad-selector">
+                            <input type="search" id="actividad" placeholder="Busca una actividad económica..." autocomplete="off" disabled aria-autocomplete="list" aria-controls="listaActividades" aria-expanded="false" aria-describedby="ayudaActividad">
+                            <div id="listaActividades" class="actividad-lista" role="listbox" hidden></div>
+                        </div>
+                        <small id="ayudaActividad"><span class="spinner spinner-inline" aria-hidden="true"></span>Cargando actividades económicas...</small>
+                        <div id="recargosActividad" class="recargos-actividad" hidden aria-live="polite"></div>
                     </div>
 
                     <span class="form-section-title">Datos de la P&oacute;liza</span>
