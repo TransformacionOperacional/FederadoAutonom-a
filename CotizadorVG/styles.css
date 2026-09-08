@@ -2052,6 +2052,23 @@ body {
     cursor: default;
 }
 
+.cobertura-check-item.cobertura-excluida {
+    background: var(--color-gray-light);
+    border-color: var(--color-border);
+    color: var(--color-gray);
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.cobertura-check-item.cobertura-excluida:hover {
+    border-color: var(--color-border);
+    background: var(--color-gray-light);
+}
+
+.cobertura-check-item.cobertura-excluida input[type="checkbox"] {
+    cursor: not-allowed;
+}
+
 .cobertura-check-item input[type="checkbox"] {
     width: 18px;
     height: 18px;

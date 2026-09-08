@@ -200,7 +200,11 @@
                     </div>
                     <div class="form-group">
                         <label for="oficina">Oficina</label>
-                        <input type="text" id="oficina" placeholder="Ej: Medell&iacute;n Centro">
+                        <div class="actividad-selector">
+                            <input type="search" id="oficina" placeholder="Busca una oficina..." autocomplete="off" disabled aria-autocomplete="list" aria-controls="listaOficinas" aria-expanded="false" aria-describedby="ayudaOficina">
+                            <div id="listaOficinas" class="actividad-lista" role="listbox" hidden></div>
+                        </div>
+                        <small id="ayudaOficina"><span class="spinner spinner-inline" aria-hidden="true"></span>Cargando oficinas...</small>
                     </div>
                     <div class="form-group">
                         <label for="vigenciaDesde">Vigencia Desde *</label>
@@ -770,7 +774,7 @@
                     <label for="nombrePlanManual">Nombre del plan</label>
                     <input type="text" id="nombrePlanManual" placeholder="Ej.: Plan corporativo">
                 </div>
-                <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Selecciona las coberturas del plan. Vida se incluye obligatoriamente.</p>
+                <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Selecciona las coberturas del plan. Vida se incluye obligatoriamente. Las coberturas excluyentes se bloquean al seleccionar una opción incompatible.</p>
                 <div id="coberturasPlanManual" class="coberturas-seleccion-grid"></div>
             </div>
             <div class="modal-footer">
@@ -792,7 +796,7 @@
                     <label for="nombrePlanEdicion">Nombre del plan</label>
                     <input type="text" id="nombrePlanEdicion">
                 </div>
-                <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Agrega o retira las coberturas del plan. Vida se mantiene obligatoria.</p>
+                <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Agrega o retira las coberturas del plan. Vida se mantiene obligatoria y las coberturas excluyentes no pueden combinarse.</p>
                 <div id="coberturasPlanEdicion" class="coberturas-seleccion-grid"></div>
             </div>
             <div class="modal-footer">

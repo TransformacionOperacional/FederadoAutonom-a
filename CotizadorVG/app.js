@@ -57,6 +57,7 @@ const CONFIG = {
 const TASA_BASE_SISTEMA = 0.1;
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/16/workflows/374bc9c80f6b420685df2183774e894d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=LhYASD77gGYm50BCzeFYIuWN_kEx_VYeUbzlMfMPG1U';
+const API_OFICINAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/28/workflows/b6994d575dae4b06bd596582b87c72bc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0Yi9rk7-G5vyOSRuaGj-cl2TyKHU6DjQhi40iQX3NyI';
 const coberturaVidaPredeterminada = {
     codigo: 'WET',
     codigoAmparo: 63717,
@@ -67,6 +68,7 @@ const coberturaVidaPredeterminada = {
 let coberturasDisponibles = [coberturaVidaPredeterminada];
 let catalogoCoberturasCompleto = [...coberturasDisponibles];
 let actividadesEconomicas = [];
+let oficinas = [];
 const CAMPOS_ACTIVIDAD_POR_COBERTURA = { WET: 'field_3', WEZ: 'field_4', WE1: 'field_5', WEY: 'field_6' };
 
 // La API entrega el nombre funcional en Amparo_Resumido_Definitivo.
@@ -117,6 +119,11 @@ const AMPAROS_RESUMIDOS_DEFINITIVOS = [
     { nombre: 'Renta por incapacidad por accidente y enfermedad', codigo: 'WFA' },
     { nombre: 'Auxilio de repatriación', codigo: 'WEP' },
     { nombre: 'Invalidez, Pérdida O Inutilización Por Enfermedad', codigo: 'WE0' }
+];
+
+const GRUPOS_COBERTURAS_EXCLUYENTES = [
+    ['WE9', 'WFA'],
+    ['WEZ', 'WEY', 'WE0']
 ];
 
 const PLANES_SUGERIDOS = [
@@ -635,6 +642,83 @@ async function cargarActividadesEconomicas() {
     } finally {
         if (ayuda) ayuda.hidden = true;
     }
+}
+
+function obtenerNombreOficina(oficina) {
+    const codigo = String(oficina?.Title || '').trim();
+    const nombre = String(oficina?.field_1 || '').trim();
+    return codigo && nombre ? `${codigo} - ${nombre}` : (codigo || nombre);
+}
+
+async function cargarOficinas() {
+    const buscador = document.getElementById('oficina');
+    const ayuda = document.getElementById('ayudaOficina');
+    if (!buscador) return;
+
+    buscador.disabled = true;
+    buscador.value = estado.poliza.oficina || '';
+    buscador.placeholder = 'Cargando oficinas...';
+    if (ayuda) ayuda.hidden = false;
+
+    try {
+        const respuesta = await fetch(API_OFICINAS, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ usuario: 'CotizadorVG', contrasena: 'Sura2025*' })
+        });
+        if (!respuesta.ok) throw new Error(`La API respondió HTTP ${respuesta.status}.`);
+
+        const datos = await respuesta.json();
+        oficinas = Array.isArray(datos) ? datos : (datos.value || datos.Table1 || []);
+        if (!oficinas.length) throw new Error('La API no devolvió oficinas.');
+
+        buscador.placeholder = 'Busca una oficina...';
+        buscador.disabled = false;
+    } catch (error) {
+        console.error('No fue posible cargar las oficinas:', error);
+        buscador.placeholder = 'No fue posible cargar las oficinas';
+        mostrarToast('No fue posible cargar las oficinas.', 'warning');
+    } finally {
+        if (ayuda) ayuda.hidden = true;
+    }
+}
+
+function renderizarOficinas() {
+    const buscador = document.getElementById('oficina');
+    const lista = document.getElementById('listaOficinas');
+    if (!buscador || !lista || buscador.disabled) return;
+
+    const texto = normalizarTexto(buscador.value);
+    const coincidencias = oficinas
+        .map((oficina, indice) => ({ oficina, indice, nombre: obtenerNombreOficina(oficina) }))
+        .filter(({ nombre }) => normalizarTexto(nombre).includes(texto))
+        .slice(0, 50);
+
+    lista.innerHTML = coincidencias.length
+        ? coincidencias.map(({ indice, nombre }) => `<button class="actividad-opcion" type="button" role="option" data-oficina-indice="${indice}">${nombre || 'Oficina sin nombre'}</button>`).join('')
+        : '<div class="actividad-sin-resultados">No se encontraron oficinas.</div>';
+    lista.hidden = false;
+    buscador.setAttribute('aria-expanded', 'true');
+}
+
+function ocultarListaOficinas() {
+    const buscador = document.getElementById('oficina');
+    const lista = document.getElementById('listaOficinas');
+    if (lista) lista.hidden = true;
+    buscador?.setAttribute('aria-expanded', 'false');
+}
+
+function actualizarOficina(indice) {
+    const oficina = oficinas[Number(indice)] || null;
+    const buscador = document.getElementById('oficina');
+    if (!oficina) return;
+
+    const nombre = obtenerNombreOficina(oficina);
+    if (buscador) buscador.value = nombre;
+    estado.poliza.oficina = nombre;
+    estado.poliza.oficinaDetalle = oficina;
+    guardarEstado();
+    ocultarListaOficinas();
 }
 
 function renderizarActividadesEconomicas() {
@@ -1563,12 +1647,51 @@ function siguienteNombrePlan() {
     return `Plan ${letras}`;
 }
 
+function obtenerCoberturasExcluyentesSeleccionadas(codigos) {
+    const seleccionadas = new Set(codigos);
+    return GRUPOS_COBERTURAS_EXCLUYENTES
+        .map(grupo => grupo.filter(codigo => seleccionadas.has(codigo)))
+        .filter(grupo => grupo.length > 1);
+}
+
+function actualizarOpcionesExcluyentesPlan(contenedor) {
+    if (!contenedor) return;
+
+    const seleccionadas = new Set(Array.from(contenedor.querySelectorAll('input:checked')).map(input => input.value));
+    contenedor.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        const grupo = GRUPOS_COBERTURAS_EXCLUYENTES.find(item => item.includes(input.value));
+        const incompatibleSeleccionada = grupo?.some(codigo => codigo !== input.value && seleccionadas.has(codigo));
+        const etiqueta = input.closest('.cobertura-check-item');
+
+        input.disabled = input.value === 'WET' || Boolean(incompatibleSeleccionada);
+        input.title = incompatibleSeleccionada ? 'No puede seleccionarse junto con la cobertura ya elegida.' : '';
+        etiqueta?.classList.toggle('selected', input.checked);
+        etiqueta?.classList.toggle('cobertura-excluida', Boolean(incompatibleSeleccionada));
+        etiqueta?.setAttribute('aria-disabled', incompatibleSeleccionada ? 'true' : 'false');
+    });
+}
+
+function configurarOpcionesPlan(contenedor) {
+    if (!contenedor) return;
+    contenedor.addEventListener('change', evento => {
+        if (evento.target.matches('input[type="checkbox"]')) {
+            actualizarOpcionesExcluyentesPlan(contenedor);
+        }
+    });
+    actualizarOpcionesExcluyentesPlan(contenedor);
+}
+
 function crearPlanConCoberturas(nombre, coberturas) {
     const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
     if (vida && !coberturas.some(cobertura => cobertura.codigo === 'WET')) {
         coberturas = [vida, ...coberturas];
     }
     const codigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+    const conflictos = obtenerCoberturasExcluyentesSeleccionadas(codigos);
+    if (conflictos.length > 0) {
+        mostrarToast('El plan contiene coberturas excluyentes. Retira una de las coberturas incompatibles.', 'warning');
+        return false;
+    }
 
     coberturas.forEach(cobertura => {
         if (!estado.coberturasCatalogo.some(item => item.codigo === cobertura.codigo)) {
@@ -1592,6 +1715,7 @@ function crearPlanConCoberturas(nombre, coberturas) {
     renderizarTablaCoberturas();
     renderizarPlanesSubgrupoTabs();
     mostrarToast(`${nombrePlan} creado. Define valores asegurados y asigna asegurados en Planes.`, 'success');
+    return true;
 }
 
 function abrirModalCrearPlan() {
@@ -1609,6 +1733,7 @@ function abrirModalCrearPlan() {
             <span>${cobertura.nombre}</span>
         </label>`;
     }).join('');
+    configurarOpcionesPlan(contenedor);
     modal.style.display = 'flex';
 }
 
@@ -1630,8 +1755,7 @@ function crearPlanManual() {
         mostrarToast('Selecciona al menos una cobertura.', 'warning');
         return;
     }
-    crearPlanConCoberturas(nombre, coberturas);
-    cerrarModalCrearPlan();
+    if (crearPlanConCoberturas(nombre, coberturas)) cerrarModalCrearPlan();
 }
 
 function abrirModalEditarPlan(planId) {
@@ -1652,6 +1776,7 @@ function abrirModalEditarPlan(planId) {
             <span>${cobertura.nombre}</span>
         </label>`;
     }).join('');
+    configurarOpcionesPlan(contenedor);
     modal.style.display = 'flex';
 }
 
@@ -1673,6 +1798,10 @@ function guardarEdicionPlan() {
     }
 
     const nuevosCodigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+    if (obtenerCoberturasExcluyentesSeleccionadas(nuevosCodigos).length > 0) {
+        mostrarToast('El plan contiene coberturas excluyentes. Retira una de las coberturas incompatibles.', 'warning');
+        return;
+    }
     const nuevoSubgrupoId = generarIdSubgrupo(nuevosCodigos);
     if (!estado.subgrupos.some(subgrupo => subgrupo.id === nuevoSubgrupoId)) {
         estado.subgrupos.push({ id: nuevoSubgrupoId, nombre: `Grupo ${estado.subgrupos.length + 1}`, coberturas: nuevosCodigos, asegurados: [] });
@@ -2152,7 +2281,7 @@ function setupEventListeners() {
     // Paso 1: Póliza - campos actualizados
     const camposPoliza = [
         'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'modalidadPlan',
-        'vigenciaDesde', 'vigenciaHasta', 'oficina',
+        'vigenciaDesde', 'vigenciaHasta',
         'formaPago', 'fechaCobro', 'asesor', 'canalComercial', 'observaciones'
     ];
     camposPoliza.forEach(campo => {
@@ -2185,6 +2314,30 @@ function setupEventListeners() {
     });
     document.addEventListener('click', evento => {
         if (!evento.target.closest('.actividad-selector')) ocultarListaActividades();
+    });
+    const buscadorOficina = document.getElementById('oficina');
+    buscadorOficina?.addEventListener('input', () => {
+        estado.poliza.oficina = '';
+        estado.poliza.oficinaDetalle = null;
+        renderizarOficinas();
+    });
+    buscadorOficina?.addEventListener('focus', renderizarOficinas);
+    buscadorOficina?.addEventListener('keydown', evento => {
+        if (evento.key === 'Escape') ocultarListaOficinas();
+        if (evento.key === 'Enter') {
+            const primeraOpcion = document.querySelector('#listaOficinas [data-oficina-indice]');
+            if (primeraOpcion) {
+                evento.preventDefault();
+                actualizarOficina(primeraOpcion.dataset.oficinaIndice);
+            }
+        }
+    });
+    document.getElementById('listaOficinas')?.addEventListener('click', evento => {
+        const opcion = evento.target.closest('[data-oficina-indice]');
+        if (opcion) actualizarOficina(opcion.dataset.oficinaIndice);
+    });
+    document.addEventListener('click', evento => {
+        if (!evento.target.closest('.actividad-selector')) ocultarListaOficinas();
     });
     ['comision', 'honorarioPromotora'].forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
@@ -2300,6 +2453,7 @@ function seleccionarSubtipo(subtipo) {
     };
     mostrarWizard();
     cargarActividadesEconomicas();
+    cargarOficinas();
 }
 
 function volverAlLanding() {
