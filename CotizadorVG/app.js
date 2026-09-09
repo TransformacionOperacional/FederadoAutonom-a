@@ -29,6 +29,12 @@ const CONFIG = {
         Padrastos: ['WET', 'WEZ', 'WEN']
     },
     CANAL_COMERCIAL: ['Sucursal', 'Promotora'],
+    FACTORES_FRACCIONAMIENTO: {
+        Mensual: { factor: 0.091, periodos: 12 },
+        Trimestral: { factor: 0.07, periodos: 4 },
+        Semestral: { factor: 0.04, periodos: 2 },
+        Anual: { factor: 0, periodos: 1 }
+    },
     FACTORES_EDAD: {
         '18-25': 0.95,
         '26-35': 1.0,
@@ -56,6 +62,8 @@ const CONFIG = {
 
 const TASA_BASE_SISTEMA = 0.1;
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
+const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/16/workflows/374bc9c80f6b420685df2183774e894d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=LhYASD77gGYm50BCzeFYIuWN_kEx_VYeUbzlMfMPG1U';
+const API_OFICINAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/28/workflows/b6994d575dae4b06bd596582b87c72bc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0Yi9rk7-G5vyOSRuaGj-cl2TyKHU6DjQhi40iQX3NyI';
 const coberturaVidaPredeterminada = {
     codigo: 'WET',
     codigoAmparo: 63717,
@@ -64,6 +72,10 @@ const coberturaVidaPredeterminada = {
     obligatoria: true
 };
 let coberturasDisponibles = [coberturaVidaPredeterminada];
+let catalogoCoberturasCompleto = [...coberturasDisponibles];
+let actividadesEconomicas = [];
+let oficinas = [];
+const CAMPOS_ACTIVIDAD_POR_COBERTURA = { WET: 'field_3', WEZ: 'field_4', WE1: 'field_5', WEY: 'field_6' };
 
 // La API entrega el nombre funcional en Amparo_Resumido_Definitivo.
 // Los valores anteriores se mantienen como alias para cotizaciones ya guardadas.
@@ -113,6 +125,11 @@ const AMPAROS_RESUMIDOS_DEFINITIVOS = [
     { nombre: 'Renta por incapacidad por accidente y enfermedad', codigo: 'WFA' },
     { nombre: 'Auxilio de repatriación', codigo: 'WEP' },
     { nombre: 'Invalidez, Pérdida O Inutilización Por Enfermedad', codigo: 'WE0' }
+];
+
+const GRUPOS_COBERTURAS_EXCLUYENTES = [
+    ['WE9', 'WFA'],
+    ['WEZ', 'WEY', 'WE0']
 ];
 
 const PLANES_SUGERIDOS = [
@@ -184,6 +201,7 @@ let estado = {
         numeroIdentificacion: '',
         modalidadPlan: 'Voluntaria (Contributiva)',
         actividad: '',
+        actividadDetalle: null,
         vigenciaDesde: '',
         vigenciaHasta: '',
         oficina: '',
@@ -292,6 +310,7 @@ function limpiarEstado() {
                 numeroIdentificacion: '',
                 modalidadPlan: 'Voluntaria (Contributiva)',
                 actividad: '',
+                actividadDetalle: null,
                 vigenciaDesde: '',
                 vigenciaHasta: '',
                 oficina: '',
@@ -598,6 +617,228 @@ async function consultarTasasEnApi(codigosAmparo) {
     return filas;
 }
 
+async function cargarActividadesEconomicas() {
+    const buscador = document.getElementById('actividad');
+    const ayuda = document.getElementById('ayudaActividad');
+    if (!buscador) return;
+
+    buscador.disabled = true;
+    buscador.value = '';
+    buscador.placeholder = 'Cargando actividades económicas...';
+    if (ayuda) ayuda.hidden = false;
+
+    try {
+        const respuesta = await fetch(API_ACTIVIDADES_ECONOMICAS, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ Usuario: 'CotizadorVG', Contrasena: 'Sura2025*' })
+        });
+        if (!respuesta.ok) throw new Error(`La API respondió HTTP ${respuesta.status}.`);
+
+        const datos = await respuesta.json();
+        actividadesEconomicas = Array.isArray(datos) ? datos : (datos.value || datos.Table1 || []);
+        if (!actividadesEconomicas.length) throw new Error('La API no devolvió actividades económicas.');
+
+        buscador.placeholder = 'Busca una actividad económica...';
+        buscador.disabled = false;
+    } catch (error) {
+        console.error('No fue posible cargar las actividades económicas:', error);
+        buscador.placeholder = 'No fue posible cargar las actividades';
+        mostrarToast('No fue posible cargar las actividades económicas.', 'warning');
+    } finally {
+        if (ayuda) ayuda.hidden = true;
+    }
+}
+
+function obtenerNombreOficina(oficina) {
+    const codigo = String(oficina?.Title || '').trim();
+    const nombre = String(oficina?.field_1 || '').trim();
+    return codigo && nombre ? `${codigo} - ${nombre}` : (codigo || nombre);
+}
+
+async function cargarOficinas() {
+    const buscador = document.getElementById('oficina');
+    const ayuda = document.getElementById('ayudaOficina');
+    if (!buscador) return;
+
+    buscador.disabled = true;
+    buscador.value = estado.poliza.oficina || '';
+    buscador.placeholder = 'Cargando oficinas...';
+    if (ayuda) ayuda.hidden = false;
+
+    try {
+        const respuesta = await fetch(API_OFICINAS, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ usuario: 'CotizadorVG', contrasena: 'Sura2025*' })
+        });
+        if (!respuesta.ok) throw new Error(`La API respondió HTTP ${respuesta.status}.`);
+
+        const datos = await respuesta.json();
+        oficinas = Array.isArray(datos) ? datos : (datos.value || datos.Table1 || []);
+        if (!oficinas.length) throw new Error('La API no devolvió oficinas.');
+
+        buscador.placeholder = 'Busca una oficina...';
+        buscador.disabled = false;
+    } catch (error) {
+        console.error('No fue posible cargar las oficinas:', error);
+        buscador.placeholder = 'No fue posible cargar las oficinas';
+        mostrarToast('No fue posible cargar las oficinas.', 'warning');
+    } finally {
+        if (ayuda) ayuda.hidden = true;
+    }
+}
+
+function renderizarOficinas() {
+    const buscador = document.getElementById('oficina');
+    const lista = document.getElementById('listaOficinas');
+    if (!buscador || !lista || buscador.disabled) return;
+
+    const texto = normalizarTexto(buscador.value);
+    const coincidencias = oficinas
+        .map((oficina, indice) => ({ oficina, indice, nombre: obtenerNombreOficina(oficina) }))
+        .filter(({ nombre }) => normalizarTexto(nombre).includes(texto))
+        .slice(0, 50);
+
+    lista.innerHTML = coincidencias.length
+        ? coincidencias.map(({ indice, nombre }) => `<button class="actividad-opcion" type="button" role="option" data-oficina-indice="${indice}">${nombre || 'Oficina sin nombre'}</button>`).join('')
+        : '<div class="actividad-sin-resultados">No se encontraron oficinas.</div>';
+    lista.hidden = false;
+    buscador.setAttribute('aria-expanded', 'true');
+}
+
+function ocultarListaOficinas() {
+    const buscador = document.getElementById('oficina');
+    const lista = document.getElementById('listaOficinas');
+    if (lista) lista.hidden = true;
+    buscador?.setAttribute('aria-expanded', 'false');
+}
+
+function actualizarOficina(indice) {
+    const oficina = oficinas[Number(indice)] || null;
+    const buscador = document.getElementById('oficina');
+    if (!oficina) return;
+
+    const nombre = obtenerNombreOficina(oficina);
+    if (buscador) buscador.value = nombre;
+    estado.poliza.oficina = nombre;
+    estado.poliza.oficinaDetalle = oficina;
+    guardarEstado();
+    ocultarListaOficinas();
+}
+
+function renderizarActividadesEconomicas() {
+    const buscador = document.getElementById('actividad');
+    const lista = document.getElementById('listaActividades');
+    if (!buscador || !lista || buscador.disabled) return;
+
+    const texto = normalizarTexto(buscador.value);
+    const coincidencias = actividadesEconomicas
+        .map((actividad, indice) => ({ actividad, indice }))
+        .filter(({ actividad }) => normalizarTexto(actividad.field_1 || actividad.Title || '').includes(texto))
+        .slice(0, 50);
+
+    lista.innerHTML = coincidencias.length
+        ? coincidencias.map(({ actividad, indice }) => `<button class="actividad-opcion" type="button" role="option" data-actividad-indice="${indice}">${actividad.field_1 || actividad.Title || 'Actividad sin nombre'}</button>`).join('')
+        : '<div class="actividad-sin-resultados">No se encontraron actividades.</div>';
+    lista.hidden = false;
+    buscador.setAttribute('aria-expanded', 'true');
+}
+
+function ocultarListaActividades() {
+    const buscador = document.getElementById('actividad');
+    const lista = document.getElementById('listaActividades');
+    if (lista) lista.hidden = true;
+    buscador?.setAttribute('aria-expanded', 'false');
+}
+
+function esNoAsegurableActividad(valor) {
+    return String(valor ?? '').trim().toUpperCase() === 'NO ASEGURABLE';
+}
+
+function actualizarActividadEconomica(indice) {
+    const actividad = actividadesEconomicas[Number(indice)] || null;
+    const buscador = document.getElementById('actividad');
+    if (!actividad) return;
+    if (buscador) buscador.value = actividad.field_1 || actividad.Title || '';
+    estado.poliza.actividad = actividad?.field_1 || '';
+    estado.poliza.actividadDetalle = actividad;
+    renderizarRecargosActividad();
+    actualizarCoberturasPorActividad();
+    guardarEstado();
+
+    if (actividad && esNoAsegurableActividad(actividad.field_3)) {
+        mostrarAlertaRango('La actividad seleccionada no es asegurable para Vida. Selecciona otra actividad económica para continuar con la cotización.', document.getElementById('actividad'), 'Actividad no asegurable');
+    }
+    ocultarListaActividades();
+}
+
+function renderizarRecargosActividad() {
+    const contenedor = document.getElementById('recargosActividad');
+    const actividad = estado.poliza.actividadDetalle;
+    if (!contenedor) return;
+    if (!actividad) {
+        contenedor.hidden = true;
+        contenedor.innerHTML = '';
+        return;
+    }
+
+    const coberturas = [
+        ['Vida', 'WET'],
+        ['Invalidez o pérdida por accidente o enfermedad', 'WEZ'],
+        ['Muerte accidental', 'WE1'],
+        ['Invalidez por accidente', 'WEY']
+    ];
+    contenedor.innerHTML = coberturas.map(([nombre, codigo]) => {
+        const campo = CAMPOS_ACTIVIDAD_POR_COBERTURA[codigo];
+        const valor = actividad[campo];
+        const noAsegurable = esNoAsegurableActividad(valor);
+        const detalle = noAsegurable ? 'No asegurable' : `${formatearPorcentaje(obtenerRecargoPorActividad({ codigo }) / 100)}`;
+        return `<div class="recargo-actividad-item"><span>${nombre}</span><strong class="${noAsegurable ? 'recargo-no-asegurable' : ''}">${detalle}</strong></div>`;
+    }).join('');
+    contenedor.hidden = false;
+}
+
+function actualizarCoberturasPorActividad() {
+    const actividad = estado.poliza.actividadDetalle;
+    coberturasDisponibles = catalogoCoberturasCompleto.filter(cobertura => {
+        const campo = CAMPOS_ACTIVIDAD_POR_COBERTURA[cobertura.codigo];
+        return !campo || !esNoAsegurableActividad(actividad?.[campo]);
+    });
+    const codigosPermitidos = new Set(coberturasDisponibles.map(cobertura => cobertura.codigo));
+    estado.coberturasCatalogo = estado.coberturasCatalogo.filter(cobertura => codigosPermitidos.has(cobertura.codigo));
+    estado.asegurados.forEach(asegurado => {
+        asegurado.coberturas = (asegurado.coberturas || []).filter(cobertura => codigosPermitidos.has(cobertura.codigo));
+    });
+    estado.subgrupos.forEach(subgrupo => {
+        subgrupo.coberturas = (subgrupo.coberturas || []).filter(codigo => codigosPermitidos.has(codigo));
+    });
+    renderizarTablaCoberturas();
+    renderizarAmparosDisponibles();
+    recalcularTodo();
+}
+
+function validarActividadAsegurable() {
+    if (!estado.poliza.actividad) {
+        mostrarAlertaRango('Selecciona una actividad económica antes de continuar.', document.getElementById('actividad'), 'Actividad económica requerida');
+        return false;
+    }
+    if (esNoAsegurableActividad(estado.poliza.actividadDetalle?.field_3)) {
+        mostrarAlertaRango('La actividad seleccionada no es asegurable para Vida. Selecciona otra actividad económica para continuar con la cotización.', document.getElementById('actividad'), 'Actividad no asegurable');
+        return false;
+    }
+    return true;
+}
+
+function obtenerRecargoPorActividad(cobertura) {
+    const codigo = String(cobertura?.codigo || '').toUpperCase();
+    const campo = CAMPOS_ACTIVIDAD_POR_COBERTURA[codigo];
+    const valor = campo ? estado.poliza.actividadDetalle?.[campo] : null;
+    const recargo = Number(String(valor ?? '').replace('%', '').replace(',', '.').trim());
+    // La API entrega factores decimales: 1 equivale a 100% y 0.5 equivale a 50%.
+    return Number.isFinite(recargo) ? recargo * 100 : 0;
+}
+
 function eliminarCobertura(codigo) {
     if (codigo === 'WET') {
         mostrarToast('El amparo Vida debe permanecer configurado.', 'warning');
@@ -623,20 +864,19 @@ function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaPorEdad = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
     const tasaBase = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
-    const tasaCredibilidad = esCoberturaVida(cobertura) ? obtenerTasaComercialConCredibilidad() : null;
-    const tasaRecargada = tasaCredibilidad !== null
-        ? tasaCredibilidad
-        : aplicarRecargoATasa(tasaBase);
-    const prima = tasaCredibilidad !== null || tasaPorEdad !== undefined
+    const tasaRecargada = aplicarRecargoATasa(tasaBase, cobertura);
+    const prima = tasaPorEdad !== undefined
         ? valorAsegurado * tasaRecargada
         : valorAsegurado * tasaRecargada * obtenerFactorEdad(edad) / 100;
     return Math.round(prima * 100) / 100;
 }
 
-function aplicarRecargoATasa(tasaBase) {
+function aplicarRecargoATasa(tasaBase, cobertura = null) {
     const factorGasto = obtenerRecargoComercial().total / 100;
-    if (factorGasto >= 1) return Number(tasaBase);
-    return Number(tasaBase) / (1 - factorGasto);
+    const tasaComercial = factorGasto >= 1 ? Number(tasaBase) : Number(tasaBase) / (1 - factorGasto);
+    // El porcentaje de la actividad económica se traslada a la tasa para que
+    // prima = valor asegurado × tasa mantenga el recargo aplicado.
+    return tasaComercial * (1 + (obtenerRecargoPorActividad(cobertura) / 100));
 }
 
 function obtenerRecargoComercial() {
@@ -711,6 +951,7 @@ function obtenerCalculoCredibilidad() {
         cantidadAsegurados: aseguradosConVida.length,
         valorAseguradoVigenciaActual,
         valorAseguradoExposicion,
+        primaPuraTotal,
         tprReal,
         tprTeorica,
         variacionTasaRealTeorica: (tprReal / tprTeorica) - 1,
@@ -725,6 +966,77 @@ function obtenerCalculoCredibilidad() {
 function obtenerTasaComercialConCredibilidad() {
     const calculo = obtenerCalculoCredibilidad();
     return calculo ? calculo.tasaComercialConCredibilidad / 1000 : null;
+}
+
+function obtenerFactorRecargoActividadCredibilidad(planes) {
+    const participacionesBase = { WET: 0.60, WEZ: 0.20, WEU: 0.20 };
+    const factoresPorPlan = planes.map(plan => {
+        const codigos = obtenerCoberturasPlan(plan)
+            .map(cobertura => cobertura.codigo)
+            .filter(codigo => participacionesBase[codigo] !== undefined);
+        const participacionTotal = codigos.reduce((total, codigo) => total + participacionesBase[codigo], 0);
+        if (!participacionTotal) return 1;
+
+        return codigos.reduce((factor, codigo) => {
+            const cobertura = coberturasDisponibles.find(item => item.codigo === codigo)
+                || estado.coberturasCatalogo.find(item => item.codigo === codigo);
+            return factor + ((participacionesBase[codigo] / participacionTotal) * (obtenerRecargoPorActividad(cobertura) / 100));
+        }, 1);
+    });
+    return factoresPorPlan.reduce((total, factor) => total + factor, 0) / factoresPorPlan.length;
+}
+
+function obtenerAjustesCredibilidad() {
+    const calculo = obtenerCalculoCredibilidad();
+    if (!calculo) return null;
+
+    const planes = estado.planes.filter(plan => plan.asegurados?.length);
+    if (!planes.length) return null;
+
+    const resultado = { ...calculo, primaComercial: 0, primaCredibilidad: 0, saldo: 0, planes: new Map() };
+    planes.forEach(plan => {
+        const totales = new Map();
+        const coberturas = obtenerCoberturasPlan(plan);
+        plan.asegurados.forEach(aseguradoId => {
+            const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
+            if (!asegurado) return;
+            coberturas.forEach(cobertura => {
+                const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
+                if (valorAsegurado === null || valorAsegurado <= 0) return;
+                const prima = calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                const total = totales.get(cobertura.codigo) || { valorAsegurado: 0, primaComercial: 0 };
+                total.valorAsegurado += valorAsegurado;
+                total.primaComercial += prima;
+                totales.set(cobertura.codigo, total);
+            });
+        });
+        resultado.planes.set(plan.id, { totales, primaComercial: [...totales.values()].reduce((total, item) => total + item.primaComercial, 0) });
+    });
+
+    resultado.primaComercial = [...resultado.planes.values()].reduce((total, plan) => total + plan.primaComercial, 0);
+    resultado.factorRecargoActividad = obtenerFactorRecargoActividadCredibilidad(planes);
+    resultado.tasaComercialConCredibilidadAjustada = calculo.tasaComercialConCredibilidad * resultado.factorRecargoActividad;
+    resultado.primaCredibilidad = resultado.tasaComercialConCredibilidadAjustada * calculo.valorAseguradoVigenciaActual / 1000;
+    resultado.saldo = resultado.primaComercial - resultado.primaCredibilidad;
+    resultado.tasaComercialActual = resultado.primaComercial * 1000 / calculo.valorAseguradoVigenciaActual;
+    const saldoPorPlan = resultado.saldo / planes.length;
+
+    resultado.planes.forEach(plan => {
+        const participacionesBase = { WET: 0.60, WEZ: 0.20, WEU: 0.20 };
+        const coberturasParticipantes = [...plan.totales.keys()].filter(codigo => participacionesBase[codigo] !== undefined);
+        const totalParticipacion = coberturasParticipantes.reduce((total, codigo) => total + participacionesBase[codigo], 0);
+        if (!totalParticipacion) return;
+
+        plan.totales.forEach((total, codigo) => {
+            const participacion = participacionesBase[codigo] ? participacionesBase[codigo] / totalParticipacion : 0;
+            if (!participacion) return;
+            total.ajusteCredibilidad = saldoPorPlan * participacion;
+            total.primaAjustada = total.primaComercial - total.ajusteCredibilidad;
+            total.tasaAjustada = total.valorAsegurado > 0 ? total.primaAjustada / total.valorAsegurado : null;
+        });
+    });
+
+    return resultado;
 }
 
 function mostrarConfirmacionRecargoComercial() {
@@ -763,16 +1075,20 @@ function confirmarRecargoComercial() {
 function calcularPrimaIndividual(asegurado) {
     let prima = 0;
     const plan = estado.planes.find(item => item.id === asegurado.planId);
+    const ajustePlan = plan ? obtenerAjustesCredibilidad()?.planes.get(plan.id) : null;
     const codigosPlan = plan ? new Set(obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo)) : null;
     asegurado.coberturas.filter(cobertura => !codigosPlan || codigosPlan.has(cobertura.codigo)).forEach(cob => {
         const coberturaCatalogo = estado.coberturasCatalogo.find(item => item.codigo === cob.codigo) || cob;
         const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
         if (cob.activa && valorAsegurado !== null && valorAsegurado > 0) {
-            prima += calcularPrimaCobertura(
-                { codigo: cob.codigo, codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
-                valorAsegurado,
-                asegurado.edad
-            );
+            const ajusteCobertura = ajustePlan?.totales.get(cob.codigo);
+            prima += ajusteCobertura?.tasaAjustada !== undefined
+                ? Math.round(valorAsegurado * ajusteCobertura.tasaAjustada * 100) / 100
+                : calcularPrimaCobertura(
+                    { codigo: cob.codigo, codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
+                    valorAsegurado,
+                    asegurado.edad
+                );
         }
     });
     asegurado.primaIndividual = Math.round(prima * 100) / 100;
@@ -1337,12 +1653,51 @@ function siguienteNombrePlan() {
     return `Plan ${letras}`;
 }
 
+function obtenerCoberturasExcluyentesSeleccionadas(codigos) {
+    const seleccionadas = new Set(codigos);
+    return GRUPOS_COBERTURAS_EXCLUYENTES
+        .map(grupo => grupo.filter(codigo => seleccionadas.has(codigo)))
+        .filter(grupo => grupo.length > 1);
+}
+
+function actualizarOpcionesExcluyentesPlan(contenedor) {
+    if (!contenedor) return;
+
+    const seleccionadas = new Set(Array.from(contenedor.querySelectorAll('input:checked')).map(input => input.value));
+    contenedor.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        const grupo = GRUPOS_COBERTURAS_EXCLUYENTES.find(item => item.includes(input.value));
+        const incompatibleSeleccionada = grupo?.some(codigo => codigo !== input.value && seleccionadas.has(codigo));
+        const etiqueta = input.closest('.cobertura-check-item');
+
+        input.disabled = input.value === 'WET' || Boolean(incompatibleSeleccionada);
+        input.title = incompatibleSeleccionada ? 'No puede seleccionarse junto con la cobertura ya elegida.' : '';
+        etiqueta?.classList.toggle('selected', input.checked);
+        etiqueta?.classList.toggle('cobertura-excluida', Boolean(incompatibleSeleccionada));
+        etiqueta?.setAttribute('aria-disabled', incompatibleSeleccionada ? 'true' : 'false');
+    });
+}
+
+function configurarOpcionesPlan(contenedor) {
+    if (!contenedor) return;
+    contenedor.addEventListener('change', evento => {
+        if (evento.target.matches('input[type="checkbox"]')) {
+            actualizarOpcionesExcluyentesPlan(contenedor);
+        }
+    });
+    actualizarOpcionesExcluyentesPlan(contenedor);
+}
+
 function crearPlanConCoberturas(nombre, coberturas) {
     const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
     if (vida && !coberturas.some(cobertura => cobertura.codigo === 'WET')) {
         coberturas = [vida, ...coberturas];
     }
     const codigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+    const conflictos = obtenerCoberturasExcluyentesSeleccionadas(codigos);
+    if (conflictos.length > 0) {
+        mostrarToast('El plan contiene coberturas excluyentes. Retira una de las coberturas incompatibles.', 'warning');
+        return false;
+    }
 
     coberturas.forEach(cobertura => {
         if (!estado.coberturasCatalogo.some(item => item.codigo === cobertura.codigo)) {
@@ -1366,6 +1721,7 @@ function crearPlanConCoberturas(nombre, coberturas) {
     renderizarTablaCoberturas();
     renderizarPlanesSubgrupoTabs();
     mostrarToast(`${nombrePlan} creado. Define valores asegurados y asigna asegurados en Planes.`, 'success');
+    return true;
 }
 
 function abrirModalCrearPlan() {
@@ -1383,6 +1739,7 @@ function abrirModalCrearPlan() {
             <span>${cobertura.nombre}</span>
         </label>`;
     }).join('');
+    configurarOpcionesPlan(contenedor);
     modal.style.display = 'flex';
 }
 
@@ -1404,8 +1761,7 @@ function crearPlanManual() {
         mostrarToast('Selecciona al menos una cobertura.', 'warning');
         return;
     }
-    crearPlanConCoberturas(nombre, coberturas);
-    cerrarModalCrearPlan();
+    if (crearPlanConCoberturas(nombre, coberturas)) cerrarModalCrearPlan();
 }
 
 function abrirModalEditarPlan(planId) {
@@ -1426,6 +1782,7 @@ function abrirModalEditarPlan(planId) {
             <span>${cobertura.nombre}</span>
         </label>`;
     }).join('');
+    configurarOpcionesPlan(contenedor);
     modal.style.display = 'flex';
 }
 
@@ -1447,6 +1804,10 @@ function guardarEdicionPlan() {
     }
 
     const nuevosCodigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+    if (obtenerCoberturasExcluyentesSeleccionadas(nuevosCodigos).length > 0) {
+        mostrarToast('El plan contiene coberturas excluyentes. Retira una de las coberturas incompatibles.', 'warning');
+        return;
+    }
     const nuevoSubgrupoId = generarIdSubgrupo(nuevosCodigos);
     if (!estado.subgrupos.some(subgrupo => subgrupo.id === nuevoSubgrupoId)) {
         estado.subgrupos.push({ id: nuevoSubgrupoId, nombre: `Grupo ${estado.subgrupos.length + 1}`, coberturas: nuevosCodigos, asegurados: [] });
@@ -1486,10 +1847,7 @@ function guardarEdicionPlan() {
 function obtenerTasaPorEdad(cobertura, edad) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
     const tasaBase = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
-    if (tasaBase === undefined) return undefined;
-    return esCoberturaVida(cobertura)
-        ? obtenerTasaComercialConCredibilidad() ?? aplicarRecargoATasa(tasaBase)
-        : aplicarRecargoATasa(tasaBase);
+    return tasaBase === undefined ? undefined : aplicarRecargoATasa(tasaBase, cobertura);
 }
 
 function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
@@ -1513,6 +1871,30 @@ function formatearTasaUnica(primaTotal, valorAseguradoTotal) {
         .toLocaleString('es-CO', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
 }
 
+function obtenerDetalleFraccionamiento(formaPago = estado.poliza.formaPago) {
+    return CONFIG.FACTORES_FRACCIONAMIENTO[formaPago] || CONFIG.FACTORES_FRACCIONAMIENTO.Anual;
+}
+
+function calcularPrimaPorFormaPago(primaAnual, formaPago = estado.poliza.formaPago) {
+    const { factor, periodos } = obtenerDetalleFraccionamiento(formaPago);
+    return Math.round((primaAnual * (1 + factor) / periodos) * 100) / 100;
+}
+
+function renderizarOpcionesFraccionamiento(primaAnual) {
+    const formaSeleccionada = estado.poliza.formaPago || 'Anual';
+    return `<div class="fraccionamiento-pagos" aria-label="Valores según forma de pago">
+        ${Object.entries(CONFIG.FACTORES_FRACCIONAMIENTO).map(([formaPago, detalle]) => {
+            const seleccionado = formaPago === formaSeleccionada;
+            const valorPorPago = calcularPrimaPorFormaPago(primaAnual, formaPago);
+            return `<div class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}">
+                <span>${formaPago}${seleccionado ? ' · Seleccionada' : ''}</span>
+                <strong>${formatearDinero(valorPorPago)}</strong>
+                <small>${detalle.periodos} ${detalle.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalle.factor)}</small>
+            </div>`;
+        }).join('')}
+    </div>`;
+}
+
 function formatearPorcentaje(valor) {
     return Number.isFinite(valor)
         ? valor.toLocaleString('es-CO', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -1522,24 +1904,31 @@ function formatearPorcentaje(valor) {
 function renderizarResumenCredibilidad() {
     if (estado.poliza.aplicaCredibilidad !== true) return '';
 
-    const calculo = obtenerCalculoCredibilidad();
+    const calculo = obtenerAjustesCredibilidad();
     if (!calculo) {
         return '<p class="info-box">La credibilidad se aplicará a la cobertura Vida cuando se cuente con siniestros, años de exposición, valores asegurados y tasas puras válidas.</p>';
     }
 
     return `<section class="calculos-plan-card">
-        <header class="calculos-plan-header"><div><strong>Cálculo de credibilidad — Vida</strong><span>La tasa comercial con credibilidad reemplaza la tasa comercial actual de la cobertura Vida.</span></div></header>
+        <header class="calculos-plan-header"><div><strong>Cálculo de credibilidad</strong><span>Se compara la prima comercial actual con la prima de credibilidad y el saldo se distribuye entre las coberturas definidas.</span></div></header>
         <div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><tbody>
             <tr><td>Valor asegurado vigencia actual</td><td><strong>${formatearDinero(calculo.valorAseguradoVigenciaActual)}</strong></td></tr>
             <tr><td>Valor asegurado por exposición</td><td><strong>${formatearDinero(calculo.valorAseguradoExposicion)}</strong></td></tr>
             <tr><td>TPR real</td><td><strong>${formatearTasa(calculo.tprReal)}</strong></td></tr>
+            <tr><td>Sumatoria tasa pura × valor asegurado por cobertura</td><td><strong>${formatearDinero(calculo.primaPuraTotal)}</strong></td></tr>
+            <tr><td>Fórmula TPR teórica</td><td><strong>${formatearDinero(calculo.primaPuraTotal)} ÷ ${formatearDinero(calculo.valorAseguradoVigenciaActual)} × 1.000</strong></td></tr>
             <tr><td>TPR teórica</td><td><strong>${formatearTasa(calculo.tprTeorica)}</strong></td></tr>
             <tr><td>Variación de tasa real vs. teórica</td><td><strong>${formatearPorcentaje(calculo.variacionTasaRealTeorica)}</strong></td></tr>
             <tr><td>Z6</td><td><strong>${calculo.z6}</strong></td></tr>
             <tr><td>Factor Z (${calculo.cantidadAsegurados} asegurado(s))</td><td><strong>${formatearTasa(calculo.factorZ)}</strong></td></tr>
             <tr><td>TPR credibilidad</td><td><strong>${formatearTasa(calculo.tprCredibilidad)}</strong></td></tr>
             <tr><td>Incremento / disminución</td><td><strong>${formatearPorcentaje(calculo.incrementoDisminucion)}</strong></td></tr>
-            <tr><td>Tasa comercial con credibilidad</td><td><strong>${formatearTasa(calculo.tasaComercialConCredibilidad)}</strong></td></tr>
+            <tr><td>Tasa única comercial actual</td><td><strong>${formatearTasa(calculo.tasaComercialActual)}</strong></td></tr>
+            <tr><td>Factor de recargo por ocupación aplicado a credibilidad</td><td><strong>${formatearTasa(calculo.factorRecargoActividad)}</strong></td></tr>
+            <tr><td>Tasa comercial con credibilidad</td><td><strong>${formatearTasa(calculo.tasaComercialConCredibilidadAjustada)}</strong></td></tr>
+            <tr><td>Prima con tasa comercial</td><td><strong>${formatearDinero(calculo.primaComercial)}</strong></td></tr>
+            <tr><td>Prima con tasa de credibilidad</td><td><strong>${formatearDinero(calculo.primaCredibilidad)}</strong></td></tr>
+            <tr><td>Saldo a favor / en contra</td><td><strong>${formatearDinero(calculo.saldo)}</strong></td></tr>
         </tbody></table></div>
     </section>`;
 }
@@ -1564,9 +1953,11 @@ function renderizarTablaCalculos() {
 
     let primaTotalPoliza = 0;
     const totalesPolizaPorCobertura = new Map();
+    const ajustesCredibilidad = obtenerAjustesCredibilidad();
     const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
         const coberturas = plan ? obtenerCoberturasPlan(plan) : [];
-        const columnas = 2 + coberturas.length * 3;
+        const ajustePlan = plan ? ajustesCredibilidad?.planes.get(plan.id) : null;
+        const columnas = 2 + coberturas.length * 4;
         let primaTotalPlan = 0;
         const totalesPlanPorCobertura = new Map(coberturas.map(cobertura => [cobertura.codigo, {
             valorAsegurado: 0,
@@ -1574,21 +1965,33 @@ function renderizarTablaCalculos() {
         }]));
         const filas = asegurados.map(asegurado => {
             const celdas = coberturas.map(cobertura => {
-                const tasa = obtenerTasaPorEdad(cobertura, asegurado.edad);
+                const tasaComercial = obtenerTasaPorEdad(cobertura, asegurado.edad);
+                const ajusteCobertura = ajustePlan?.totales.get(cobertura.codigo);
+                const tasa = ajusteCobertura?.tasaAjustada ?? tasaComercial;
+                const recargoActividad = obtenerRecargoPorActividad(cobertura);
                 const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
                 const prima = tasa === undefined || valorAsegurado === null
                     ? null
-                    : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                    : ajusteCobertura?.tasaAjustada !== undefined
+                        ? Math.round(valorAsegurado * tasa * 100) / 100
+                        : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
                 if (prima !== null) primaTotalPlan += prima;
                 const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
                 if (valorAsegurado !== null) totalPlan.valorAsegurado += valorAsegurado;
                 if (prima !== null) totalPlan.prima += prima;
-                return `<td>${formatearTasa(tasa)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
+                return `<td>${formatearTasa(tasa)}</td><td>${formatearPorcentaje(recargoActividad / 100)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
             }).join('');
             return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
         }).join('');
 
         if (plan) {
+            if (ajustePlan) {
+                ajustePlan.totales.forEach((ajusteCobertura, codigo) => {
+                    const totalPlan = totalesPlanPorCobertura.get(codigo);
+                    if (totalPlan && ajusteCobertura.primaAjustada !== undefined) totalPlan.prima = ajusteCobertura.primaAjustada;
+                });
+                primaTotalPlan = [...totalesPlanPorCobertura.values()].reduce((total, item) => total + item.prima, 0);
+            }
             plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
             primaTotalPoliza += plan.primaTotal;
             coberturas.forEach(cobertura => {
@@ -1607,7 +2010,7 @@ function renderizarTablaCalculos() {
         const tasaUnicaPlan = formatearTasaUnica(primaTotalPlan, totalVidaPlan);
         const filaTotalesCobertura = `<tr class="tasa-unica-row"><td colspan="2"><strong>Totales por cobertura ${plan?.nombre || ''}</strong></td>${coberturas.map(cobertura => {
             const total = totalesPlanPorCobertura.get(cobertura.codigo);
-            return `<td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.prima)}</strong></td>`;
+            return `<td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td><td><strong>${formatearPorcentaje(obtenerRecargoPorActividad(cobertura) / 100)}</strong></td><td><strong>${formatearDinero(total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.prima)}</strong></td>`;
         }).join('')}</tr>`;
         const filaTasaUnicaPlan = `<tr class="tasa-unica-row"><td colspan="${columnas - 1}"><strong>Tasa única total ${plan?.nombre || ''}</strong> <small>(Prima total del plan ÷ Valor asegurado total Vida × 1.000)</small></td><td><strong>${tasaUnicaPlan}</strong></td></tr>`;
         return `<section class="calculos-plan-card">
@@ -1615,29 +2018,41 @@ function renderizarTablaCalculos() {
                 <div><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span></div>
                 <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong><span>Tasa única total</span><strong>${plan ? tasaUnicaPlan : '—'}</strong></div>
             </header>
-            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Recargo ocup. ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
         </section>`;
     }).join('');
 
-    const resumenTasaUnicaPoliza = [...totalesPolizaPorCobertura.entries()].map(([codigo, total]) => `
+    const resumenTasaUnicaPoliza = [...totalesPolizaPorCobertura.entries()].map(([codigo, total]) => {
+        const cobertura = coberturasDisponibles.find(item => item.codigo === codigo)
+            || estado.coberturasCatalogo.find(item => item.codigo === codigo);
+        return `
         <tr>
             <td>${total.nombre} (${codigo})</td>
+            <td>${formatearPorcentaje(obtenerRecargoPorActividad(cobertura) / 100)}</td>
             <td>${formatearDinero(total.valorAsegurado)}</td>
             <td>${formatearDinero(total.prima)}</td>
             <td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
 
     const totalVidaPoliza = totalesPolizaPorCobertura.get('WET')?.valorAsegurado || 0;
     const tasaUnicaPoliza = formatearTasaUnica(primaTotalPoliza, totalVidaPoliza);
+    const detalleFraccionamiento = obtenerDetalleFraccionamiento();
+    const primaSegunFormaPago = calcularPrimaPorFormaPago(primaTotalPoliza);
 
     contenedor.innerHTML = `${renderizarResumenCredibilidad()}${tarjetasPlanes}
-        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa única de la póliza</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa única</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
+        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa única de la póliza</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Recargo ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa única</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
-            <span>Prima total de la póliza</span>
+            <span>Prima anual de la póliza</span>
             <strong>${formatearDinero(primaTotalPoliza)}</strong>
             <span>Tasa única total de la póliza</span>
             <strong>${tasaUnicaPoliza}</strong>
         </section>`;
+    contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
+        <header><strong>Valor según forma de pago</strong><span>Prima anual × (1 + factor de fraccionamiento) ÷ número de periodos</span></header>
+        ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
+        <p class="fraccionamiento-resultado">${estado.poliza.formaPago || 'Anual'}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
+    </section>`);
 }
 
 function renderizarAmparosDisponibles() {
@@ -1760,9 +2175,10 @@ function renderizarDashboard() {
     const totalSubgrupos = estado.subgrupos.length;
     const totalPlanes = estado.planes.length;
 
-    // Prima total desde los planes (suma de primaTotal por plan)
-    const primaMensual = estado.planes.reduce((s, p) => s + (p.primaTotal || 0), 0);
-    const primaAnual = primaMensual * 12;
+    // La prima de los planes corresponde al valor anual; el fraccionamiento solo aplica al total de la póliza.
+    const primaAnual = estado.planes.reduce((s, p) => s + (p.primaTotal || 0), 0);
+    const detalleFraccionamiento = obtenerDetalleFraccionamiento();
+    const primaSegunFormaPago = calcularPrimaPorFormaPago(primaAnual);
 
     // Complejidad
     const sinSubgrupo = estado.asegurados.filter(a => !a.subgrupoId).length;
@@ -1775,8 +2191,9 @@ function renderizarDashboard() {
     document.getElementById('totalSubgrupos').textContent = totalSubgrupos;
     document.getElementById('totalPlanes').textContent = totalPlanes;
     document.getElementById('nivelComplejidad').textContent = complejidad;
-    document.getElementById('primaMensual').textContent = formatearDinero(primaMensual);
     document.getElementById('primaAnual').textContent = formatearDinero(primaAnual);
+    document.getElementById('primaFormaPago').textContent = formatearDinero(primaSegunFormaPago);
+    document.getElementById('etiquetaPrimaFormaPago').textContent = `${estado.poliza.formaPago || 'Anual'} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
 
     // Métricas y póliza en el resumen
     const infoPoliza = document.getElementById('infoPolizaResumen');
@@ -1789,6 +2206,7 @@ function renderizarDashboard() {
             <p><strong>Vigencia:</strong> ${p.vigenciaDesde || '—'} → ${p.vigenciaHasta || '—'}</p>
             <p><strong>Asesor:</strong> ${p.asesor || '—'}</p>
             <p><strong>Canal:</strong> ${p.canalComercial || '—'}</p>
+            <p><strong>Forma de pago:</strong> ${p.formaPago || 'Anual'} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
             <p><strong>Comisión:</strong> ${p.comision || 0}%${p.canalComercial === 'Promotora' ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
             <p><strong>Siniestralidad:</strong> ${formatearDinero(p.valorSiniestrosTotales || 0)} en ${p.anosExposicion || 0} año(s) de exposición | Promedio: ${formatearDinero(p.siniestrosPromedio || 0)}</p>
         `;
@@ -1801,8 +2219,8 @@ function renderizarDashboard() {
         metrics.innerHTML = `
             <p><strong>Subgrupos:</strong> ${totalSubgrupos}</p>
             <p><strong>Planes:</strong> ${totalPlanes}</p>
-            <p><strong>Prima mensual:</strong> ${formatearDinero(primaMensual)}</p>
             <p><strong>Prima anual:</strong> ${formatearDinero(primaAnual)}</p>
+            <p><strong>Valor por pago (${estado.poliza.formaPago || 'Anual'}):</strong> ${formatearDinero(primaSegunFormaPago)}</p>
             <p><strong>Complejidad:</strong> ${complejidad}</p>
             ${sinAsig}${sinPlanTxt}
         `;
@@ -1889,6 +2307,7 @@ function setupEventListeners() {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => {
             if (i === 2 && !validarValoresMinimosParaCotizar()) return;
             if (i === 1) {
+                if (!validarActividadAsegurable()) return;
                 mostrarConfirmacionRecargoComercial();
                 return;
             }
@@ -1902,16 +2321,68 @@ function setupEventListeners() {
     // Paso 1: Póliza - campos actualizados
     const camposPoliza = [
         'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'modalidadPlan',
-        'actividad', 'vigenciaDesde', 'vigenciaHasta', 'oficina',
+        'vigenciaDesde', 'vigenciaHasta',
         'formaPago', 'fechaCobro', 'asesor', 'canalComercial', 'observaciones'
     ];
     camposPoliza.forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             estado.poliza[campo] = e.target.value;
             guardarEstado();
+            if (campo === 'formaPago') {
+                renderizarTablaCalculos();
+                renderizarDashboard();
+            }
         });
     });
     document.getElementById('canalComercial')?.addEventListener('change', actualizarCamposComerciales);
+    const buscadorActividad = document.getElementById('actividad');
+    buscadorActividad?.addEventListener('input', () => {
+        estado.poliza.actividad = '';
+        estado.poliza.actividadDetalle = null;
+        renderizarActividadesEconomicas();
+    });
+    buscadorActividad?.addEventListener('focus', renderizarActividadesEconomicas);
+    buscadorActividad?.addEventListener('keydown', evento => {
+        if (evento.key === 'Escape') ocultarListaActividades();
+        if (evento.key === 'Enter') {
+            const primeraOpcion = document.querySelector('#listaActividades [data-actividad-indice]');
+            if (primeraOpcion) {
+                evento.preventDefault();
+                actualizarActividadEconomica(primeraOpcion.dataset.actividadIndice);
+            }
+        }
+    });
+    document.getElementById('listaActividades')?.addEventListener('click', evento => {
+        const opcion = evento.target.closest('[data-actividad-indice]');
+        if (opcion) actualizarActividadEconomica(opcion.dataset.actividadIndice);
+    });
+    document.addEventListener('click', evento => {
+        if (!evento.target.closest('.actividad-selector')) ocultarListaActividades();
+    });
+    const buscadorOficina = document.getElementById('oficina');
+    buscadorOficina?.addEventListener('input', () => {
+        estado.poliza.oficina = '';
+        estado.poliza.oficinaDetalle = null;
+        renderizarOficinas();
+    });
+    buscadorOficina?.addEventListener('focus', renderizarOficinas);
+    buscadorOficina?.addEventListener('keydown', evento => {
+        if (evento.key === 'Escape') ocultarListaOficinas();
+        if (evento.key === 'Enter') {
+            const primeraOpcion = document.querySelector('#listaOficinas [data-oficina-indice]');
+            if (primeraOpcion) {
+                evento.preventDefault();
+                actualizarOficina(primeraOpcion.dataset.oficinaIndice);
+            }
+        }
+    });
+    document.getElementById('listaOficinas')?.addEventListener('click', evento => {
+        const opcion = evento.target.closest('[data-oficina-indice]');
+        if (opcion) actualizarOficina(opcion.dataset.oficinaIndice);
+    });
+    document.addEventListener('click', evento => {
+        if (!evento.target.closest('.actividad-selector')) ocultarListaOficinas();
+    });
     ['comision', 'honorarioPromotora'].forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             const maximo = campo === 'comision' ? 30 : 10;
@@ -2017,6 +2488,7 @@ function seleccionarSubtipo(subtipo) {
         id: generarUUID(),
         tomador: '', tipoIdentificacion: 'NIT', numeroIdentificacion: '',
         modalidadPlan: 'Voluntaria (Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
+        actividadDetalle: null,
         oficina: '', formaPago: 'Mensual', fechaCobro: '',
         comision: 20, honorarioPromotora: 10,
         aplicaCredibilidad: false,
@@ -2024,6 +2496,8 @@ function seleccionarSubtipo(subtipo) {
         asesor: '', canalComercial: '', observaciones: ''
     };
     mostrarWizard();
+    cargarActividadesEconomicas();
+    cargarOficinas();
 }
 
 function volverAlLanding() {
@@ -2138,6 +2612,9 @@ async function cargarCatalogoCoberturas() {
         if (coberturasDisponibles.length === 0) {
             throw new Error('La API no devolvió amparos pertenecientes al Core GW.');
         }
+
+        catalogoCoberturasCompleto = [...coberturasDisponibles];
+        actualizarCoberturasPorActividad();
 
         if (estado.asegurados.length === 0) {
             estado.coberturasCatalogo = crearCatalogoInicial();
@@ -2836,6 +3313,17 @@ function importarExcel(evento) {
             const primeraFila = filas[0];
             const esEncabezado = isNaN(primeraFila[1]) && isNaN(primeraFila[2]);
             const inicio = esEncabezado ? 1 : 0;
+            const encabezados = esEncabezado
+                ? primeraFila.map(valor => normalizarTexto(valor).replace(/[^a-z0-9]/g, ''))
+                : [];
+            const indiceColumna = (alternativas, predeterminado) => {
+                const indice = encabezados.findIndex(encabezado => alternativas.includes(encabezado));
+                return indice >= 0 ? indice : predeterminado;
+            };
+            const columnaDocumento = indiceColumna(['numerodocumento', 'documento', 'numerodoc'], 0);
+            const columnaTipoAsegurado = indiceColumna(['tipoasegurado', 'parentesco'], 1);
+            const columnaEdad = indiceColumna(['edad'], 2);
+            const columnaValorAsegurado = indiceColumna(['valoraseguradocop', 'valorasegurado', 'valoraseguradovida'], 3);
 
             const nuevos = [];
             const errores = [];
@@ -2845,10 +3333,10 @@ function importarExcel(evento) {
                 const fila = filas[i];
                 if (!fila || fila.every(c => c === '' || c === null || c === undefined)) continue;
 
-                const documento = String(fila[0] ?? '').trim();
-                const tipoAseguradoRaw = String(fila[1] ?? '').trim();
-                const edadRaw = fila[2];
-                const valorAseguradoRaw = fila[3];
+                const documento = String(fila[columnaDocumento] ?? '').trim();
+                const tipoAseguradoRaw = String(fila[columnaTipoAsegurado] ?? '').trim();
+                const edadRaw = fila[columnaEdad];
+                const valorAseguradoRaw = fila[columnaValorAsegurado];
 
                 if (!documento) { errores.push(`Fila ${i + 1}: documento vacío`); continue; }
 
@@ -4518,7 +5006,10 @@ function mostrarToast(mensaje, tipo = 'info') {
 }
 
 function generarCoberturasPorDefecto(valorVida = 0) {
-    return estado.coberturasCatalogo.map(c => {
+    const catalogo = estado.coberturasCatalogo.some(cobertura => cobertura.codigo === 'WET')
+        ? estado.coberturasCatalogo
+        : [coberturaVidaPredeterminada, ...estado.coberturasCatalogo.filter(cobertura => cobertura.codigo !== 'WET')];
+    return catalogo.map(c => {
         let va = 0;
         if (valorVida > 0) {
             if (c.codigo === 'WET' || c.codigo === 'VID') va = valorVida;
@@ -4650,6 +5141,8 @@ function cargarDemoData() {
 }
 
 function exportarResumen() {
+    const primaAnual = calcularPrimaTotal();
+    const detalleFraccionamiento = obtenerDetalleFraccionamiento();
     const resumen = {
         poliza: estado.poliza,
         coberturas: estado.coberturasCatalogo.map(cobertura => ({
@@ -4663,8 +5156,11 @@ function exportarResumen() {
             totalAsegurados: estado.asegurados.length,
             totalSubgrupos: estado.subgrupos.length,
             totalPlanes: estado.planes.length,
-            primaMensual: calcularPrimaTotal(),
-            primaAnual: calcularPrimaTotal() * 12,
+            primaAnual,
+            formaPago: estado.poliza.formaPago || 'Anual',
+            factorFraccionamiento: detalleFraccionamiento.factor,
+            numeroPeriodos: detalleFraccionamiento.periodos,
+            primaSegunFormaPago: calcularPrimaPorFormaPago(primaAnual),
             nivelComplejidad: calcularNivelComplejidad()
         },
         resumenPor: {
