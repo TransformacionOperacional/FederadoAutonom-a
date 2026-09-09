@@ -29,6 +29,12 @@ const CONFIG = {
         Padrastos: ['WET', 'WEZ', 'WEN']
     },
     CANAL_COMERCIAL: ['Sucursal', 'Promotora'],
+    FACTORES_FRACCIONAMIENTO: {
+        Mensual: { factor: 0.091, periodos: 12 },
+        Trimestral: { factor: 0.07, periodos: 4 },
+        Semestral: { factor: 0.04, periodos: 2 },
+        Anual: { factor: 0, periodos: 1 }
+    },
     FACTORES_EDAD: {
         '18-25': 0.95,
         '26-35': 1.0,
@@ -1865,6 +1871,30 @@ function formatearTasaUnica(primaTotal, valorAseguradoTotal) {
         .toLocaleString('es-CO', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
 }
 
+function obtenerDetalleFraccionamiento(formaPago = estado.poliza.formaPago) {
+    return CONFIG.FACTORES_FRACCIONAMIENTO[formaPago] || CONFIG.FACTORES_FRACCIONAMIENTO.Anual;
+}
+
+function calcularPrimaPorFormaPago(primaAnual, formaPago = estado.poliza.formaPago) {
+    const { factor, periodos } = obtenerDetalleFraccionamiento(formaPago);
+    return Math.round((primaAnual * (1 + factor) / periodos) * 100) / 100;
+}
+
+function renderizarOpcionesFraccionamiento(primaAnual) {
+    const formaSeleccionada = estado.poliza.formaPago || 'Anual';
+    return `<div class="fraccionamiento-pagos" aria-label="Valores según forma de pago">
+        ${Object.entries(CONFIG.FACTORES_FRACCIONAMIENTO).map(([formaPago, detalle]) => {
+            const seleccionado = formaPago === formaSeleccionada;
+            const valorPorPago = calcularPrimaPorFormaPago(primaAnual, formaPago);
+            return `<div class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}">
+                <span>${formaPago}${seleccionado ? ' · Seleccionada' : ''}</span>
+                <strong>${formatearDinero(valorPorPago)}</strong>
+                <small>${detalle.periodos} ${detalle.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalle.factor)}</small>
+            </div>`;
+        }).join('')}
+    </div>`;
+}
+
 function formatearPorcentaje(valor) {
     return Number.isFinite(valor)
         ? valor.toLocaleString('es-CO', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -2007,15 +2037,22 @@ function renderizarTablaCalculos() {
 
     const totalVidaPoliza = totalesPolizaPorCobertura.get('WET')?.valorAsegurado || 0;
     const tasaUnicaPoliza = formatearTasaUnica(primaTotalPoliza, totalVidaPoliza);
+    const detalleFraccionamiento = obtenerDetalleFraccionamiento();
+    const primaSegunFormaPago = calcularPrimaPorFormaPago(primaTotalPoliza);
 
     contenedor.innerHTML = `${renderizarResumenCredibilidad()}${tarjetasPlanes}
         ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa única de la póliza</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Recargo ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa única</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
-            <span>Prima total de la póliza</span>
+            <span>Prima anual de la póliza</span>
             <strong>${formatearDinero(primaTotalPoliza)}</strong>
             <span>Tasa única total de la póliza</span>
             <strong>${tasaUnicaPoliza}</strong>
         </section>`;
+    contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
+        <header><strong>Valor según forma de pago</strong><span>Prima anual × (1 + factor de fraccionamiento) ÷ número de periodos</span></header>
+        ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
+        <p class="fraccionamiento-resultado">${estado.poliza.formaPago || 'Anual'}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
+    </section>`);
 }
 
 function renderizarAmparosDisponibles() {
@@ -2138,9 +2175,10 @@ function renderizarDashboard() {
     const totalSubgrupos = estado.subgrupos.length;
     const totalPlanes = estado.planes.length;
 
-    // Prima total desde los planes (suma de primaTotal por plan)
-    const primaMensual = estado.planes.reduce((s, p) => s + (p.primaTotal || 0), 0);
-    const primaAnual = primaMensual * 12;
+    // La prima de los planes corresponde al valor anual; el fraccionamiento solo aplica al total de la póliza.
+    const primaAnual = estado.planes.reduce((s, p) => s + (p.primaTotal || 0), 0);
+    const detalleFraccionamiento = obtenerDetalleFraccionamiento();
+    const primaSegunFormaPago = calcularPrimaPorFormaPago(primaAnual);
 
     // Complejidad
     const sinSubgrupo = estado.asegurados.filter(a => !a.subgrupoId).length;
@@ -2153,8 +2191,9 @@ function renderizarDashboard() {
     document.getElementById('totalSubgrupos').textContent = totalSubgrupos;
     document.getElementById('totalPlanes').textContent = totalPlanes;
     document.getElementById('nivelComplejidad').textContent = complejidad;
-    document.getElementById('primaMensual').textContent = formatearDinero(primaMensual);
     document.getElementById('primaAnual').textContent = formatearDinero(primaAnual);
+    document.getElementById('primaFormaPago').textContent = formatearDinero(primaSegunFormaPago);
+    document.getElementById('etiquetaPrimaFormaPago').textContent = `${estado.poliza.formaPago || 'Anual'} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
 
     // Métricas y póliza en el resumen
     const infoPoliza = document.getElementById('infoPolizaResumen');
@@ -2167,6 +2206,7 @@ function renderizarDashboard() {
             <p><strong>Vigencia:</strong> ${p.vigenciaDesde || '—'} → ${p.vigenciaHasta || '—'}</p>
             <p><strong>Asesor:</strong> ${p.asesor || '—'}</p>
             <p><strong>Canal:</strong> ${p.canalComercial || '—'}</p>
+            <p><strong>Forma de pago:</strong> ${p.formaPago || 'Anual'} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
             <p><strong>Comisión:</strong> ${p.comision || 0}%${p.canalComercial === 'Promotora' ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
             <p><strong>Siniestralidad:</strong> ${formatearDinero(p.valorSiniestrosTotales || 0)} en ${p.anosExposicion || 0} año(s) de exposición | Promedio: ${formatearDinero(p.siniestrosPromedio || 0)}</p>
         `;
@@ -2179,8 +2219,8 @@ function renderizarDashboard() {
         metrics.innerHTML = `
             <p><strong>Subgrupos:</strong> ${totalSubgrupos}</p>
             <p><strong>Planes:</strong> ${totalPlanes}</p>
-            <p><strong>Prima mensual:</strong> ${formatearDinero(primaMensual)}</p>
             <p><strong>Prima anual:</strong> ${formatearDinero(primaAnual)}</p>
+            <p><strong>Valor por pago (${estado.poliza.formaPago || 'Anual'}):</strong> ${formatearDinero(primaSegunFormaPago)}</p>
             <p><strong>Complejidad:</strong> ${complejidad}</p>
             ${sinAsig}${sinPlanTxt}
         `;
@@ -2288,6 +2328,10 @@ function setupEventListeners() {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             estado.poliza[campo] = e.target.value;
             guardarEstado();
+            if (campo === 'formaPago') {
+                renderizarTablaCalculos();
+                renderizarDashboard();
+            }
         });
     });
     document.getElementById('canalComercial')?.addEventListener('change', actualizarCamposComerciales);
@@ -5097,6 +5141,8 @@ function cargarDemoData() {
 }
 
 function exportarResumen() {
+    const primaAnual = calcularPrimaTotal();
+    const detalleFraccionamiento = obtenerDetalleFraccionamiento();
     const resumen = {
         poliza: estado.poliza,
         coberturas: estado.coberturasCatalogo.map(cobertura => ({
@@ -5110,8 +5156,11 @@ function exportarResumen() {
             totalAsegurados: estado.asegurados.length,
             totalSubgrupos: estado.subgrupos.length,
             totalPlanes: estado.planes.length,
-            primaMensual: calcularPrimaTotal(),
-            primaAnual: calcularPrimaTotal() * 12,
+            primaAnual,
+            formaPago: estado.poliza.formaPago || 'Anual',
+            factorFraccionamiento: detalleFraccionamiento.factor,
+            numeroPeriodos: detalleFraccionamiento.periodos,
+            primaSegunFormaPago: calcularPrimaPorFormaPago(primaAnual),
             nivelComplejidad: calcularNivelComplejidad()
         },
         resumenPor: {
