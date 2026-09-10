@@ -360,6 +360,8 @@ function agregarAsegurado(asegurado = null) {
     tipo.innerHTML = CONFIG.TIPO_ASEGURADO.map(valor => `<option value="${valor}">${valor}</option>`).join('');
     tipo.value = asegurado?.tipoAsegurado || 'Afiliado principal';
     document.getElementById('aseguradoValor').value = formatearValorMonetario(asegurado ? obtenerValorAseguradoBase(asegurado) : null);
+    actualizarValidacionEdadModal();
+    actualizarValidacionValorAseguradoModal();
     modal.style.display = 'flex';
 }
 
@@ -369,13 +371,22 @@ function cerrarModalAsegurado() {
 }
 
 function guardarAseguradoDesdeModal() {
+    const campoEdad = document.getElementById('aseguradoEdad');
+    const campoValor = document.getElementById('aseguradoValor');
     const numeroDocumento = document.getElementById('aseguradoNumeroDocumento').value.trim();
     const nombreCompleto = document.getElementById('aseguradoNombreCompleto').value.trim();
     const tipoAsegurado = document.getElementById('aseguradoTipo').value;
-    const edad = Number(document.getElementById('aseguradoEdad').value);
-    const valorAsegurado = obtenerValorMonetario(document.getElementById('aseguradoValor').value) || 0;
+    const edad = Number(campoEdad.value);
+    const valorAsegurado = obtenerValorMonetario(campoValor.value) || 0;
     const asegurado = estado.asegurados.find(item => item.id === aseguradoEditandoId);
 
+    actualizarValidacionEdadModal();
+    if (valorAsegurado < 10_000_000) {
+        actualizarValidacionValorAseguradoModal();
+        campoValor.focus();
+        mostrarToast('El valor asegurado mínimo es $ 10.000.000.', 'warning');
+        return;
+    }
     if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !validarEdad(edad).valido) {
         mostrarToast('Completa correctamente los campos obligatorios del asegurado.', 'warning');
         return;
@@ -407,6 +418,27 @@ function guardarAseguradoDesdeModal() {
     recalcularTodo();
     cerrarModalAsegurado();
     mostrarToast(`Asegurado ${asegurado ? 'actualizado' : 'agregado'} correctamente.`, 'success');
+}
+
+function actualizarValidacionEdadModal() {
+    const campoEdad = document.getElementById('aseguradoEdad');
+    const ayuda = document.getElementById('ayudaEdadMinima');
+    if (!campoEdad || !ayuda) return;
+
+    const edad = Number(campoEdad.value);
+    const esMenor = campoEdad.value !== '' && Number.isFinite(edad) && edad < 14;
+    ayuda.hidden = !esMenor;
+    campoEdad.classList.toggle('campo-invalido', esMenor);
+}
+
+function actualizarValidacionValorAseguradoModal() {
+    const campoValor = document.getElementById('aseguradoValor');
+    if (!campoValor) return;
+
+    const valor = obtenerValorMonetario(campoValor.value) || 0;
+    const esInvalido = campoValor.value.trim() !== '' && valor < 10_000_000;
+    campoValor.classList.toggle('campo-invalido', esInvalido);
+    campoValor.setAttribute('aria-invalid', String(esInvalido));
 }
 
 function editarAsegurado(id) {
@@ -488,8 +520,8 @@ function validarDocumento(tipoDoc, numeroDoc) {
 
 function validarEdad(edad) {
     const e = parseInt(edad);
-    if (isNaN(e) || e < 18 || e > 100) {
-        return { valido: false, mensaje: 'Edad debe estar entre 18 y 100 años' };
+    if (isNaN(e) || e < 14 || e > 100) {
+        return { valido: false, mensaje: 'Edad debe estar entre 14 y 100 años' };
     }
     return { valido: true, mensaje: '' };
 }
@@ -1491,6 +1523,47 @@ function exportarAsegurados() {
     descargarCSV(csv, 'asegurados.csv');
 }
 
+async function exportarAseguradosExcel() {
+    if (typeof ExcelJS === 'undefined') {
+        mostrarToast('La librería Excel no está disponible. Verifica tu conexión.', 'error');
+        return;
+    }
+
+    const libro = new ExcelJS.Workbook();
+    const hoja = libro.addWorksheet('Asegurados');
+    hoja.addRow(['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP']);
+    estado.asegurados.forEach(asegurado => {
+        hoja.addRow([
+            String(asegurado.numeroDocumento || ''),
+            asegurado.tipoAsegurado || '',
+            Number(asegurado.edad) || '',
+            obtenerValorAseguradoBase(asegurado) || ''
+        ]);
+    });
+
+    hoja.columns = [
+        { width: 22 },
+        { width: 20 },
+        { width: 8 },
+        { width: 22 }
+    ];
+    hoja.getColumn(1).numFmt = '@';
+    hoja.getColumn(4).numFmt = '#,##0';
+    hoja.getRow(1).font = { bold: true };
+    hoja.getRow(1).alignment = { horizontal: 'center' };
+    hoja.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const contenido = await libro.xlsx.writeBuffer();
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(new Blob([contenido], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }));
+    enlace.download = 'Asegurados_VidaGrupo.xlsx';
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
+    mostrarToast('Base de asegurados exportada en Excel.', 'success');
+}
+
 function exportarSubgrupos() {
     let csv = 'Subgrupo,Coberturas,Cantidad Asegurados,Planes,Prima Total\n';
     
@@ -2041,7 +2114,7 @@ function renderizarTablaCalculos() {
     const primaSegunFormaPago = calcularPrimaPorFormaPago(primaTotalPoliza);
 
     contenedor.innerHTML = `${renderizarResumenCredibilidad()}${tarjetasPlanes}
-        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa única de la póliza</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Recargo ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa única</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
+        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa por cobertura</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Recargo ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa por cobertura</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
             <span>Prima anual de la póliza</span>
             <strong>${formatearDinero(primaTotalPoliza)}</strong>
@@ -2417,14 +2490,12 @@ function setupEventListeners() {
     });
 
     document.getElementById('btnAgregarAsegurado')?.addEventListener('click', () => agregarAsegurado());
-    document.getElementById('aseguradoValor')?.addEventListener('input', (evento) => formatearCampoMoneda(evento.target));
-    document.getElementById('btnCargarDemo')?.addEventListener('click', cargarDemoData);
-    document.getElementById('btnImportarCSV')?.addEventListener('click', () => {
-        document.getElementById('fileCSV')?.click();
+    document.getElementById('aseguradoEdad')?.addEventListener('input', actualizarValidacionEdadModal);
+    document.getElementById('aseguradoValor')?.addEventListener('input', (evento) => {
+        formatearCampoMoneda(evento.target);
+        actualizarValidacionValorAseguradoModal();
     });
-    document.getElementById('fileCSV')?.addEventListener('change', importarCSV);
-    document.getElementById('btnExportarAsegurados')?.addEventListener('click', exportarAsegurados);
-    document.getElementById('btnExportarAseguradosAlt')?.addEventListener('click', exportarAsegurados);
+    document.getElementById('btnExportarAseguradosAlt')?.addEventListener('click', exportarAseguradosExcel);
     document.getElementById('btnExportarAseguradosFinal')?.addEventListener('click', exportarAsegurados);
     document.getElementById('btnExportarCSVSubgrupos')?.addEventListener('click', exportarSubgrupos);
     document.getElementById('btnExportarCSVPlanes')?.addEventListener('click', exportarPlanes);
