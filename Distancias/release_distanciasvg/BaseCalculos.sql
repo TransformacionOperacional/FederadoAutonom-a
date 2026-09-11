@@ -549,6 +549,6 @@ SELECT
         ELSE '100%+'
     END AS RANGO_ESC6
 FROM FINAL_AJUSTE
-;
+
 
  
