@@ -61,6 +61,8 @@ const CONFIG = {
 };
 
 const TASA_BASE_SISTEMA = 0.1;
+const COBERTURA_RENTA_INCAPACIDAD = 'WFA';
+const DEDUCIBLES_RENTA_INCAPACIDAD = ['7-30', '3-30', '15-60', '14-90'];
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/16/workflows/374bc9c80f6b420685df2183774e894d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=LhYASD77gGYm50BCzeFYIuWN_kEx_VYeUbzlMfMPG1U';
 const API_OFICINAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/28/workflows/b6994d575dae4b06bd596582b87c72bc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0Yi9rk7-G5vyOSRuaGj-cl2TyKHU6DjQhi40iQX3NyI';
@@ -141,6 +143,7 @@ const PLANES_SUGERIDOS = [
 ];
 let planEditandoId = null;
 let campoRangoConError = null;
+let planPendienteDeducible = null;
 
 function crearCatalogoInicial() {
     const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
@@ -219,6 +222,7 @@ let estado = {
     },
     coberturasCatalogo: crearCatalogoInicial(),
     tasasPorCoberturaEdad: {},
+    tasasPorCoberturaEdadDeducible: {},
     porcentajesFactorPorCoberturaEdad: {},
     edadesMaximasPorCobertura: {},
     asegurados: [],
@@ -270,6 +274,7 @@ function cargarEstado() {
         if (estadoGuardado) {
             estado = JSON.parse(estadoGuardado);
             estado.edadesMaximasPorCobertura = estado.edadesMaximasPorCobertura || {};
+            estado.tasasPorCoberturaEdadDeducible = estado.tasasPorCoberturaEdadDeducible || {};
             estado.asegurados = (estado.asegurados || []).map(asegurado => ({
                 ...asegurado,
                 tipoAsegurado: asegurado.tipoAsegurado === 'Empleado'
@@ -328,6 +333,7 @@ function limpiarEstado() {
             },
             coberturasCatalogo: crearCatalogoInicial(),
             tasasPorCoberturaEdad: {},
+            tasasPorCoberturaEdadDeducible: {},
             porcentajesFactorPorCoberturaEdad: {},
             edadesMaximasPorCobertura: {},
             asegurados: [],
@@ -602,6 +608,7 @@ async function consultarTasasCoberturas() {
 
 function actualizarDatosTasasDesdeFilas(filas) {
     const tasasPorCoberturaEdad = {};
+    const tasasPorCoberturaEdadDeducible = {};
     const porcentajesFactorPorCoberturaEdad = {};
     const edadesMaximasPorCobertura = {};
 
@@ -609,10 +616,12 @@ function actualizarDatosTasasDesdeFilas(filas) {
         const codigoAmparo = String(fila.Codigo_Amparo ?? '').replace(/\.0$/, '');
         const edad = Number(fila.Edad);
         const tasa = Number(fila['Tasa -20%']);
+        const deducible = String(fila.Deducible ?? '').trim();
         const porcentajeFactor = Number(fila.Porcentaje_Factor);
         const edadMaxima = Number(fila.Edad_Maxima ?? fila['Edad Maxima'] ?? fila['Edad Máxima']);
         if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(tasa)) {
             tasasPorCoberturaEdad[`${codigoAmparo}-${edad}`] = tasa;
+            if (deducible) tasasPorCoberturaEdadDeducible[`${codigoAmparo}-${edad}-${deducible}`] = tasa;
         }
         if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(porcentajeFactor)) {
             porcentajesFactorPorCoberturaEdad[`${codigoAmparo}-${edad}`] = porcentajeFactor;
@@ -623,6 +632,7 @@ function actualizarDatosTasasDesdeFilas(filas) {
     });
 
     estado.tasasPorCoberturaEdad = tasasPorCoberturaEdad;
+    estado.tasasPorCoberturaEdadDeducible = tasasPorCoberturaEdadDeducible;
     estado.porcentajesFactorPorCoberturaEdad = porcentajesFactorPorCoberturaEdad;
     estado.edadesMaximasPorCobertura = edadesMaximasPorCobertura;
 }
@@ -892,9 +902,17 @@ function eliminarCobertura(codigo) {
    SECCIÓN 6: CÁLCULO DE PRIMAS
    ============================================================ */
 
-function calcularPrimaCobertura(cobertura, valorAsegurado, edad) {
+function obtenerTasaApiCobertura(cobertura, edad, deducible = null) {
     const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
-    const tasaPorEdad = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+    if (String(cobertura.codigo || '').toUpperCase() === COBERTURA_RENTA_INCAPACIDAD) {
+        return deducible ? estado.tasasPorCoberturaEdadDeducible?.[`${codigoAmparo}-${Number(edad)}-${deducible}`] : undefined;
+    }
+    return estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+}
+
+function calcularPrimaCobertura(cobertura, valorAsegurado, edad, deducible = null) {
+    const tasaPorEdad = obtenerTasaApiCobertura(cobertura, edad, deducible);
+    if (String(cobertura.codigo || '').toUpperCase() === COBERTURA_RENTA_INCAPACIDAD && tasaPorEdad === undefined) return 0;
     const tasaBase = tasaPorEdad ?? cobertura.tasa ?? cobertura.tasaBase ?? 0;
     const tasaRecargada = aplicarRecargoATasa(tasaBase, cobertura);
     const prima = tasaPorEdad !== undefined
@@ -931,9 +949,8 @@ function esCoberturaVida(cobertura) {
     return ['WET', 'VID', 'VIDA'].includes(String(cobertura?.codigo || '').toUpperCase());
 }
 
-function obtenerTasaPuraCobertura(asegurado, cobertura) {
-    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
-    const tasaApi = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(asegurado.edad)}`];
+function obtenerTasaPuraCobertura(asegurado, cobertura, deducible = null) {
+    const tasaApi = obtenerTasaApiCobertura(cobertura, asegurado.edad, deducible);
     if (tasaApi !== undefined) return Number(tasaApi);
 
     const tasaBase = Number(cobertura.tasa ?? cobertura.tasaBase ?? TASA_BASE_SISTEMA);
@@ -964,7 +981,7 @@ function obtenerCalculoCredibilidad() {
             .reduce((primaPura, cobertura) => {
                 const coberturaCatalogo = estado.coberturasCatalogo.find(item => item.codigo === cobertura.codigo) || cobertura;
                 const valorAsegurado = calcularValorAseguradoCobertura(coberturaCatalogo, asegurado);
-                const tasaPura = obtenerTasaPuraCobertura(asegurado, cobertura);
+                const tasaPura = obtenerTasaPuraCobertura(asegurado, cobertura, obtenerDeducibleCoberturaPlan(plan, cobertura.codigo));
                 return valorAsegurado !== null && valorAsegurado > 0 && Number.isFinite(tasaPura)
                     ? primaPura + (tasaPura * valorAsegurado)
                     : primaPura;
@@ -1035,7 +1052,7 @@ function obtenerAjustesCredibilidad() {
             coberturas.forEach(cobertura => {
                 const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
                 if (valorAsegurado === null || valorAsegurado <= 0) return;
-                const prima = calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                const prima = calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad, obtenerDeducibleCoberturaPlan(plan, cobertura.codigo));
                 const total = totales.get(cobertura.codigo) || { valorAsegurado: 0, primaComercial: 0 };
                 total.valorAsegurado += valorAsegurado;
                 total.primaComercial += prima;
@@ -1119,7 +1136,8 @@ function calcularPrimaIndividual(asegurado) {
                 : calcularPrimaCobertura(
                     { codigo: cob.codigo, codigoAmparo: cob.codigoAmparo, tasa: cob.tasa },
                     valorAsegurado,
-                    asegurado.edad
+                    asegurado.edad,
+                    obtenerDeducibleCoberturaPlan(plan, cob.codigo)
                 );
         }
     });
@@ -1671,7 +1689,11 @@ function renderizarResumenPlanesConfigurados() {
     container.innerHTML = estado.planes.map(plan => {
         const subgrupo = estado.subgrupos.find(item => item.id === plan.subgrupoId);
         const coberturas = (subgrupo?.coberturas || [])
-            .map(codigo => coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)?.nombre || codigo);
+            .map(codigo => {
+                const nombre = coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)?.nombre || codigo;
+                const deducible = obtenerDeducibleCoberturaPlan(plan, codigo);
+                return deducible ? `${nombre} (Deducible ${deducible})` : nombre;
+            });
         return `
             <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#f8fbff;">
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
@@ -1708,7 +1730,7 @@ function aplicarPlanSugerido(sugeridoId) {
         return;
     }
 
-    crearPlanConCoberturas(sugerencia.nombre, coberturas);
+    solicitarDeducibleParaCrearPlan(sugerencia.nombre, coberturas);
 }
 
 function siguienteNombrePlan() {
@@ -1755,12 +1777,70 @@ function configurarOpcionesPlan(contenedor) {
     contenedor.addEventListener('change', evento => {
         if (evento.target.matches('input[type="checkbox"]')) {
             actualizarOpcionesExcluyentesPlan(contenedor);
+            const selectorDeducible = contenedor.querySelector('.deducible-cobertura-plan');
+            if (selectorDeducible) selectorDeducible.disabled = !evento.target.checked && evento.target.value === COBERTURA_RENTA_INCAPACIDAD;
         }
     });
     actualizarOpcionesExcluyentesPlan(contenedor);
 }
 
-function crearPlanConCoberturas(nombre, coberturas) {
+function opcionesDeduciblePlan(deducible = '', seleccionada = false) {
+    return `<select class="deducible-cobertura-plan" data-deducible-cobertura="${COBERTURA_RENTA_INCAPACIDAD}" ${seleccionada ? '' : 'disabled'} aria-label="Deducible para renta por incapacidad">
+        <option value="">Deducible...</option>
+        ${DEDUCIBLES_RENTA_INCAPACIDAD.map(opcion => `<option value="${opcion}" ${opcion === deducible ? 'selected' : ''}>${opcion}</option>`).join('')}
+    </select>`;
+}
+
+function obtenerDeduciblesDesdeContenedor(contenedor) {
+    const selector = contenedor?.querySelector(`[data-deducible-cobertura="${COBERTURA_RENTA_INCAPACIDAD}"]`);
+    return selector?.disabled ? {} : { [COBERTURA_RENTA_INCAPACIDAD]: selector?.value || '' };
+}
+
+function obtenerDeducibleCoberturaPlan(plan, codigo) {
+    return plan?.deduciblesCobertura?.[codigo] || null;
+}
+
+function solicitarDeducibleParaCrearPlan(nombre, coberturas, deduciblesCobertura = {}) {
+    if (!coberturas.some(cobertura => cobertura.codigo === COBERTURA_RENTA_INCAPACIDAD)) {
+        return crearPlanConCoberturas(nombre, coberturas, deduciblesCobertura);
+    }
+    const deducible = deduciblesCobertura[COBERTURA_RENTA_INCAPACIDAD];
+    if (DEDUCIBLES_RENTA_INCAPACIDAD.includes(deducible)) {
+        return crearPlanConCoberturas(nombre, coberturas, deduciblesCobertura);
+    }
+    planPendienteDeducible = { nombre, coberturas };
+    document.getElementById('deducibleRentaIncapacidad').value = '';
+    document.getElementById('modalDeducibleRentaIncapacidad').style.display = 'flex';
+    return false;
+}
+
+function confirmarDeducibleRentaIncapacidad() {
+    const deducible = document.getElementById('deducibleRentaIncapacidad').value;
+    if (!planPendienteDeducible || !DEDUCIBLES_RENTA_INCAPACIDAD.includes(deducible)) {
+        mostrarToast('Selecciona un deducible válido.', 'warning');
+        return;
+    }
+    const pendiente = planPendienteDeducible;
+    planPendienteDeducible = null;
+    document.getElementById('modalDeducibleRentaIncapacidad').style.display = 'none';
+    if (pendiente.tipo === 'subgrupo') {
+        crearPlanEnSubgrupo(pendiente.subgrupoId, deducible);
+        return;
+    }
+    crearPlanConCoberturas(pendiente.nombre, pendiente.coberturas, { [COBERTURA_RENTA_INCAPACIDAD]: deducible });
+    cerrarModalCrearPlan();
+}
+
+function cancelarDeducibleRentaIncapacidad() {
+    planPendienteDeducible = null;
+    document.getElementById('modalDeducibleRentaIncapacidad').style.display = 'none';
+}
+
+function crearPlanConCoberturas(nombre, coberturas, deduciblesCobertura = {}) {
+    if (coberturas.some(cobertura => cobertura.codigo === COBERTURA_RENTA_INCAPACIDAD)
+        && !DEDUCIBLES_RENTA_INCAPACIDAD.includes(deduciblesCobertura[COBERTURA_RENTA_INCAPACIDAD])) {
+        return solicitarDeducibleParaCrearPlan(nombre, coberturas, deduciblesCobertura);
+    }
     const vida = coberturasDisponibles.find(cobertura => cobertura.codigo === 'WET');
     if (vida && !coberturas.some(cobertura => cobertura.codigo === 'WET')) {
         coberturas = [vida, ...coberturas];
@@ -1787,6 +1867,7 @@ function crearPlanConCoberturas(nombre, coberturas) {
     estado.planes.push({
         id: generarUUID(), subgrupoId, nombre: nombrePlan,
         valoresCobertura: Object.fromEntries(codigos.map(codigo => [codigo, 0])),
+        deduciblesCobertura: { ...deduciblesCobertura },
         asegurados: [], primaTotal: 0
     });
 
@@ -1810,6 +1891,7 @@ function abrirModalCrearPlan() {
         return `<label class="cobertura-check-item${esVida ? ' obligatoria-lock' : ''}">
             <input type="checkbox" value="${cobertura.codigo}" ${esVida ? 'checked disabled' : ''}>
             <span>${cobertura.nombre}</span>
+            ${cobertura.codigo === COBERTURA_RENTA_INCAPACIDAD ? opcionesDeduciblePlan() : ''}
         </label>`;
     }).join('');
     configurarOpcionesPlan(contenedor);
@@ -1826,6 +1908,7 @@ function crearPlanManual() {
     const codigos = Array.from(document.querySelectorAll('#coberturasPlanManual input:checked'))
         .map(checkbox => checkbox.value);
     const coberturas = codigos.map(codigo => coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)).filter(Boolean);
+    const deduciblesCobertura = obtenerDeduciblesDesdeContenedor(document.getElementById('coberturasPlanManual'));
     if (!nombre) {
         mostrarToast('Ingresa el nombre del plan.', 'warning');
         return;
@@ -1834,7 +1917,7 @@ function crearPlanManual() {
         mostrarToast('Selecciona al menos una cobertura.', 'warning');
         return;
     }
-    if (crearPlanConCoberturas(nombre, coberturas)) cerrarModalCrearPlan();
+    if (solicitarDeducibleParaCrearPlan(nombre, coberturas, deduciblesCobertura)) cerrarModalCrearPlan();
 }
 
 function abrirModalEditarPlan(planId) {
@@ -1853,6 +1936,7 @@ function abrirModalEditarPlan(planId) {
         return `<label class="cobertura-check-item${esVida ? ' obligatoria-lock' : ''}">
             <input type="checkbox" value="${cobertura.codigo}" ${seleccionada ? 'checked' : ''} ${esVida ? 'disabled' : ''}>
             <span>${cobertura.nombre}</span>
+            ${cobertura.codigo === COBERTURA_RENTA_INCAPACIDAD ? opcionesDeduciblePlan(obtenerDeducibleCoberturaPlan(plan, cobertura.codigo), seleccionada) : ''}
         </label>`;
     }).join('');
     configurarOpcionesPlan(contenedor);
@@ -1871,12 +1955,17 @@ function guardarEdicionPlan() {
     const codigos = Array.from(document.querySelectorAll('#coberturasPlanEdicion input:checked'))
         .map(checkbox => checkbox.value);
     const coberturas = codigos.map(codigo => coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)).filter(Boolean);
+    const deduciblesCobertura = obtenerDeduciblesDesdeContenedor(document.getElementById('coberturasPlanEdicion'));
     if (!plan || !nombre || coberturas.length === 0) {
         mostrarToast('Indica el nombre y selecciona al menos una cobertura.', 'warning');
         return;
     }
 
     const nuevosCodigos = [...new Set(coberturas.map(cobertura => cobertura.codigo))].sort();
+    if (nuevosCodigos.includes(COBERTURA_RENTA_INCAPACIDAD) && !DEDUCIBLES_RENTA_INCAPACIDAD.includes(deduciblesCobertura[COBERTURA_RENTA_INCAPACIDAD])) {
+        mostrarToast('Selecciona el deducible para Renta por incapacidad por accidente y enfermedad.', 'warning');
+        return;
+    }
     if (obtenerCoberturasExcluyentesSeleccionadas(nuevosCodigos).length > 0) {
         mostrarToast('El plan contiene coberturas excluyentes. Retira una de las coberturas incompatibles.', 'warning');
         return;
@@ -1895,6 +1984,7 @@ function guardarEdicionPlan() {
     plan.nombre = nombre;
     plan.subgrupoId = nuevoSubgrupoId;
     plan.valoresCobertura = valoresActualizados;
+    plan.deduciblesCobertura = nuevosCodigos.includes(COBERTURA_RENTA_INCAPACIDAD) ? deduciblesCobertura : {};
     plan.asegurados.forEach(aseguradoId => {
         const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
         if (!asegurado) return;
@@ -1917,9 +2007,8 @@ function guardarEdicionPlan() {
     mostrarToast('Plan actualizado.', 'success');
 }
 
-function obtenerTasaPorEdad(cobertura, edad) {
-    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
-    const tasaBase = estado.tasasPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+function obtenerTasaPorEdad(cobertura, edad, deducible = null) {
+    const tasaBase = obtenerTasaApiCobertura(cobertura, edad, deducible);
     return tasaBase === undefined ? undefined : aplicarRecargoATasa(tasaBase, cobertura);
 }
 
@@ -2038,7 +2127,8 @@ function renderizarTablaCalculos() {
         }]));
         const filas = asegurados.map(asegurado => {
             const celdas = coberturas.map(cobertura => {
-                const tasaComercial = obtenerTasaPorEdad(cobertura, asegurado.edad);
+                const deducible = obtenerDeducibleCoberturaPlan(plan, cobertura.codigo);
+                const tasaComercial = obtenerTasaPorEdad(cobertura, asegurado.edad, deducible);
                 const ajusteCobertura = ajustePlan?.totales.get(cobertura.codigo);
                 const tasa = ajusteCobertura?.tasaAjustada ?? tasaComercial;
                 const recargoActividad = obtenerRecargoPorActividad(cobertura);
@@ -2047,7 +2137,7 @@ function renderizarTablaCalculos() {
                     ? null
                     : ajusteCobertura?.tasaAjustada !== undefined
                         ? Math.round(valorAsegurado * tasa * 100) / 100
-                        : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad);
+                        : calcularPrimaCobertura(cobertura, valorAsegurado, asegurado.edad, deducible);
                 if (prima !== null) primaTotalPlan += prima;
                 const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
                 if (valorAsegurado !== null) totalPlan.valorAsegurado += valorAsegurado;
@@ -3955,7 +4045,10 @@ function renderizarPlanesWorkspace(subgrupoId) {
     }
 
     // Construir tabla con una columna por cobertura
-    const cobHeaders = subgrupo.coberturas.map(cod => `<th>${cod}<br><small>Valor aseg.</small></th>`).join('');
+    const cobHeaders = subgrupo.coberturas.map(cod => {
+        const deducible = obtenerDeducibleCoberturaPlan(planes[0], cod);
+        return `<th>${cod}<br><small>Valor aseg.${deducible ? ` · Ded. ${deducible}` : ''}</small></th>`;
+    }).join('');
     let html = `
         <div style="overflow-x:auto;">
         <table class="tabla-planes-valores">
@@ -4013,22 +4106,36 @@ function agregarPlanAlSubgrupo() {
     const subgrupo = estado.subgrupos.find(sg => sg.id === subgrupoActivoEnPlanes);
     if (!subgrupo) return;
 
+    if (subgrupo.coberturas.includes(COBERTURA_RENTA_INCAPACIDAD)) {
+        planPendienteDeducible = { tipo: 'subgrupo', subgrupoId: subgrupo.id };
+        document.getElementById('deducibleRentaIncapacidad').value = '';
+        document.getElementById('modalDeducibleRentaIncapacidad').style.display = 'flex';
+        return;
+    }
+    crearPlanEnSubgrupo(subgrupo.id);
+}
+
+function crearPlanEnSubgrupo(subgrupoId, deducible = null) {
+    const subgrupo = estado.subgrupos.find(sg => sg.id === subgrupoId);
+    if (!subgrupo) return;
+
     // Valores por defecto (0)
     const valoresCobertura = {};
     subgrupo.coberturas.forEach(cod => { valoresCobertura[cod] = 0; });
 
     const plan = {
         id: generarUUID(),
-        subgrupoId: subgrupoActivoEnPlanes,
+        subgrupoId,
         nombre: siguienteNombrePlan(),
         valoresCobertura,
+        deduciblesCobertura: deducible ? { [COBERTURA_RENTA_INCAPACIDAD]: deducible } : {},
         asegurados: [],
         primaTotal: 0
     };
 
     estado.planes.push(plan);
     guardarEstado();
-    renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
+    renderizarPlanesWorkspace(subgrupoId);
     mostrarToast(`Plan ${plan.nombre} creado`, 'success');
 }
 
@@ -4210,6 +4317,13 @@ function ejecutarPlanPorSalario() {
 
     // Eliminar planes existentes del subgrupo
     const planesAnteriores = estado.planes.filter(p => p.subgrupoId === planSalarioSubgrupoActivo);
+    const deducibleRentaIncapacidad = subgrupo.coberturas.includes(COBERTURA_RENTA_INCAPACIDAD)
+        ? obtenerDeducibleCoberturaPlan(planesAnteriores[0], COBERTURA_RENTA_INCAPACIDAD)
+        : null;
+    if (subgrupo.coberturas.includes(COBERTURA_RENTA_INCAPACIDAD) && !DEDUCIBLES_RENTA_INCAPACIDAD.includes(deducibleRentaIncapacidad)) {
+        mostrarToast('Edita el plan y selecciona el deducible antes de crear planes por rango.', 'warning');
+        return;
+    }
     planesAnteriores.forEach(p => {
         p.asegurados.forEach(id => {
             const a = estado.asegurados.find(x => x.id === id);
@@ -4226,6 +4340,7 @@ function ejecutarPlanPorSalario() {
         subgrupoId: planSalarioSubgrupoActivo,
         nombre: `Plan ${i + 1} (≤ ${formatearDinero(regla.maxValorAsegurado)})`,
         valoresCobertura: regla.valoresCobertura,
+        deduciblesCobertura: deducibleRentaIncapacidad ? { [COBERTURA_RENTA_INCAPACIDAD]: deducibleRentaIncapacidad } : {},
         asegurados: [],
         primaTotal: 0
     }));
@@ -4761,6 +4876,7 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
             cobertura.codigo,
             planBase.valoresCobertura?.[cobertura.codigo] || 0
         ])),
+        deduciblesCobertura: { ...planBase.deduciblesCobertura },
         asegurados: [],
         primaTotal: 0
     };
@@ -4801,6 +4917,7 @@ function crearPlanFiltradoPorValorAsegurado(planBase, asegurado) {
         valorDesde: rangoPlanBase.desde,
         valorHasta: rangoPlanBase.hasta,
         valoresCobertura,
+        deduciblesCobertura: { ...planBase.deduciblesCobertura },
         asegurados: [],
         primaTotal: 0
     };
@@ -4880,6 +4997,7 @@ function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
         valorDesde: planBase.valorDesde,
         valorHasta: planBase.valorHasta,
         valoresCobertura: Object.fromEntries(codigos.map(codigo => [codigo, planBase.valoresCobertura?.[codigo] || 0])),
+        deduciblesCobertura: { ...planBase.deduciblesCobertura },
         asegurados: [],
         primaTotal: 0
     };
