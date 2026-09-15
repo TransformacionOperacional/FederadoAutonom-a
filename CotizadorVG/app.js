@@ -61,6 +61,7 @@ const CONFIG = {
 };
 
 const TASA_BASE_SISTEMA = 0.1;
+const VALOR_ASEGURADO_MAXIMO_VOLUNTARIA = 300_000_000;
 const COBERTURA_RENTA_INCAPACIDAD = 'WFA';
 const DEDUCIBLES_RENTA_INCAPACIDAD = ['7-30', '3-30', '15-60', '14-90'];
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
@@ -383,8 +384,14 @@ function guardarAseguradoDesdeModal() {
     const nombreCompleto = document.getElementById('aseguradoNombreCompleto').value.trim();
     const tipoAsegurado = document.getElementById('aseguradoTipo').value;
     const edad = Number(campoEdad.value);
-    const valorAsegurado = obtenerValorMonetario(campoValor.value) || 0;
+    const valorIngresado = obtenerValorMonetario(campoValor.value) || 0;
+    const valorAsegurado = limitarValorAseguradoParaModalidad(valorIngresado);
     const asegurado = estado.asegurados.find(item => item.id === aseguradoEditandoId);
+
+    if (valorAsegurado !== valorIngresado) {
+        campoValor.value = formatearValorMonetario(valorAsegurado);
+        mostrarToast(`Para pólizas voluntarias el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}. Se ajustó automáticamente.`, 'info');
+    }
 
     actualizarValidacionEdadModal();
     if (valorAsegurado < 10_000_000) {
@@ -447,6 +454,38 @@ function actualizarValidacionValorAseguradoModal() {
     campoValor.setAttribute('aria-invalid', String(esInvalido));
 }
 
+function limitarValorAseguradoEnCampo(campo) {
+    const valorIngresado = obtenerValorMonetario(campo.value) || 0;
+    const valorLimitado = limitarValorAseguradoParaModalidad(valorIngresado);
+    if (valorLimitado !== valorIngresado) {
+        campo.value = formatearValorMonetario(valorLimitado);
+        mostrarToast(`Para pólizas voluntarias el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}.`, 'info');
+    }
+    actualizarValidacionValorAseguradoModal();
+}
+
+function limitarValorAseguradoParaModalidad(valor) {
+    return estado.poliza.modalidadPlan === 'Voluntaria (Contributiva)'
+        ? Math.min(Number(valor) || 0, VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)
+        : Number(valor) || 0;
+}
+
+function aplicarLimiteVoluntariaAValoresExistentes() {
+    if (estado.poliza.modalidadPlan !== 'Voluntaria (Contributiva)') return 0;
+
+    let ajustados = 0;
+    estado.asegurados.forEach(asegurado => {
+        const vida = asegurado.coberturas?.find(cobertura =>
+            cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
+        );
+        if (vida && Number(vida.valorAsegurado) > VALOR_ASEGURADO_MAXIMO_VOLUNTARIA) {
+            vida.valorAsegurado = VALOR_ASEGURADO_MAXIMO_VOLUNTARIA;
+            ajustados++;
+        }
+    });
+    return ajustados;
+}
+
 function editarAsegurado(id) {
     const asegurado = estado.asegurados.find(a => a.id === id);
     if (asegurado) {
@@ -457,6 +496,26 @@ function editarAsegurado(id) {
 function validarValoresMinimosParaCotizar() {
     const valorMinimo = 10_000_000;
     const minimoAsegurados = CONFIG.REGLAS_COMPLEJIDAD.minAsegurados;
+    const esPolizaPatronal = estado.poliza.modalidadPlan === 'Patronal (No Contributiva)';
+    const aseguradosNoPrincipales = esPolizaPatronal
+        ? estado.asegurados.filter(asegurado => asegurado.tipoAsegurado !== 'Afiliado principal')
+        : [];
+
+    if (aseguradosNoPrincipales.length > 0) {
+        const detalle = aseguradosNoPrincipales.slice(0, 5)
+            .map(asegurado => `${asegurado.nombreCompleto || asegurado.numeroDocumento} (${asegurado.tipoAsegurado || 'sin tipo'}).`)
+            .join(' ');
+        const adicionales = aseguradosNoPrincipales.length > 5
+            ? ` Hay ${aseguradosNoPrincipales.length - 5} asegurado(s) adicional(es) con esta condición.`
+            : '';
+        mostrarAlertaRango(
+            `Las pólizas Patronales (No Contributivas) solo permiten asegurados de tipo “Afiliado principal”. Corrige los siguientes registros antes de continuar: ${detalle}${adicionales}`,
+            null,
+            'Tipo de asegurado no permitido para póliza patronal'
+        );
+        return false;
+    }
+
     if (estado.asegurados.length < minimoAsegurados) {
         mostrarAlertaRango(
             `Actualmente tienes ${estado.asegurados.length} asegurado(s). Para continuar con la cotización debes contar con al menos ${minimoAsegurados} asegurados. Agrega los faltantes o carga una nueva base.`,
@@ -2490,6 +2549,13 @@ function setupEventListeners() {
     camposPoliza.forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             estado.poliza[campo] = e.target.value;
+            if (campo === 'modalidadPlan') {
+                const ajustados = aplicarLimiteVoluntariaAValoresExistentes();
+                if (ajustados > 0) {
+                    recalcularTodo();
+                    mostrarToast(`${ajustados} valor(es) asegurado(s) fueron ajustados al máximo de ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)} para póliza voluntaria.`, 'info');
+                }
+            }
             guardarEstado();
             if (campo === 'formaPago') {
                 renderizarTablaCalculos();
@@ -2583,7 +2649,7 @@ function setupEventListeners() {
     document.getElementById('aseguradoEdad')?.addEventListener('input', actualizarValidacionEdadModal);
     document.getElementById('aseguradoValor')?.addEventListener('input', (evento) => {
         formatearCampoMoneda(evento.target);
-        actualizarValidacionValorAseguradoModal();
+        limitarValorAseguradoEnCampo(evento.target);
     });
     document.getElementById('btnExportarAseguradosAlt')?.addEventListener('click', exportarAseguradosExcel);
     document.getElementById('btnExportarAseguradosFinal')?.addEventListener('click', exportarAsegurados);
@@ -5315,6 +5381,7 @@ function mostrarToast(mensaje, tipo = 'info') {
 }
 
 function generarCoberturasPorDefecto(valorVida = 0) {
+    valorVida = limitarValorAseguradoParaModalidad(valorVida);
     const catalogo = estado.coberturasCatalogo.some(cobertura => cobertura.codigo === 'WET')
         ? estado.coberturasCatalogo
         : [coberturaVidaPredeterminada, ...estado.coberturasCatalogo.filter(cobertura => cobertura.codigo !== 'WET')];
