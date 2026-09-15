@@ -4478,7 +4478,7 @@ function renderizarAsignacionPlanes() {
 
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
-        cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes generados por la asignación automática.</td></tr>';
+        cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
         cuerpoAsignacion.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         return;
     }
@@ -4487,7 +4487,9 @@ function renderizarAsignacionPlanes() {
         && !plan.generadoPorParentesco
         && !plan.generadoPorEdad
         && !plan.generadoPorValorAsegurado);
-    const planesAsignados = estado.planes.filter(plan => plan.creadoPorAsignacionAutomatica);
+    const planesAsignados = estado.planes.filter(plan =>
+        esPlanDerivadoDeAsignacion(plan) && (plan.asegurados || []).length > 0
+    );
 
     cuerpoRangos.innerHTML = planesBase.length > 0 ? planesBase.map(plan => `
         <tr>
@@ -4507,7 +4509,7 @@ function renderizarAsignacionPlanes() {
             <td>${formatearValorMonetario(plan.valorHasta) || 'Sin máximo'}</td>
             <td>${(plan.asegurados || []).length}</td>
             <td>${formatearEdadMaximaPlan(plan)}</td>
-        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes generados por la asignación automática.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
 
     const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${obtenerNombreCortoPlan(plan)}</option>`).join('');
     cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
@@ -4527,6 +4529,21 @@ function renderizarAsignacionPlanes() {
 
 function obtenerNombreCortoPlan(plan) {
     return String(plan.nombre || '').match(/^Plan\s+[A-Z]+/i)?.[0] || plan.nombre;
+}
+
+function esPlanDerivadoDeAsignacion(plan) {
+    return Boolean(
+        plan.creadoPorAsignacionAutomatica
+        || plan.generadoPorParentesco
+        || plan.generadoPorEdad
+        || plan.generadoPorValorAsegurado
+    );
+}
+
+function retirarPlanesDerivadosSinAsegurados() {
+    estado.planes = estado.planes.filter(plan =>
+        !esPlanDerivadoDeAsignacion(plan) || (plan.asegurados || []).length > 0
+    );
 }
 
 function obtenerValorMonetario(valor) {
@@ -4795,6 +4812,7 @@ function asignarPlanAAsegurado(aseguradoId, planId) {
         asegurado.subgrupoId = plan.subgrupoId;
         sincronizarCoberturasAseguradoConPlan(asegurado, plan);
     }
+    retirarPlanesDerivadosSinAsegurados();
     guardarEstado();
     renderizarAsignacionPlanes();
     renderizarTablaCalculos();
