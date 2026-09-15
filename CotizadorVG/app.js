@@ -4478,8 +4478,9 @@ function renderizarAsignacionPlanes() {
 
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
-        cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
-        cuerpoAsignacion.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
+        cuerpoAsignacion.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        actualizarContadorSeleccionAsignacion();
         return;
     }
 
@@ -4505,15 +4506,20 @@ function renderizarAsignacionPlanes() {
             <td>${obtenerNombreCortoPlan(plan)}</td>
             <td>${formatearCoberturasPlan(plan)}</td>
             <td>${formatearDinero(plan.valorAseguradoVidaAgrupacion)}</td>
-            <td>${formatearValorMonetario(plan.valorDesde) || 'Sin mínimo'}</td>
-            <td>${formatearValorMonetario(plan.valorHasta) || 'Sin máximo'}</td>
             <td>${(plan.asegurados || []).length}</td>
             <td>${formatearEdadMaximaPlan(plan)}</td>
-        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
 
     const opcionesPlanes = estado.planes.map(plan => `<option value="${plan.id}">${obtenerNombreCortoPlan(plan)}</option>`).join('');
+    const filtroPlan = document.getElementById('filtroAsignacionPlan');
+    const filtroPlanSeleccionado = filtroPlan?.value || '';
+    if (filtroPlan) {
+        filtroPlan.innerHTML = `<option value="">🔍 Filtrar</option>${opcionesPlanes}`;
+        filtroPlan.value = estado.planes.some(plan => plan.id === filtroPlanSeleccionado) ? filtroPlanSeleccionado : '';
+    }
     cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
-        <tr>
+        <tr data-documento="${asegurado.numeroDocumento || ''}" data-nombre="${asegurado.nombreCompleto || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
+            <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}" onchange="actualizarContadorSeleccionAsignacion()" aria-label="Seleccionar ${asegurado.nombreCompleto || asegurado.numeroDocumento || 'asegurado'}"></td>
             <td>${asegurado.numeroDocumento || '—'}</td>
             <td>${asegurado.nombreCompleto || '—'}</td>
             <td>${asegurado.edad ?? '—'}</td>
@@ -4525,6 +4531,95 @@ function renderizarAsignacionPlanes() {
         const selector = cuerpoAsignacion.querySelector(`select[onchange*="'${asegurado.id}'"]`);
         if (selector) selector.value = asegurado.planId || '';
     });
+    aplicarFiltrosAsignacionPlanes();
+}
+
+function aplicarFiltrosAsignacionPlanes() {
+    const filtros = {
+        documento: normalizarTexto(document.getElementById('filtroAsignacionDocumento')?.value || ''),
+        nombre: normalizarTexto(document.getElementById('filtroAsignacionNombre')?.value || ''),
+        edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
+        parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
+        valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
+        planId: document.getElementById('filtroAsignacionPlan')?.value || ''
+    };
+    document.querySelectorAll('#tbody-asignacion-planes tr[data-documento]').forEach(fila => {
+        const coincide = (!filtros.documento || normalizarTexto(fila.dataset.documento).includes(filtros.documento))
+            && (!filtros.nombre || normalizarTexto(fila.dataset.nombre).includes(filtros.nombre))
+            && (!filtros.edad || normalizarTexto(fila.dataset.edad).includes(filtros.edad))
+            && (!filtros.parentesco || normalizarTexto(fila.dataset.parentesco).includes(filtros.parentesco))
+            && (!filtros.valor || String(fila.dataset.valor).includes(filtros.valor))
+            && (!filtros.planId || fila.dataset.planId === filtros.planId);
+        fila.hidden = !coincide;
+    });
+    actualizarContadorSeleccionAsignacion();
+}
+
+function seleccionarTodosAsignacionPlanes(seleccionar) {
+    document.querySelectorAll('#tbody-asignacion-planes tr:not([hidden]) .checkbox-asignacion-plan').forEach(casilla => {
+        casilla.checked = seleccionar;
+    });
+    actualizarContadorSeleccionAsignacion();
+}
+
+function actualizarContadorSeleccionAsignacion() {
+    const seleccionados = document.querySelectorAll('.checkbox-asignacion-plan:checked').length;
+    const contador = document.getElementById('contadorSeleccionAsignacion');
+    const boton = document.getElementById('btnReasignarSeleccionados');
+    const seleccionarTodos = document.getElementById('seleccionarTodosAsignacion');
+    const visibles = [...document.querySelectorAll('#tbody-asignacion-planes tr:not([hidden]) .checkbox-asignacion-plan')];
+    if (contador) contador.textContent = `${seleccionados} seleccionado${seleccionados === 1 ? '' : 's'}`;
+    if (boton) boton.disabled = seleccionados === 0;
+    if (seleccionarTodos) {
+        seleccionarTodos.checked = visibles.length > 0 && visibles.every(casilla => casilla.checked);
+        seleccionarTodos.indeterminate = visibles.some(casilla => casilla.checked) && !seleccionarTodos.checked;
+    }
+}
+
+function abrirReasignacionSeleccionados() {
+    const seleccionados = document.querySelectorAll('.checkbox-asignacion-plan:checked');
+    const modal = document.getElementById('modalReasignarSeleccionados');
+    const selector = document.getElementById('planReasignacionSeleccionados');
+    const resumen = document.getElementById('resumenReasignarSeleccionados');
+    if (!modal || !selector || !resumen || seleccionados.length === 0) return;
+
+    selector.innerHTML = '<option value="">Selecciona un plan...</option>'
+        + estado.planes.map(plan => `<option value="${plan.id}">${obtenerNombreCortoPlan(plan)}</option>`).join('');
+    resumen.textContent = `Seleccionaste ${seleccionados.length} asegurado${seleccionados.length === 1 ? '' : 's'}. Selecciona el plan al que serán reasignados.`;
+    modal.style.display = 'flex';
+    selector.focus();
+}
+
+function cerrarModalReasignarSeleccionados() {
+    const modal = document.getElementById('modalReasignarSeleccionados');
+    if (modal) modal.style.display = 'none';
+}
+
+function confirmarReasignacionSeleccionados() {
+    const planId = document.getElementById('planReasignacionSeleccionados')?.value || '';
+    const aseguradosIds = [...document.querySelectorAll('.checkbox-asignacion-plan:checked')].map(casilla => casilla.value);
+    if (aseguradosIds.length === 0) {
+        cerrarModalReasignarSeleccionados();
+        return;
+    }
+    if (!planId) {
+        mostrarToast('Selecciona el plan de destino.', 'warning');
+        return;
+    }
+
+    let reasignados = 0;
+    let noElegibles = 0;
+    aseguradosIds.forEach(aseguradoId => {
+        if (asignarPlanAAsegurado(aseguradoId, planId, { renderizar: false, guardar: false, notificar: false })) reasignados++;
+        else noElegibles++;
+    });
+    retirarPlanesDerivadosSinAsegurados();
+    guardarEstado();
+    cerrarModalReasignarSeleccionados();
+    renderizarAsignacionPlanes();
+    renderizarTablaCalculos();
+    const detalleNoElegibles = noElegibles > 0 ? ` ${noElegibles} no se reasignaron por superar la edad máxima del plan.` : '';
+    mostrarToast(`${reasignados} asegurado(s) reasignado(s).${detalleNoElegibles}`, noElegibles > 0 ? 'warning' : 'success');
 }
 
 function obtenerNombreCortoPlan(plan) {
@@ -4783,24 +4878,28 @@ function actualizarRangoPlan(planId, limite, valor, campo) {
     guardarEstado();
 }
 
-function asignarPlanAAsegurado(aseguradoId, planId) {
+function asignarPlanAAsegurado(aseguradoId, planId, opciones = {}) {
+    const { renderizar = true, guardar = true, notificar = true } = opciones;
     const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
-    if (!asegurado) return;
+    if (!asegurado) return false;
     let plan = estado.planes.find(item => item.id === planId);
     if (plan) {
         const planOriginal = plan;
         plan = crearPlanFiltradoPorParentesco(plan, asegurado.tipoAsegurado);
         const edadMaxima = obtenerEdadMaximaPlan(plan);
         if (edadMaxima !== null && Number(asegurado.edad) > edadMaxima) {
-            mostrarAlertaRango(
-                `${asegurado.nombreCompleto || 'El asegurado'} tiene ${asegurado.edad} años y supera la edad máxima de ${edadMaxima} años para ${plan.nombre}. No se realizó la asignación.`,
-                null,
-                'Restricción de edad para el plan'
-            );
-            renderizarAsignacionPlanes();
-            return;
+            if (notificar) {
+                mostrarAlertaRango(
+                    `${asegurado.nombreCompleto || 'El asegurado'} tiene ${asegurado.edad} años y supera la edad máxima de ${edadMaxima} años para ${plan.nombre}. No se realizó la asignación.`,
+                    null,
+                    'Restricción de edad para el plan'
+                );
+            }
+            retirarPlanesDerivadosSinAsegurados();
+            if (renderizar) renderizarAsignacionPlanes();
+            return false;
         }
-        if (plan !== planOriginal) {
+        if (notificar && plan !== planOriginal) {
             mostrarToast(`${plan.nombre} fue creado con las coberturas habilitadas para ${asegurado.tipoAsegurado}.`, 'info');
         }
         plan = crearPlanFiltradoPorValorAsegurado(plan, asegurado);
@@ -4813,9 +4912,12 @@ function asignarPlanAAsegurado(aseguradoId, planId) {
         sincronizarCoberturasAseguradoConPlan(asegurado, plan);
     }
     retirarPlanesDerivadosSinAsegurados();
-    guardarEstado();
-    renderizarAsignacionPlanes();
-    renderizarTablaCalculos();
+    if (guardar) guardarEstado();
+    if (renderizar) {
+        renderizarAsignacionPlanes();
+        renderizarTablaCalculos();
+    }
+    return true;
 }
 
 function obtenerCoberturasPlan(plan) {

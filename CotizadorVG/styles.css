@@ -679,6 +679,102 @@ body {
     box-shadow: 0 0 0 2px rgba(217, 83, 79, 0.16);
 }
 
+.asignacion-planes-acciones {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin: 8px 0 -4px;
+    font-size: 13px;
+    color: var(--color-gray);
+}
+
+.btn-reasignar-seleccionados {
+    box-shadow: 0 3px 8px rgba(0, 102, 204, 0.22);
+    font-weight: 700;
+    padding: 8px 13px;
+}
+
+.btn-reasignar-seleccionados:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 12px rgba(0, 102, 204, 0.3);
+}
+
+.btn-reasignar-seleccionados:disabled {
+    box-shadow: none;
+    opacity: 0.55;
+}
+
+.tabla-asignacion-planes .checkbox-tabla {
+    width: auto;
+    min-width: 16px;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.tabla-asignacion-planes .fila-filtros-asignacion th {
+    padding: 9px 10px 11px;
+    background: #f4f8fc;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.tabla-asignacion-planes .fila-filtros-asignacion input,
+.tabla-asignacion-planes .fila-filtros-asignacion select {
+    min-width: 96px;
+    padding: 7px 9px;
+    font-weight: 400;
+    border-color: #c7d5e5;
+    background: var(--color-white);
+}
+
+.tabla-asignacion-planes .fila-filtros-asignacion input::placeholder {
+    color: #657b96;
+    opacity: 1;
+}
+
+.contenido-reasignar-seleccionados {
+    width: min(480px, calc(100vw - 32px));
+    overflow: visible;
+}
+
+.modal-reasignar-seleccionados .modal-header {
+    background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+}
+
+.modal-reasignar-seleccionados .modal-body {
+    padding: 24px;
+}
+
+.modal-reasignar-seleccionados .modal-footer {
+    padding: 16px 24px 20px;
+    background: #f6f9fc;
+}
+
+.modal-reasignar-seleccionados label {
+    display: block;
+    font-weight: 600;
+    color: var(--color-primary-dark);
+}
+
+.selector-reasignacion-plan {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 38px 10px 12px;
+    border: 1px solid #9fb9d5;
+    border-radius: 6px;
+    background-color: var(--color-white);
+    color: var(--color-gray-dark);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.selector-reasignacion-plan:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.14);
+}
+
 .modal-alerta-rango {
     align-items: center;
     justify-content: center;

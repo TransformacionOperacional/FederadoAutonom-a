@@ -462,14 +462,21 @@
                 <h3 style="font-size:16px;margin:0 0 10px;">Planes asignados</h3>
                 <div style="overflow-x:auto;">
                     <table class="table-editable">
-                        <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor asegurado en Vida (COP)</th><th>Valor asegurado desde (COP)</th><th>Valor asegurado hasta (COP)</th><th>Asegurados</th><th>Edad máxima</th></tr></thead>
+                        <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor asegurado en Vida (COP)</th><th>Asegurados</th><th>Edad máxima</th></tr></thead>
                         <tbody id="tbody-planes-asignados"></tbody>
                     </table>
                 </div>
                 <h3 style="font-size:16px;margin:24px 0 10px;">Asignación manual</h3>
                 <div style="overflow-x:auto;">
-                    <table class="table-editable">
-                        <thead><tr><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Valor asegurado</th><th>Plan</th></tr></thead>
+                    <div class="asignacion-planes-acciones">
+                        <span id="contadorSeleccionAsignacion" aria-live="polite">0 seleccionados</span>
+                        <button class="btn btn-accent btn-small btn-reasignar-seleccionados" id="btnReasignarSeleccionados" type="button" onclick="abrirReasignacionSeleccionados()" disabled>↻ Reasignar seleccionados</button>
+                    </div>
+                    <table class="table-editable tabla-asignacion-planes">
+                        <thead>
+                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados visibles"></th><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Valor asegurado</th><th>Plan</th></tr>
+                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionNombre" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por nombre"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><input id="filtroAsignacionValor" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">🔍 Filtrar</option></select></th></tr>
+                        </thead>
                         <tbody id="tbody-asignacion-planes"></tbody>
                     </table>
                 </div>
@@ -878,6 +885,24 @@
             <div class="modal-footer">
                 <button class="btn btn-accent" onclick="ejecutarPlanPorSalario()">Crear planes</button>
                 <button class="btn btn-secondary" onclick="document.getElementById('modalPlanSalario').style.display='none'">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalReasignarSeleccionados" class="modal modal-reasignar-seleccionados" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloReasignarSeleccionados">
+        <div class="modal-content contenido-reasignar-seleccionados">
+            <div class="modal-header">
+                <h3 id="tituloReasignarSeleccionados">Reasignar asegurados seleccionados</h3>
+                <button class="btn-close" type="button" onclick="cerrarModalReasignarSeleccionados()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="resumenReasignarSeleccionados" style="color:var(--color-gray);margin-bottom:14px;"></p>
+                <label for="planReasignacionSeleccionados">Plan de destino</label>
+                <select id="planReasignacionSeleccionados" class="selector-reasignacion-plan"></select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent" type="button" onclick="confirmarReasignacionSeleccionados()">Reasignar</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalReasignarSeleccionados()">Cancelar</button>
             </div>
         </div>
     </div>
