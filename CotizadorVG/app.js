@@ -63,6 +63,8 @@ const CONFIG = {
 const TASA_BASE_SISTEMA = 0.1;
 const VALOR_ASEGURADO_MAXIMO_VOLUNTARIA = 300_000_000;
 const COBERTURA_RENTA_INCAPACIDAD = 'WFA';
+const COBERTURA_RENTA_HOSPITALIZACION = 'WE7';
+const COBERTURA_RENTA_HOSPITALIZACION_UCI = 'WE8';
 const DEDUCIBLES_RENTA_INCAPACIDAD = ['7-30', '3-30', '15-60', '14-90'];
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/16/workflows/374bc9c80f6b420685df2183774e894d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=LhYASD77gGYm50BCzeFYIuWN_kEx_VYeUbzlMfMPG1U';
@@ -284,12 +286,12 @@ function cargarEstado() {
             }));
             estado.poliza.modalidadPlan = estado.poliza.modalidadPlan || 'Voluntaria (Contributiva)';
             estado.poliza.canalComercial = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
-            estado.poliza.comision = Math.min(Math.max(Number(estado.poliza.comision) || 0, 0), 30);
+            estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
             if (estado.poliza.canalComercial === 'Sucursal') estado.poliza.honorarioPromotora = 0;
             estado.poliza.aplicaCredibilidad = estado.poliza.aplicaCredibilidad === true;
             estado.poliza.valorSiniestrosTotales = Number(estado.poliza.valorSiniestrosTotales) || 0;
-            estado.poliza.anosExposicion = Number(estado.poliza.anosExposicion) || 0;
+            estado.poliza.anosExposicion = Math.min(4, Math.max(0, Math.round(Number(estado.poliza.anosExposicion) || 0)));
             estado.poliza.siniestrosPromedio = Number(estado.poliza.siniestrosPromedio) || 0;
         }
         
@@ -931,6 +933,26 @@ function validarActividadAsegurable() {
     return true;
 }
 
+function validarSiniestralidadRequerida() {
+    if (estado.poliza.aplicaCredibilidad !== true) return true;
+
+    const campoTotal = document.getElementById('valorSiniestrosTotales');
+    const campoAnos = document.getElementById('anosExposicion');
+    const total = Number(estado.poliza.valorSiniestrosTotales) || 0;
+    const anos = Number(estado.poliza.anosExposicion) || 0;
+    const campoInvalido = total <= 0 ? campoTotal : anos <= 0 ? campoAnos : null;
+
+    campoTotal?.classList.toggle('campo-invalido', total <= 0);
+    campoAnos?.classList.toggle('campo-invalido', anos <= 0);
+    if (!campoInvalido) return true;
+
+    const mensaje = total <= 0
+        ? 'Diligencia un valor de siniestros totales mayor a $ 0 antes de continuar.'
+        : 'Diligencia una cantidad de años de exposición mayor a 0 antes de continuar.';
+    mostrarAlertaRango(mensaje, campoInvalido, 'Información de siniestralidad requerida');
+    return false;
+}
+
 function obtenerRecargoPorActividad(cobertura) {
     const codigo = String(cobertura?.codigo || '').toUpperCase();
     const campo = CAMPOS_ACTIVIDAD_POR_COBERTURA[codigo];
@@ -990,7 +1012,7 @@ function aplicarRecargoATasa(tasaBase, cobertura = null) {
 
 function obtenerRecargoComercial() {
     const canal = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
-    const comision = Math.min(Math.max(Number(estado.poliza.comision) || 0, 0), 30);
+    const comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
     const honorarioPromotora = canal === 'Promotora'
         ? Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10)
         : 0;
@@ -1817,14 +1839,21 @@ function obtenerCoberturasExcluyentesSeleccionadas(codigos) {
 function actualizarOpcionesExcluyentesPlan(contenedor) {
     if (!contenedor) return;
 
+    const coberturaHospitalizacion = contenedor.querySelector(`input[value="${COBERTURA_RENTA_HOSPITALIZACION}"]`);
+    const coberturaUci = contenedor.querySelector(`input[value="${COBERTURA_RENTA_HOSPITALIZACION_UCI}"]`);
+    if (coberturaUci?.checked && coberturaHospitalizacion) coberturaHospitalizacion.checked = true;
+
     const seleccionadas = new Set(Array.from(contenedor.querySelectorAll('input:checked')).map(input => input.value));
     contenedor.querySelectorAll('input[type="checkbox"]').forEach(input => {
         const grupo = GRUPOS_COBERTURAS_EXCLUYENTES.find(item => item.includes(input.value));
         const incompatibleSeleccionada = grupo?.some(codigo => codigo !== input.value && seleccionadas.has(codigo));
         const etiqueta = input.closest('.cobertura-check-item');
 
-        input.disabled = input.value === 'WET' || Boolean(incompatibleSeleccionada);
-        input.title = incompatibleSeleccionada ? 'No puede seleccionarse junto con la cobertura ya elegida.' : '';
+        const esBaseHospitalizacionRequerida = input.value === COBERTURA_RENTA_HOSPITALIZACION && coberturaUci?.checked;
+        input.disabled = input.value === 'WET' || Boolean(incompatibleSeleccionada) || Boolean(esBaseHospitalizacionRequerida);
+        input.title = esBaseHospitalizacionRequerida
+            ? 'Esta cobertura es obligatoria mientras esté seleccionada Renta por hospitalización en UCI.'
+            : incompatibleSeleccionada ? 'No puede seleccionarse junto con la cobertura ya elegida.' : '';
         etiqueta?.classList.toggle('selected', input.checked);
         etiqueta?.classList.toggle('cobertura-excluida', Boolean(incompatibleSeleccionada));
         etiqueta?.setAttribute('aria-disabled', incompatibleSeleccionada ? 'true' : 'false');
@@ -1835,6 +1864,14 @@ function configurarOpcionesPlan(contenedor) {
     if (!contenedor) return;
     contenedor.addEventListener('change', evento => {
         if (evento.target.matches('input[type="checkbox"]')) {
+            const coberturaHospitalizacion = contenedor.querySelector(`input[value="${COBERTURA_RENTA_HOSPITALIZACION}"]`);
+            const coberturaUci = contenedor.querySelector(`input[value="${COBERTURA_RENTA_HOSPITALIZACION_UCI}"]`);
+            if (evento.target.value === COBERTURA_RENTA_HOSPITALIZACION && evento.target.checked && coberturaUci) {
+                coberturaUci.checked = true;
+            }
+            if (evento.target.value === COBERTURA_RENTA_HOSPITALIZACION_UCI && evento.target.checked && coberturaHospitalizacion) {
+                coberturaHospitalizacion.checked = true;
+            }
             actualizarOpcionesExcluyentesPlan(contenedor);
             const selectorDeducible = contenedor.querySelector('.deducible-cobertura-plan');
             if (selectorDeducible) selectorDeducible.disabled = !evento.target.checked && evento.target.value === COBERTURA_RENTA_INCAPACIDAD;
@@ -2530,6 +2567,7 @@ function setupEventListeners() {
             if (i === 2 && !validarValoresMinimosParaCotizar()) return;
             if (i === 1) {
                 if (!validarActividadAsegurable()) return;
+                if (!validarSiniestralidadRequerida()) return;
                 mostrarConfirmacionRecargoComercial();
                 return;
             }
@@ -2615,10 +2653,13 @@ function setupEventListeners() {
     ['comision', 'honorarioPromotora'].forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             const maximo = campo === 'comision' ? 30 : 10;
-            const valor = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), maximo);
-            if (valor !== parseFloat(e.target.value)) {
+            const minimo = campo === 'comision' ? 10 : 0;
+            const valorIngresado = Number(e.target.value);
+            const valor = Math.min(Math.max(Math.round(valorIngresado) || minimo, minimo), maximo);
+            if (valor !== valorIngresado) {
                 e.target.value = valor;
-                mostrarToast(`${campo === 'comision' ? 'La comisión' : 'El honorario de promotora'} no puede superar el ${maximo}%.`, 'warning');
+                const nombre = campo === 'comision' ? 'La comisión' : 'El honorario de promotora';
+                mostrarToast(`${nombre} debe ser un número entero entre ${minimo}% y ${maximo}%.`, 'warning');
             }
             estado.poliza[campo] = valor;
             actualizarFactorGasto();
@@ -2628,7 +2669,13 @@ function setupEventListeners() {
     actualizarCamposComerciales();
     document.getElementById('aplicaCredibilidad')?.addEventListener('change', () => actualizarAplicacionCredibilidad());
     document.getElementById('valorSiniestrosTotales')?.addEventListener('input', actualizarSiniestralidad);
-    document.getElementById('anosExposicion')?.addEventListener('input', actualizarSiniestralidad);
+    document.getElementById('anosExposicion')?.addEventListener('change', evento => {
+        const valorIngresado = Number(evento.target.value);
+        if (evento.target.value !== '' && Number.isFinite(valorIngresado)) {
+            evento.target.value = Math.min(4, Math.max(0, Math.round(valorIngresado)));
+        }
+        actualizarSiniestralidad();
+    });
 
     // Paso 3: Coberturas
     document.getElementById('btnAgregarCobertura')?.addEventListener('click', agregarCobertura);
@@ -4733,12 +4780,16 @@ function actualizarAplicacionCredibilidad(restaurarValorGuardado = false) {
 
     campoAplica.value = aplica ? 'si' : 'no';
     seccionSiniestralidad.hidden = !aplica;
+    document.getElementById('valorSiniestrosTotales')?.toggleAttribute('required', aplica);
+    document.getElementById('anosExposicion')?.toggleAttribute('required', aplica);
     estado.poliza.aplicaCredibilidad = aplica;
 
     if (!aplica) {
         document.getElementById('valorSiniestrosTotales').value = '';
         document.getElementById('anosExposicion').value = '';
         document.getElementById('siniestrosPromedio').value = '';
+        document.getElementById('valorSiniestrosTotales').classList.remove('campo-invalido');
+        document.getElementById('anosExposicion').classList.remove('campo-invalido');
         estado.poliza.valorSiniestrosTotales = 0;
         estado.poliza.anosExposicion = 0;
         estado.poliza.siniestrosPromedio = 0;
@@ -4763,13 +4814,15 @@ function actualizarSiniestralidad(restaurarValoresGuardados = false) {
 
     const total = obtenerValorMonetario(campoTotal.value)
         ?? (restaurarValoresGuardados ? Number(estado.poliza.valorSiniestrosTotales) || 0 : 0);
-    const anos = Number(campoAnos.value)
-        || (restaurarValoresGuardados ? Number(estado.poliza.anosExposicion) || 0 : 0);
+    const anos = Math.min(4, Math.max(0, Math.round(Number(campoAnos.value)
+        || (restaurarValoresGuardados ? Number(estado.poliza.anosExposicion) || 0 : 0))));
     const promedio = anos > 0 ? total / anos : 0;
 
     campoTotal.value = formatearValorMonetario(total);
     campoAnos.value = anos || '';
     campoPromedio.value = formatearValorMonetario(promedio);
+    campoTotal.classList.toggle('campo-invalido', total <= 0);
+    campoAnos.classList.toggle('campo-invalido', anos <= 0);
     estado.poliza.valorSiniestrosTotales = total;
     estado.poliza.anosExposicion = anos;
     estado.poliza.siniestrosPromedio = promedio;
@@ -5292,6 +5345,7 @@ function asignarPlanesPorRango() {
 
 function irAlPaso(numero) {
     if (numero < 1 || numero > 7) return;
+    if (numero === 2 && pasoActual === 1 && !validarSiniestralidadRequerida()) return;
     if (numero === 2 && pasoActual === 1 && !confirmarRecargoAntesDeContinuar) {
         mostrarConfirmacionRecargoComercial();
         return;
