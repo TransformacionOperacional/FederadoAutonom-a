@@ -227,6 +227,7 @@ let estado = {
     tasasPorCoberturaEdad: {},
     tasasPorCoberturaEdadDeducible: {},
     porcentajesFactorPorCoberturaEdad: {},
+    valoresMaximosPorCoberturaEdad: {},
     edadesMaximasPorCobertura: {},
     asegurados: [],
     subgrupos: [],   // estructura explícita: { id, nombre, coberturas[], asegurados[] }
@@ -278,6 +279,7 @@ function cargarEstado() {
             estado = JSON.parse(estadoGuardado);
             estado.edadesMaximasPorCobertura = estado.edadesMaximasPorCobertura || {};
             estado.tasasPorCoberturaEdadDeducible = estado.tasasPorCoberturaEdadDeducible || {};
+            estado.valoresMaximosPorCoberturaEdad = estado.valoresMaximosPorCoberturaEdad || {};
             estado.asegurados = (estado.asegurados || []).map(asegurado => ({
                 ...asegurado,
                 tipoAsegurado: asegurado.tipoAsegurado === 'Empleado'
@@ -338,6 +340,7 @@ function limpiarEstado() {
             tasasPorCoberturaEdad: {},
             tasasPorCoberturaEdadDeducible: {},
             porcentajesFactorPorCoberturaEdad: {},
+            valoresMaximosPorCoberturaEdad: {},
             edadesMaximasPorCobertura: {},
             asegurados: [],
             subgrupos: [],
@@ -689,6 +692,7 @@ function actualizarDatosTasasDesdeFilas(filas) {
     const tasasPorCoberturaEdad = {};
     const tasasPorCoberturaEdadDeducible = {};
     const porcentajesFactorPorCoberturaEdad = {};
+    const valoresMaximosPorCoberturaEdad = {};
     const edadesMaximasPorCobertura = {};
 
     filas.forEach(fila => {
@@ -697,6 +701,13 @@ function actualizarDatosTasasDesdeFilas(filas) {
         const tasa = Number(fila['Tasa -20%']);
         const deducible = String(fila.Deducible ?? '').trim();
         const porcentajeFactor = Number(fila.Porcentaje_Factor);
+        const valorMaximoRaw = fila.Valor_Maximo;
+        const valorMaximo = valorMaximoRaw === null
+            || valorMaximoRaw === undefined
+            || String(valorMaximoRaw).trim() === ''
+            || String(valorMaximoRaw).trim().toUpperCase() === 'NULL'
+            ? undefined
+            : Number(valorMaximoRaw);
         const edadMaxima = Number(fila.Edad_Maxima ?? fila['Edad Maxima'] ?? fila['Edad Máxima']);
         if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(tasa)) {
             tasasPorCoberturaEdad[`${codigoAmparo}-${edad}`] = tasa;
@@ -704,6 +715,10 @@ function actualizarDatosTasasDesdeFilas(filas) {
         }
         if (codigoAmparo && Number.isFinite(edad) && Number.isFinite(porcentajeFactor)) {
             porcentajesFactorPorCoberturaEdad[`${codigoAmparo}-${edad}`] = porcentajeFactor;
+        }
+        if (codigoAmparo && Number.isFinite(edad) && valorMaximo >= 0) {
+            const llave = `${codigoAmparo}-${edad}`;
+            valoresMaximosPorCoberturaEdad[llave] = Math.min(valoresMaximosPorCoberturaEdad[llave] ?? valorMaximo, valorMaximo);
         }
         if (codigoAmparo && Number.isFinite(edadMaxima)) {
             edadesMaximasPorCobertura[codigoAmparo] = Math.min(edadesMaximasPorCobertura[codigoAmparo] ?? edadMaxima, edadMaxima);
@@ -713,6 +728,7 @@ function actualizarDatosTasasDesdeFilas(filas) {
     estado.tasasPorCoberturaEdad = tasasPorCoberturaEdad;
     estado.tasasPorCoberturaEdadDeducible = tasasPorCoberturaEdadDeducible;
     estado.porcentajesFactorPorCoberturaEdad = porcentajesFactorPorCoberturaEdad;
+    estado.valoresMaximosPorCoberturaEdad = valoresMaximosPorCoberturaEdad;
     estado.edadesMaximasPorCobertura = edadesMaximasPorCobertura;
 }
 
@@ -2131,10 +2147,21 @@ function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
     return estado.porcentajesFactorPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
 }
 
+function obtenerValorMaximoPorEdad(cobertura, edad) {
+    const codigoAmparo = String(cobertura.codigoAmparo ?? '').replace(/\.0$/, '');
+    return estado.valoresMaximosPorCoberturaEdad?.[`${codigoAmparo}-${Number(edad)}`];
+}
+
 function calcularValorAseguradoCobertura(cobertura, asegurado) {
     const valorAseguradoVida = obtenerValorAseguradoBase(asegurado);
     const porcentajeFactor = obtenerPorcentajeFactorPorEdad(cobertura, asegurado.edad);
-    return porcentajeFactor === undefined ? null : valorAseguradoVida * porcentajeFactor;
+    if (porcentajeFactor === undefined) return null;
+
+    const valorCalculado = valorAseguradoVida * porcentajeFactor;
+    const valorMaximo = obtenerValorMaximoPorEdad(cobertura, asegurado.edad);
+    return Number.isFinite(valorMaximo) && valorMaximo >= 0
+        ? Math.min(valorCalculado, valorMaximo)
+        : valorCalculado;
 }
 
 function formatearTasa(tasa) {
