@@ -402,7 +402,7 @@ function guardarAseguradoDesdeModal() {
         mostrarToast('El valor asegurado mínimo es $ 10.000.000.', 'warning');
         return;
     }
-    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !validarEdad(edad).valido) {
+    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
         mostrarToast('Completa correctamente los campos obligatorios del asegurado.', 'warning');
         return;
     }
@@ -440,10 +440,17 @@ function actualizarValidacionEdadModal() {
     const ayuda = document.getElementById('ayudaEdadMinima');
     if (!campoEdad || !ayuda) return;
 
-    const edad = Number(campoEdad.value);
-    const esMenor = campoEdad.value !== '' && Number.isFinite(edad) && edad < 14;
-    ayuda.hidden = !esMenor;
-    campoEdad.classList.toggle('campo-invalido', esMenor);
+    const tipoAsegurado = document.getElementById('aseguradoTipo')?.value;
+    const admiteEdadDesdeCero = permiteEdadDesdeCero(tipoAsegurado);
+    const validacion = validarEdad(campoEdad.value, tipoAsegurado);
+
+    campoEdad.min = admiteEdadDesdeCero ? '0' : '14';
+    ayuda.hidden = validacion.valido && !admiteEdadDesdeCero;
+    ayuda.textContent = admiteEdadDesdeCero
+        ? 'Para Hijos en pólizas Voluntarias (Contributivas), se permite una edad desde 0 años.'
+        : validacion.mensaje;
+    campoEdad.classList.toggle('campo-invalido', campoEdad.value !== '' && !validacion.valido);
+    campoEdad.setAttribute('aria-invalid', String(campoEdad.value !== '' && !validacion.valido));
 }
 
 function actualizarValidacionValorAseguradoModal() {
@@ -585,10 +592,21 @@ function validarDocumento(tipoDoc, numeroDoc) {
     return { valido: true, mensaje: '' };
 }
 
-function validarEdad(edad) {
-    const e = parseInt(edad);
-    if (isNaN(e) || e < 14 || e > 100) {
-        return { valido: false, mensaje: 'Edad debe estar entre 14 y 100 años' };
+function permiteEdadDesdeCero(tipoAsegurado) {
+    return estado.poliza.modalidadPlan === 'Voluntaria (Contributiva)'
+        && tipoAsegurado === 'Hijos';
+}
+
+function validarEdad(edad, tipoAsegurado = '') {
+    const e = Number(edad);
+    const edadMinima = permiteEdadDesdeCero(tipoAsegurado) ? 0 : 14;
+    if (edad === '' || !Number.isInteger(e) || e < edadMinima || e > 100) {
+        return {
+            valido: false,
+            mensaje: edadMinima === 0
+                ? 'Edad debe estar entre 0 y 100 años'
+                : 'Edad debe estar entre 14 y 100 años'
+        };
     }
     return { valido: true, mensaje: '' };
 }
@@ -2589,6 +2607,7 @@ function setupEventListeners() {
             estado.poliza[campo] = e.target.value;
             if (campo === 'modalidadPlan') {
                 const ajustados = aplicarLimiteVoluntariaAValoresExistentes();
+                actualizarValidacionEdadModal();
                 if (ajustados > 0) {
                     recalcularTodo();
                     mostrarToast(`${ajustados} valor(es) asegurado(s) fueron ajustados al máximo de ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)} para póliza voluntaria.`, 'info');
@@ -2694,6 +2713,7 @@ function setupEventListeners() {
 
     document.getElementById('btnAgregarAsegurado')?.addEventListener('click', () => agregarAsegurado());
     document.getElementById('aseguradoEdad')?.addEventListener('input', actualizarValidacionEdadModal);
+    document.getElementById('aseguradoTipo')?.addEventListener('change', actualizarValidacionEdadModal);
     document.getElementById('aseguradoValor')?.addEventListener('input', (evento) => {
         formatearCampoMoneda(evento.target);
         limitarValorAseguradoEnCampo(evento.target);
@@ -3621,8 +3641,8 @@ function importarExcel(evento) {
                     errores.push(`Fila ${i + 1}: Tipo_Asegurado inválido (${tipoAseguradoRaw || 'vacío'})`); continue;
                 }
 
-                const edad = parseInt(edadRaw);
-                if (isNaN(edad) || edad < 18 || edad > 100) {
+                const edad = Number(edadRaw);
+                if (!validarEdad(edadRaw, tipoAsegurado).valido) {
                     errores.push(`Fila ${i + 1}: edad inválida (${edadRaw})`); continue;
                 }
 
@@ -3686,7 +3706,7 @@ function importarExcel(evento) {
                     ? ` Además, hay ${erroresEdad.length - 5} fila(s) adicional(es) con el mismo problema.`
                     : '';
                 mostrarAlertaRango(
-                    `Se omitieron ${erroresEdad.length} registro(s) porque la edad permitida debe estar entre 18 y 100 años. ${detalle}${adicionales}`,
+                    `Se omitieron ${erroresEdad.length} registro(s) porque la edad permitida debe estar entre 14 y 100 años, excepto Hijos de pólizas Voluntarias (Contributivas), que pueden tener entre 0 y 100 años. ${detalle}${adicionales}`,
                     null,
                     'Registros omitidos por edad'
                 );
