@@ -141,7 +141,8 @@ const AMPAROS_RESUMIDOS_DEFINITIVOS = [
 
 const GRUPOS_COBERTURAS_EXCLUYENTES = [
     ['WE9', 'WFA'],
-    ['WEZ', 'WEY', 'WE0']
+    ['WEZ', 'WEY', 'WE0'],
+    ['WEV', 'WEU']
 ];
 
 const PLANES_SUGERIDOS = [
@@ -1977,6 +1978,22 @@ function configurarOpcionesPlan(contenedor) {
     if (!contenedor) return;
     contenedor.addEventListener('change', evento => {
         if (evento.target.matches('input[type="checkbox"]')) {
+            if (COBERTURAS_ENFERMEDADES_GRAVES.includes(evento.target.value)) {
+                const codigosParaReiniciar = evento.target.checked
+                    ? COBERTURAS_ENFERMEDADES_GRAVES.filter(codigo => codigo !== evento.target.value)
+                    : [evento.target.value];
+
+                codigosParaReiniciar.forEach(codigo => {
+                    const coberturaIncompatible = contenedor.querySelector(`input[value="${codigo}"]`);
+                    const factor = contenedor.querySelector(`[data-factor-eg="${codigo}"]`);
+                    const cancerInSitu = contenedor.querySelector(`[data-cancer-in-situ="${codigo}"]`);
+
+                    if (evento.target.checked && coberturaIncompatible) coberturaIncompatible.checked = false;
+                    if (factor) factor.value = String(FACTOR_ENFERMEDADES_GRAVES_POR_DEFECTO);
+                    if (cancerInSitu) cancerInSitu.checked = false;
+                });
+            }
+
             const coberturaHospitalizacion = contenedor.querySelector(`input[value="${COBERTURA_RENTA_HOSPITALIZACION}"]`);
             const coberturaUci = contenedor.querySelector(`input[value="${COBERTURA_RENTA_HOSPITALIZACION_UCI}"]`);
             if (evento.target.value === COBERTURA_RENTA_HOSPITALIZACION && evento.target.checked && coberturaUci) {
