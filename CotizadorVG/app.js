@@ -2381,9 +2381,10 @@ function renderizarResumenCredibilidad() {
     </section>`;
 }
 
-function renderizarTablaCalculos() {
+function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     const contenedor = document.querySelector('.calculos-container');
     if (!contenedor) return;
+    const esComparativaSinCredibilidad = estado.poliza.aplicaCredibilidad === true && mostrarSinCredibilidad;
     const planesPorId = new Map(estado.planes.map(plan => [plan.id, plan]));
 
     if (estado.asegurados.length === 0) {
@@ -2401,7 +2402,7 @@ function renderizarTablaCalculos() {
 
     let primaTotalPoliza = 0;
     const totalesPolizaPorCobertura = new Map();
-    const ajustesCredibilidad = obtenerAjustesCredibilidad();
+    const ajustesCredibilidad = esComparativaSinCredibilidad ? null : obtenerAjustesCredibilidad();
     const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
         const coberturas = plan ? obtenerCoberturasPlan(plan) : [];
         const ajustePlan = plan ? ajustesCredibilidad?.planes.get(plan.id) : null;
@@ -2441,8 +2442,8 @@ function renderizarTablaCalculos() {
                 });
                 primaTotalPlan = [...totalesPlanPorCobertura.values()].reduce((total, item) => total + item.prima, 0);
             }
-            plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
-            primaTotalPoliza += plan.primaTotal;
+            if (!esComparativaSinCredibilidad) plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
+            primaTotalPoliza += primaTotalPlan;
             coberturas.forEach(cobertura => {
                 const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
                 const totalPoliza = totalesPolizaPorCobertura.get(cobertura.codigo) || {
@@ -2489,7 +2490,11 @@ function renderizarTablaCalculos() {
     const detalleFraccionamiento = obtenerDetalleFraccionamiento();
     const primaSegunFormaPago = calcularPrimaPorFormaPago(primaTotalPoliza);
 
-    contenedor.innerHTML = `${renderizarResumenCredibilidad()}${tarjetasPlanes}
+    const avisoComparativa = esComparativaSinCredibilidad
+        ? `<section class="comparativa-credibilidad" role="status"><strong>Comparativa sin credibilidad</strong><span>Estos resultados se calculan sin usar la información de siniestros. Los datos de la póliza no se modifican.</span></section>`
+        : renderizarResumenCredibilidad();
+
+    contenedor.innerHTML = `${avisoComparativa}${tarjetasPlanes}
         ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa por cobertura</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Recargo ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa por cobertura</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
             <span>Prima anual de la póliza</span>
@@ -2502,6 +2507,12 @@ function renderizarTablaCalculos() {
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
         <p class="fraccionamiento-resultado">${estado.poliza.formaPago || 'Anual'}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
     </section>`);
+    if (estado.poliza.aplicaCredibilidad === true) {
+        contenedor.insertAdjacentHTML('beforeend', `<section class="comparativa-credibilidad-acciones">
+            <div><strong>${esComparativaSinCredibilidad ? '¿Deseas volver al cálculo con credibilidad?' : '¿Deseas revisar el cálculo sin credibilidad?'}</strong><span>${esComparativaSinCredibilidad ? 'Se volverán a mostrar los resultados que utilizan la información de siniestros.' : 'Podrás comparar los resultados sin usar la información de siniestros, sin alterar la cotización actual.'}</span></div>
+            <button class="btn btn-outline" type="button" onclick="renderizarTablaCalculos(${esComparativaSinCredibilidad ? 'false' : 'true'})">${esComparativaSinCredibilidad ? '← Volver a cálculo con credibilidad' : 'Ver comparativa sin credibilidad'}</button>
+        </section>`);
+    }
 }
 
 function renderizarAmparosDisponibles() {

@@ -358,6 +358,45 @@ body {
     background: #fff;
 }
 
+.comparativa-credibilidad,
+.comparativa-credibilidad-acciones {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    border: 1px solid #d9c900;
+    border-radius: 10px;
+    background: var(--color-secondary-light, #fffbd1);
+}
+
+.comparativa-credibilidad strong,
+.comparativa-credibilidad span,
+.comparativa-credibilidad-acciones strong,
+.comparativa-credibilidad-acciones span {
+    display: block;
+}
+
+.comparativa-credibilidad strong,
+.comparativa-credibilidad-acciones strong {
+    color: var(--color-primary, #003b75);
+}
+
+.comparativa-credibilidad span,
+.comparativa-credibilidad-acciones span {
+    margin-top: 3px;
+    color: var(--color-gray, #65758b);
+    font-size: 13px;
+}
+
+@media (max-width: 640px) {
+    .comparativa-credibilidad,
+    .comparativa-credibilidad-acciones {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 .fraccionamiento-resumen header strong,
 .fraccionamiento-resumen header span {
     display: block;
