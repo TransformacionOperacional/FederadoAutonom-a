@@ -68,6 +68,9 @@ const COBERTURA_RENTA_HOSPITALIZACION_UCI = 'WE8';
 const COBERTURAS_ENFERMEDADES_GRAVES = ['WEU', 'WEV'];
 const FACTORES_ENFERMEDADES_GRAVES = [0.40, 0.50, 0.60];
 const FACTOR_ENFERMEDADES_GRAVES_POR_DEFECTO = 0.60;
+// El saldo de credibilidad se distribuye dentro de cada plan solo entre estas
+// coberturas. Las ponderaciones se normalizan cuando una o más no están presentes.
+const PONDERACIONES_SALDO_CREDIBILIDAD = { WET: 0.60, WEZ: 0.20, WEU: 0.20, WEV: 0.20 };
 const FACTOR_REFERENCIA_CANCER_IN_SITU = 0.50;
 // La tasa fuente se expresa por mil; se convierte a tasa decimal antes de calcular el recargo.
 const TASA_CANCER_IN_SITU = 0.678 / 1000;
@@ -1255,19 +1258,34 @@ function obtenerAjustesCredibilidad() {
     resultado.primaCredibilidad = resultado.tasaComercialConCredibilidadAjustada * calculo.valorAseguradoVigenciaActual / 1000;
     resultado.saldo = resultado.primaComercial - resultado.primaCredibilidad;
     resultado.tasaComercialActual = resultado.primaComercial * 1000 / calculo.valorAseguradoVigenciaActual;
-    const saldoPorPlan = resultado.saldo / planes.length;
+    const valorAseguradoVidaTotal = [...resultado.planes.values()]
+        .reduce((total, plan) => total + (plan.totales.get('WET')?.valorAsegurado || 0), 0);
 
     resultado.planes.forEach(plan => {
-        const valorAseguradoPlan = [...plan.totales.values()]
-            .reduce((total, cobertura) => total + cobertura.valorAsegurado, 0);
-        if (valorAseguradoPlan <= 0) return;
+        const valorAseguradoVidaPlan = plan.totales.get('WET')?.valorAsegurado || 0;
+        const participacionVida = valorAseguradoVidaTotal > 0
+            ? valorAseguradoVidaPlan / valorAseguradoVidaTotal
+            : 1 / planes.length;
+        const saldoPorPlan = resultado.saldo * participacionVida;
+        const coberturasConSaldo = [...plan.totales.entries()].filter(([codigo, total]) =>
+            total.valorAsegurado > 0 && PONDERACIONES_SALDO_CREDIBILIDAD[codigo] !== undefined
+        );
+        const ponderacionDisponible = coberturasConSaldo
+            .reduce((total, [codigo]) => total + PONDERACIONES_SALDO_CREDIBILIDAD[codigo], 0);
 
-        plan.totales.forEach((total, codigo) => {
-            const participacion = total.valorAsegurado / valorAseguradoPlan;
-            if (!participacion) return;
-            total.ajusteCredibilidad = saldoPorPlan * participacion;
+        plan.totales.forEach(total => {
+            total.ajusteCredibilidad = 0;
             total.primaAjustada = total.primaComercial - total.ajusteCredibilidad;
             total.tasaAjustada = total.valorAsegurado > 0 ? total.primaAjustada / total.valorAsegurado : null;
+        });
+
+        if (ponderacionDisponible <= 0) return;
+
+        coberturasConSaldo.forEach(([codigo, total]) => {
+            const participacion = PONDERACIONES_SALDO_CREDIBILIDAD[codigo] / ponderacionDisponible;
+            total.ajusteCredibilidad = saldoPorPlan * participacion;
+            total.primaAjustada = total.primaComercial - total.ajusteCredibilidad;
+            total.tasaAjustada = total.primaAjustada / total.valorAsegurado;
         });
     });
 
