@@ -1034,22 +1034,16 @@ function obtenerTasaApiCobertura(cobertura, edad, deducible = null) {
 }
 
 function calcularPrimaCobertura(cobertura, valorAsegurado, edad, deducible = null, plan = null) {
-    const tasaPorEdad = obtenerTasaApiCobertura(cobertura, edad, deducible);
-    if (String(cobertura.codigo || '').toUpperCase() === COBERTURA_RENTA_INCAPACIDAD && tasaPorEdad === undefined) return 0;
-    const tasaBase = obtenerTasaBaseConCancerInSitu(cobertura, edad, deducible, plan);
-    const tasaRecargada = aplicarRecargoATasa(tasaBase, cobertura);
-    const prima = tasaPorEdad !== undefined
-        ? valorAsegurado * tasaRecargada
-        : valorAsegurado * tasaRecargada * obtenerFactorEdad(edad) / 100;
+    const tasaPura = obtenerTasaPuraConRecargoOcupacional(cobertura, edad, deducible, plan);
+    if (tasaPura === undefined) return 0;
+    const tasaRecargada = aplicarRecargoATasa(tasaPura);
+    const prima = valorAsegurado * tasaRecargada;
     return Math.round(prima * 100) / 100;
 }
 
-function aplicarRecargoATasa(tasaBase, cobertura = null) {
+function aplicarRecargoATasa(tasaPura) {
     const factorGasto = obtenerRecargoComercial().total / 100;
-    const tasaComercial = factorGasto >= 1 ? Number(tasaBase) : Number(tasaBase) / (1 - factorGasto);
-    // El porcentaje de la actividad económica se traslada a la tasa para que
-    // prima = valor asegurado × tasa mantenga el recargo aplicado.
-    return tasaComercial * (1 + (obtenerRecargoPorActividad(cobertura) / 100));
+    return factorGasto >= 1 ? Number(tasaPura) : Number(tasaPura) / (1 - factorGasto);
 }
 
 function obtenerRecargoComercial() {
@@ -1074,13 +1068,19 @@ function esCoberturaVida(cobertura) {
 
 function obtenerTasaPuraCobertura(asegurado, cobertura, deducible = null) {
     const plan = estado.planes.find(item => item.id === asegurado.planId);
-    const tasaApi = obtenerTasaApiCobertura(cobertura, asegurado.edad, deducible);
+    return obtenerTasaPuraConRecargoOcupacional(cobertura, asegurado.edad, deducible, plan);
+}
+
+function obtenerTasaPuraConRecargoOcupacional(cobertura, edad, deducible = null, plan = null) {
+    const tasaApi = obtenerTasaApiCobertura(cobertura, edad, deducible);
+    if (String(cobertura.codigo || '').toUpperCase() === COBERTURA_RENTA_INCAPACIDAD && tasaApi === undefined) return undefined;
     const tasaBase = tasaApi !== undefined
         ? Number(tasaApi)
-        : Number(cobertura.tasa ?? cobertura.tasaBase ?? TASA_BASE_SISTEMA) * obtenerFactorEdad(asegurado.edad) / 100;
-    // El recargo de Cáncer in Situ se incorpora primero a la tasa pura, antes
-    // de aplicar recargos comerciales o de actividad económica.
-    return agregarRecargoCancerInSituATasaPura(tasaBase, plan, cobertura);
+        : Number(cobertura.tasa ?? cobertura.tasaBase ?? TASA_BASE_SISTEMA) * obtenerFactorEdad(edad) / 100;
+    // Cáncer in Situ y la extraprima por ocupación se incorporan a la tasa
+    // pura; el recargo comercial se aplica únicamente después de esta etapa.
+    const tasaPuraConCancerInSitu = agregarRecargoCancerInSituATasaPura(tasaBase, plan, cobertura);
+    return tasaPuraConCancerInSitu * (1 + (obtenerRecargoPorActividad(cobertura) / 100));
 }
 
 function esCoberturaEnfermedadesGraves(codigo) {
@@ -1249,9 +1249,9 @@ function obtenerAjustesCredibilidad() {
     });
 
     resultado.primaComercial = [...resultado.planes.values()].reduce((total, plan) => total + plan.primaComercial, 0);
-    resultado.detalleRecargoActividad = obtenerFactorRecargoActividadCredibilidad(planes);
-    resultado.factorRecargoActividad = resultado.detalleRecargoActividad.factor;
-    resultado.tasaComercialConCredibilidadAjustada = calculo.tasaComercialConCredibilidad * resultado.factorRecargoActividad;
+    // La extraprima ocupacional ya está incluida en la tasa pura utilizada
+    // por la credibilidad; no se debe recargar una segunda vez al final.
+    resultado.tasaComercialConCredibilidadAjustada = calculo.tasaComercialConCredibilidad;
     resultado.primaCredibilidad = resultado.tasaComercialConCredibilidadAjustada * calculo.valorAseguradoVigenciaActual / 1000;
     resultado.saldo = resultado.primaComercial - resultado.primaCredibilidad;
     resultado.tasaComercialActual = resultado.primaComercial * 1000 / calculo.valorAseguradoVigenciaActual;
@@ -1422,7 +1422,7 @@ function identificarPlanes() {
     });
 
     estado.planes = Array.from(planesMap.values());
-    
+
     // Calcular prima total por plan
     estado.planes.forEach(plan => {
         plan.primaTotal = plan.asegurados
@@ -1440,7 +1440,7 @@ function identificarPlanes() {
 function analizarComplejidad() {
     const nivelComplejidad = calcularNivelComplejidad();
     const reglas = evaluarReglas();
-    
+
     return {
         nivel: nivelComplejidad,
         reglas: reglas,
@@ -2266,8 +2266,8 @@ function guardarEdicionPlan() {
 }
 
 function obtenerTasaPorEdad(cobertura, edad, deducible = null, plan = null) {
-    const tasaBase = obtenerTasaBaseConCancerInSitu(cobertura, edad, deducible, plan);
-    return tasaBase === undefined ? undefined : aplicarRecargoATasa(tasaBase, cobertura);
+    const tasaPura = obtenerTasaPuraConRecargoOcupacional(cobertura, edad, deducible, plan);
+    return tasaPura === undefined ? undefined : aplicarRecargoATasa(tasaPura);
 }
 
 function obtenerPorcentajeFactorPorEdad(cobertura, edad) {
@@ -2344,19 +2344,13 @@ function renderizarResumenCredibilidad() {
     }
 
     const factorGasto = obtenerRecargoComercial().total / 100;
-    const detalleRecargoActividad = calculo.detalleRecargoActividad;
-    const detallePonderacionActividad = detalleRecargoActividad.coberturas.length
-        ? detalleRecargoActividad.coberturas.map(cobertura =>
-            `${cobertura.nombre}: ${formatearDinero(cobertura.valorAsegurado)} (${formatearPorcentaje(cobertura.participacion)}) × ${formatearPorcentaje(cobertura.recargo)}`
-        ).join('; ')
-        : 'No hay valores asegurados para ponderar';
     const filas = [
         ['Valor asegurado vigencia actual', formatearDinero(calculo.valorAseguradoVigenciaActual), `${calculo.cantidadAsegurados} asegurado(s) con Vida; suma de valores asegurados: ${formatearDinero(calculo.valorAseguradoVigenciaActual)}`],
         ['Años de exposición', calculo.anosExposicion.toLocaleString('es-CO'), 'Valor ingresado en los datos de siniestralidad'],
         ['Valor asegurado por exposición', formatearDinero(calculo.valorAseguradoExposicion), `${formatearDinero(calculo.valorAseguradoVigenciaActual)} × ${calculo.anosExposicion} año(s)`],
         ['Siniestros totales', formatearDinero(calculo.siniestrosTotales), 'Valor ingresado en los datos de siniestralidad'],
         ['TPR real', formatearTasa(calculo.tprReal), `${formatearDinero(calculo.siniestrosTotales)} × 1.000 ÷ ${formatearDinero(calculo.valorAseguradoExposicion)}`],
-        ['Sumatoria tasa pura × valor asegurado por cobertura', formatearDinero(calculo.primaPuraTotal), 'Suma de (tasa pura de cada cobertura × su valor asegurado); incluye Cáncer in Situ antes de recargos comerciales cuando aplique'],
+        ['Sumatoria tasa pura × valor asegurado por cobertura', formatearDinero(calculo.primaPuraTotal), 'Suma de (tasa pura de cada cobertura × su valor asegurado); incluye Cáncer in Situ y la extraprima por ocupación antes del recargo comercial cuando aplique'],
         ['TPR teórica', formatearTasa(calculo.tprTeorica), `${formatearDinero(calculo.primaPuraTotal)} ÷ ${formatearDinero(calculo.valorAseguradoVigenciaActual)} × 1.000`],
         ['Variación de tasa real vs. teórica', formatearPorcentaje(calculo.variacionTasaRealTeorica), `(${formatearTasa(calculo.tprReal)} ÷ ${formatearTasa(calculo.tprTeorica)}) − 1`],
         ['Z6', calculo.z6.toLocaleString('es-CO'), 'Constante de credibilidad'],
@@ -2364,10 +2358,7 @@ function renderizarResumenCredibilidad() {
         ['TPR credibilidad', formatearTasa(calculo.tprCredibilidad), `(${formatearTasa(calculo.tprReal)} × ${formatearTasa(calculo.factorZ)}) + (${formatearTasa(calculo.tprTeorica)} × (1 − ${formatearTasa(calculo.factorZ)}))`],
         ['Incremento / disminución', formatearPorcentaje(calculo.incrementoDisminucion), `(${formatearTasa(calculo.tprCredibilidad)} ÷ ${formatearTasa(calculo.tprTeorica)}) − 1`],
         ['Tasa única comercial actual', formatearTasa(calculo.tasaComercialActual), `${formatearDinero(calculo.primaComercial)} × 1.000 ÷ ${formatearDinero(calculo.valorAseguradoVigenciaActual)}`],
-        ['Recargo de ocupación ponderado', formatearPorcentaje(detalleRecargoActividad.recargoPonderado), `Ponderado por valor asegurado de todas las coberturas: ${detallePonderacionActividad}`],
-        ['Factor de recargo por ocupación aplicado a credibilidad', formatearTasa(calculo.factorRecargoActividad), `1 + ${formatearPorcentaje(detalleRecargoActividad.recargoPonderado)}`],
-        ['Tasa comercial con credibilidad antes de ocupación', formatearTasa(calculo.tasaComercialConCredibilidad), `${formatearTasa(calculo.tprCredibilidad)} ÷ (1 − ${formatearPorcentaje(factorGasto)})`],
-        ['Tasa comercial con credibilidad', formatearTasa(calculo.tasaComercialConCredibilidadAjustada), `${formatearTasa(calculo.tasaComercialConCredibilidad)} × ${formatearTasa(calculo.factorRecargoActividad)}`],
+        ['Tasa comercial con credibilidad', formatearTasa(calculo.tasaComercialConCredibilidadAjustada), `${formatearTasa(calculo.tprCredibilidad)} ÷ (1 − ${formatearPorcentaje(factorGasto)})`],
         ['Prima con tasa comercial', formatearDinero(calculo.primaComercial), 'Suma de primas comerciales actuales por cobertura'],
         ['Prima con tasa de credibilidad', formatearDinero(calculo.primaCredibilidad), `${formatearTasa(calculo.tasaComercialConCredibilidadAjustada)} × ${formatearDinero(calculo.valorAseguradoVigenciaActual)} ÷ 1.000`],
         ['Saldo a favor / en contra', formatearDinero(calculo.saldo), `${formatearDinero(calculo.primaComercial)} − ${formatearDinero(calculo.primaCredibilidad)}`]
@@ -2468,7 +2459,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 <div><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span></div>
                 <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong><span>Tasa única total</span><strong>${plan ? tasaUnicaPlan : '—'}</strong></div>
             </header>
-            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Recargo ocup. ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Extraprima ocup. ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
         </section>`;
     }).join('');
 
@@ -2495,7 +2486,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         : renderizarResumenCredibilidad();
 
     contenedor.innerHTML = `${avisoComparativa}${tarjetasPlanes}
-        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa por cobertura</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Recargo ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa por cobertura</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
+        ${resumenTasaUnicaPoliza ? `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>Tasa por cobertura</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Extraprima ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa por cobertura</th></tr></thead><tbody>${resumenTasaUnicaPoliza}</tbody></table></div></section>` : ''}
         <section class="calculos-total-poliza">
             <span>Prima anual de la póliza</span>
             <strong>${formatearDinero(primaTotalPoliza)}</strong>
