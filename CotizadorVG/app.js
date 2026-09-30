@@ -1415,10 +1415,11 @@ function identificarPlanes() {
     const planesMap = new Map();
 
     estado.asegurados.forEach(asegurado => {
-        // Crear clave: coberturas + valores asegurados
+        // Los valores asegurados son individuales y no generan planes nuevos.
+        // Solo la combinación de coberturas define el plan dentro del subgrupo.
         const coberturas = asegurado.coberturas
             .filter(c => c.activa)
-            .map(c => `${c.codigo}:${c.valorAsegurado}`)
+            .map(c => c.codigo)
             .sort()
             .join('|');
 
@@ -4815,9 +4816,10 @@ function renderizarAsignacionPlanes() {
         && !plan.generadoPorParentesco
         && !plan.generadoPorEdad
         && !plan.generadoPorValorAsegurado);
-    const planesAsignados = estado.planes.filter(plan =>
-        esPlanDerivadoDeAsignacion(plan) && (plan.asegurados || []).length > 0
-    );
+    // El resumen debe mostrar todos los planes que tengan asegurados: tanto
+    // los planes base asignados directamente (por ejemplo, Plan A) como los
+    // derivados por restricciones de edad o parentesco (por ejemplo, Plan B).
+    const planesAsignados = estado.planes.filter(plan => (plan.asegurados || []).length > 0);
 
     cuerpoRangos.innerHTML = planesBase.length > 0 ? planesBase.map(plan => `
         <tr>
@@ -4832,7 +4834,7 @@ function renderizarAsignacionPlanes() {
         <tr>
             <td>${obtenerNombreCortoPlan(plan)}</td>
             <td>${formatearCoberturasPlan(plan)}</td>
-            <td>${formatearDinero(plan.valorAseguradoVidaAgrupacion)}</td>
+            <td>${formatearDinero(obtenerValorAseguradoVidaPlan(plan))}</td>
             <td>${(plan.asegurados || []).length}</td>
             <td>${formatearEdadMaximaPlan(plan)}</td>
         </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
@@ -4951,6 +4953,13 @@ function confirmarReasignacionSeleccionados() {
 
 function obtenerNombreCortoPlan(plan) {
     return String(plan.nombre || '').match(/^Plan\s+[A-Z]+/i)?.[0] || plan.nombre;
+}
+
+function obtenerValorAseguradoVidaPlan(plan) {
+    return (plan.asegurados || []).reduce((total, aseguradoId) => {
+        const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
+        return total + (asegurado ? obtenerValorAseguradoBase(asegurado) : 0);
+    }, 0);
 }
 
 function esPlanDerivadoDeAsignacion(plan) {
@@ -5218,12 +5227,17 @@ function asignarPlanAAsegurado(aseguradoId, planId, opciones = {}) {
     let plan = estado.planes.find(item => item.id === planId);
     if (plan) {
         const planOriginal = plan;
-        plan = crearPlanFiltradoPorParentesco(plan, asegurado.tipoAsegurado);
-        const edadMaxima = obtenerEdadMaximaPlan(plan);
-        if (edadMaxima !== null && Number(asegurado.edad) > edadMaxima) {
+        const planConParentesco = crearPlanFiltradoPorParentesco(plan, asegurado.tipoAsegurado);
+        plan = planConParentesco;
+        const coberturasPlan = obtenerCoberturasPlan(plan);
+        const coberturasElegibles = coberturasPlan.filter(cobertura => {
+            const edadMaxima = obtenerEdadMaximaCobertura(cobertura);
+            return edadMaxima === null || Number(asegurado.edad) <= edadMaxima;
+        });
+        if (coberturasElegibles.length === 0) {
             if (notificar) {
                 mostrarAlertaRango(
-                    `${asegurado.nombreCompleto || 'El asegurado'} tiene ${asegurado.edad} años y supera la edad máxima de ${edadMaxima} años para ${plan.nombre}. No se realizó la asignación.`,
+                    `${asegurado.nombreCompleto || 'El asegurado'} tiene ${asegurado.edad} años y no tiene coberturas habilitadas en ${plan.nombre}. No se realizó la asignación.`,
                     null,
                     'Restricción de edad para el plan'
                 );
@@ -5232,10 +5246,18 @@ function asignarPlanAAsegurado(aseguradoId, planId, opciones = {}) {
             if (renderizar) renderizarAsignacionPlanes();
             return false;
         }
-        if (notificar && plan !== planOriginal) {
+        if (coberturasElegibles.length !== coberturasPlan.length) {
+            plan = crearPlanElegiblePorEdad(plan, coberturasElegibles);
+            if (notificar) {
+                const coberturasRetiradas = coberturasPlan
+                    .filter(cobertura => !coberturasElegibles.some(elegible => elegible.codigo === cobertura.codigo))
+                    .map(cobertura => cobertura.nombre || cobertura.codigo);
+                mostrarToast(`${plan.nombre} fue creado sin ${coberturasRetiradas.join(', ')} por restricción de edad.`, 'info');
+            }
+        }
+        if (notificar && planConParentesco !== planOriginal) {
             mostrarToast(`${plan.nombre} fue creado con las coberturas habilitadas para ${asegurado.tipoAsegurado}.`, 'info');
         }
-        plan = crearPlanFiltradoPorValorAsegurado(plan, asegurado);
     }
     estado.planes.forEach(item => { item.asegurados = (item.asegurados || []).filter(id => id !== aseguradoId); });
     asegurado.planId = plan?.id || null;
@@ -5339,49 +5361,6 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
     return plan;
 }
 
-function crearPlanFiltradoPorValorAsegurado(planBase, asegurado) {
-    const valorAseguradoVida = obtenerValorAseguradoBase(asegurado);
-    if (planBase.generadoPorValorAsegurado && planBase.valorAseguradoVidaAgrupacion === valorAseguradoVida) {
-        return planBase;
-    }
-    const planExistente = estado.planes.find(plan =>
-        plan.generadoPorValorAsegurado
-        && plan.planBaseId === planBase.id
-        && plan.valorAseguradoVidaAgrupacion === valorAseguradoVida
-    );
-    if (planExistente) return planExistente;
-
-    const coberturasPlan = obtenerCoberturasPlan(planBase);
-    const valoresCobertura = Object.fromEntries(coberturasPlan.map(cobertura => [
-        cobertura.codigo,
-        planBase.valoresCobertura?.[cobertura.codigo] || 0
-    ]));
-    const coberturaVida = coberturasPlan.find(cobertura =>
-        cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
-    );
-    if (coberturaVida) valoresCobertura[coberturaVida.codigo] = valorAseguradoVida;
-    const rangoPlanBase = obtenerRangoPlanBase(planBase);
-
-    const plan = {
-        id: generarUUID(),
-        subgrupoId: planBase.subgrupoId,
-        nombre: siguienteNombrePlan(),
-        planBaseId: planBase.id,
-        generadoPorValorAsegurado: true,
-        valorAseguradoVidaAgrupacion: valorAseguradoVida,
-        valorDesde: rangoPlanBase.desde,
-        valorHasta: rangoPlanBase.hasta,
-        valoresCobertura,
-        deduciblesCobertura: { ...planBase.deduciblesCobertura },
-        factoresEnfermedadesGraves: { ...planBase.factoresEnfermedadesGraves },
-        cancerInSituPorCobertura: { ...planBase.cancerInSituPorCobertura },
-        asegurados: [],
-        primaTotal: 0
-    };
-    estado.planes.push(plan);
-    return plan;
-}
-
 function obtenerRangoPlanBase(plan) {
     let planActual = plan;
     const planesVisitados = new Set();
@@ -5441,6 +5420,14 @@ function formatearEdadMaximaPlan(plan) {
 
 function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
     const codigos = coberturasElegibles.map(cobertura => cobertura.codigo).sort();
+    const firmaCoberturas = codigos.join(',');
+    const planExistente = estado.planes.find(plan =>
+        plan.generadoPorEdad
+        && plan.planBaseId === planBase.id
+        && obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo).sort().join(',') === firmaCoberturas
+    );
+    if (planExistente) return planExistente;
+
     const subgrupoId = generarIdSubgrupo(codigos);
     if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoId)) {
         estado.subgrupos.push({ id: subgrupoId, nombre: `Grupo ${estado.subgrupos.length + 1}`, coberturas: codigos, asegurados: [] });
@@ -5450,6 +5437,7 @@ function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
         id: generarUUID(),
         subgrupoId,
         nombre: `${siguienteNombrePlan()} — coberturas por edad`,
+        planBaseId: planBase.id,
         generadoPorEdad: true,
         valorDesde: planBase.valorDesde,
         valorHasta: planBase.valorHasta,
@@ -5490,7 +5478,6 @@ function asignarPlanesPorRango() {
     const idsPlanesAntesDeAsignar = new Set(estado.planes.map(plan => plan.id));
     let asignados = 0;
     let planesPorEdadCreados = 0;
-    let planesPorValorAseguradoCreados = 0;
     let sinCoberturasElegibles = 0;
     const ajustesPorEdad = [];
     const planesElegibles = new Map();
@@ -5528,9 +5515,6 @@ function asignarPlanesPorRango() {
                 }
             }
             planAsignado = crearPlanFiltradoPorParentesco(planAsignado, asegurado.tipoAsegurado);
-            const totalPlanesAntesDeValor = estado.planes.length;
-            planAsignado = crearPlanFiltradoPorValorAsegurado(planAsignado, asegurado);
-            if (estado.planes.length > totalPlanesAntesDeValor) planesPorValorAseguradoCreados++;
             asignarAseguradoAPlanElegible(asegurado, planAsignado);
             asignados++;
         }
@@ -5549,9 +5533,8 @@ function asignarPlanesPorRango() {
     renderizarPlanesSubgrupoTabs();
     renderizarTablaCalculos();
     const detalleEdad = planesPorEdadCreados > 0 ? ` Se crearon ${planesPorEdadCreados} plan(es) con coberturas elegibles por edad.` : '';
-    const detalleValor = planesPorValorAseguradoCreados > 0 ? ` Se crearon ${planesPorValorAseguradoCreados} plan(es) espejo por valor asegurado en Vida.` : '';
     const detalleSinCobertura = sinCoberturasElegibles > 0 ? ` ${sinCoberturasElegibles} asegurado(s) no tienen coberturas habilitadas para su edad.` : '';
-    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.${detalleEdad}${detalleValor}${detalleSinCobertura}`, sinCoberturasElegibles > 0 ? 'warning' : 'success');
+    mostrarToast(`${asignados} asegurado(s) asignado(s) por rango de valor asegurado.${detalleEdad}${detalleSinCobertura}`, sinCoberturasElegibles > 0 ? 'warning' : 'success');
     if (ajustesPorEdad.length > 0) {
         const detalle = ajustesPorEdad.slice(0, 5).join(' ');
         const adicionales = ajustesPorEdad.length > 5 ? ` Además, hay ${ajustesPorEdad.length - 5} caso(s) adicional(es).` : '';

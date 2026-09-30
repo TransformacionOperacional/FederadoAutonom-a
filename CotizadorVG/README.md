@@ -29,7 +29,7 @@ Cotizador profesional enterprise para pólizas de **Vida Grupo** diseñado para 
 
 ### 3. **Análisis Inteligente**
 - Identificación automática de **subgrupos** (por combinación de coberturas)
-- Identificación automática de **planes** (por combinación de coberturas + valores)
+- Identificación automática de **planes** (por combinación de coberturas; el valor asegurado se conserva por persona)
 - Análisis de **nivel de complejidad** (Bajo/Medio/Alto)
 - Evaluación contra reglas de negocio pre-configuradas
 
@@ -162,12 +162,12 @@ npx http-server
 }
 ```
 
-### Plan (Agrupación por Coberturas + Valores)
+### Plan (Agrupación por Coberturas)
 ```javascript
 {
     id: "uuid",
     subgrupoId: "uuid",
-    coberturas: "VIDA:50000000,INV:25000000,EG:100000000",  // Coberturas + valores
+    coberturas: "VIDA,INV,EG",  // Las coberturas definen el plan; cada asegurado conserva su valor
     asegurados: ["uuid1", "uuid2"],
     primaTotal: 750000
 }
