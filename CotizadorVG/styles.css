@@ -433,14 +433,14 @@ body {
     transition: var(--transition);
 }
 
-.fraccionamiento-opcion:not(:disabled):hover,
-.fraccionamiento-opcion:not(:disabled):focus-visible {
+.fraccionamiento-opcion:not(.seleccionada):hover,
+.fraccionamiento-opcion:not(.seleccionada):focus-visible {
     border-color: var(--color-primary);
     box-shadow: var(--shadow-sm);
     outline: none;
 }
 
-.fraccionamiento-opcion:disabled {
+.fraccionamiento-opcion.seleccionada {
     cursor: default;
 }
 
@@ -462,6 +462,29 @@ body {
     box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
 }
 
+.fraccionamiento-tipo-mensual {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.fraccionamiento-tipo-mensual label {
+    color: var(--color-primary-dark, #003b75);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.fraccionamiento-tipo-mensual select {
+    min-width: 0;
+    padding: 4px 22px 4px 6px;
+    border: 1px solid var(--color-border, #d5dce8);
+    border-radius: 5px;
+    color: var(--color-gray-dark, #1a2e4a);
+    font-size: 12px;
+    font-family: inherit;
+}
+
 .fraccionamiento-resultado {
     margin: 14px 0 0;
     color: var(--color-primary-dark, #003b75);
@@ -477,6 +500,7 @@ body {
     .fraccionamiento-pagos {
         grid-template-columns: 1fr;
     }
+
 }
 
 @keyframes fadeInUp {

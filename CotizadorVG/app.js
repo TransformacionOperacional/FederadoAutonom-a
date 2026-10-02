@@ -223,6 +223,7 @@ let estado = {
         vigenciaHasta: '',
         oficina: '',
         formaPago: 'Mensual',
+        tipoPagoMensual: 'Vencida',
         fechaCobro: '',
         comision: 20,
         honorarioPromotora: 10,
@@ -299,6 +300,9 @@ function cargarEstado() {
                     : asegurado.tipoAsegurado
             }));
             estado.poliza.modalidadPlan = estado.poliza.modalidadPlan || 'Voluntaria (Contributiva)';
+            estado.poliza.tipoPagoMensual = estado.poliza.tipoPagoMensual
+                || (estado.poliza.pagoMensualAnticipado === true ? 'Anticipada' : 'Vencida');
+            delete estado.poliza.pagoMensualAnticipado;
             estado.poliza.canalComercial = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
             estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
@@ -337,6 +341,7 @@ function limpiarEstado() {
                 vigenciaHasta: '',
                 oficina: '',
                 formaPago: 'Mensual',
+                tipoPagoMensual: 'Vencida',
                 fechaCobro: '',
                 comision: 20,
                 honorarioPromotora: 10,
@@ -2344,11 +2349,15 @@ function renderizarOpcionesFraccionamiento(primaAnual) {
         ${Object.entries(CONFIG.FACTORES_FRACCIONAMIENTO).map(([formaPago, detalle]) => {
             const seleccionado = formaPago === formaSeleccionada;
             const valorPorPago = calcularPrimaPorFormaPago(primaAnual, formaPago);
-            return `<button type="button" class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}" data-forma-pago="${formaPago}" aria-pressed="${seleccionado}"${seleccionado ? ' disabled' : ''}>
+            const selectorTipoPagoMensual = formaPago === 'Mensual' && seleccionado
+                ? renderizarSelectorTipoPagoMensual()
+                : '';
+            return `<div class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}" data-forma-pago="${formaPago}" role="button" tabindex="${seleccionado ? '-1' : '0'}" aria-pressed="${seleccionado}">
                 <span>${formaPago}${seleccionado ? ' · Seleccionada' : ''}</span>
                 <strong>${formatearDinero(valorPorPago)}</strong>
                 <small>${detalle.periodos} ${detalle.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalle.factor)}</small>
-            </button>`;
+                ${selectorTipoPagoMensual}
+            </div>`;
         }).join('')}
     </div>`;
 }
@@ -2369,6 +2378,7 @@ function confirmarCambioFormaPago() {
     estado.poliza.formaPago = formaPagoPendiente;
     const selectorFormaPago = document.getElementById('formaPago');
     if (selectorFormaPago) selectorFormaPago.value = formaPagoPendiente;
+    actualizarCampoPagoMensual();
 
     formaPagoPendiente = null;
     document.getElementById('modalConfirmarFormaPago').style.display = 'none';
@@ -2381,6 +2391,44 @@ function confirmarCambioFormaPago() {
 function cancelarCambioFormaPago() {
     formaPagoPendiente = null;
     document.getElementById('modalConfirmarFormaPago').style.display = 'none';
+}
+
+function actualizarCampoPagoMensual() {
+    const esPagoMensual = estado.poliza.formaPago === 'Mensual';
+    const grupo = document.getElementById('grupoTipoPagoMensual');
+    const campo = document.getElementById('tipoPagoMensual');
+
+    if (grupo) grupo.hidden = !esPagoMensual;
+    if (campo) campo.value = estado.poliza.tipoPagoMensual || 'Vencida';
+}
+
+function obtenerDescripcionFormaPago() {
+    if (estado.poliza.formaPago !== 'Mensual') return estado.poliza.formaPago || 'Anual';
+    return `Mensual (${estado.poliza.tipoPagoMensual || 'Vencida'})`;
+}
+
+function renderizarSelectorTipoPagoMensual() {
+    if (estado.poliza.formaPago !== 'Mensual') return '';
+
+    const tipoSeleccionado = estado.poliza.tipoPagoMensual || 'Vencida';
+    return `<div class="fraccionamiento-tipo-mensual">
+        <label for="tipoPagoMensualResumen">Pago</label>
+        <select id="tipoPagoMensualResumen" data-tipo-pago-mensual>
+            <option value="Anticipada"${tipoSeleccionado === 'Anticipada' ? ' selected' : ''}>Anticipada</option>
+            <option value="Vencida"${tipoSeleccionado === 'Vencida' ? ' selected' : ''}>Vencida</option>
+        </select>
+    </div>`;
+}
+
+function actualizarTipoPagoMensual(tipoPagoMensual) {
+    if (!['Anticipada', 'Vencida'].includes(tipoPagoMensual)) return;
+
+    estado.poliza.tipoPagoMensual = tipoPagoMensual;
+    const selectorInicial = document.getElementById('tipoPagoMensual');
+    if (selectorInicial) selectorInicial.value = tipoPagoMensual;
+    guardarEstado();
+    renderizarTablaCalculos();
+    renderizarDashboard();
 }
 
 function formatearPorcentaje(valor) {
@@ -2550,7 +2598,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
         <header><strong>Valor según forma de pago</strong><span>Selecciona la forma de pago que prefieras</span></header>
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
-        <p class="fraccionamiento-resultado">${estado.poliza.formaPago || 'Anual'}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
+        <p class="fraccionamiento-resultado">${obtenerDescripcionFormaPago()}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
     </section>`);
     if (estado.poliza.aplicaCredibilidad === true) {
         contenedor.insertAdjacentHTML('beforeend', `<section class="comparativa-credibilidad-acciones">
@@ -2698,7 +2746,7 @@ function renderizarDashboard() {
     document.getElementById('nivelComplejidad').textContent = complejidad;
     document.getElementById('primaAnual').textContent = formatearDinero(primaAnual);
     document.getElementById('primaFormaPago').textContent = formatearDinero(primaSegunFormaPago);
-    document.getElementById('etiquetaPrimaFormaPago').textContent = `${estado.poliza.formaPago || 'Anual'} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
+    document.getElementById('etiquetaPrimaFormaPago').textContent = `${obtenerDescripcionFormaPago()} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
 
     // Métricas y póliza en el resumen
     const infoPoliza = document.getElementById('infoPolizaResumen');
@@ -2711,7 +2759,7 @@ function renderizarDashboard() {
             <p><strong>Vigencia:</strong> ${p.vigenciaDesde || '—'} → ${p.vigenciaHasta || '—'}</p>
             <p><strong>Asesor:</strong> ${p.asesor || '—'}</p>
             <p><strong>Canal:</strong> ${p.canalComercial || '—'}</p>
-            <p><strong>Forma de pago:</strong> ${p.formaPago || 'Anual'} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
+            <p><strong>Forma de pago:</strong> ${obtenerDescripcionFormaPago()} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
             <p><strong>Comisión:</strong> ${p.comision || 0}%${p.canalComercial === 'Promotora' ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
             <p><strong>Siniestralidad:</strong> ${formatearDinero(p.valorSiniestrosTotales || 0)} en ${p.anosExposicion || 0} año(s) de exposición | Promedio: ${formatearDinero(p.siniestrosPromedio || 0)}</p>
         `;
@@ -2725,7 +2773,7 @@ function renderizarDashboard() {
             <p><strong>Subgrupos:</strong> ${totalSubgrupos}</p>
             <p><strong>Planes:</strong> ${totalPlanes}</p>
             <p><strong>Prima anual:</strong> ${formatearDinero(primaAnual)}</p>
-            <p><strong>Valor por pago (${estado.poliza.formaPago || 'Anual'}):</strong> ${formatearDinero(primaSegunFormaPago)}</p>
+            <p><strong>Valor por pago (${obtenerDescripcionFormaPago()}):</strong> ${formatearDinero(primaSegunFormaPago)}</p>
             <p><strong>Complejidad:</strong> ${complejidad}</p>
             ${sinAsig}${sinPlanTxt}
         `;
@@ -2843,14 +2891,32 @@ function setupEventListeners() {
             }
             guardarEstado();
             if (campo === 'formaPago') {
+                actualizarCampoPagoMensual();
                 renderizarTablaCalculos();
                 renderizarDashboard();
             }
         });
     });
+    document.getElementById('tipoPagoMensual')?.addEventListener('change', evento => {
+        actualizarTipoPagoMensual(evento.target.value);
+    });
     document.addEventListener('click', evento => {
         const opcionFormaPago = evento.target.closest('[data-forma-pago]');
-        if (opcionFormaPago) solicitarCambioFormaPago(opcionFormaPago.dataset.formaPago);
+        if (opcionFormaPago && !evento.target.closest('[data-tipo-pago-mensual]')) {
+            solicitarCambioFormaPago(opcionFormaPago.dataset.formaPago);
+        }
+    });
+    document.addEventListener('keydown', evento => {
+        const opcionFormaPago = evento.target.closest('[data-forma-pago]');
+        if (opcionFormaPago && (evento.key === 'Enter' || evento.key === ' ')) {
+            evento.preventDefault();
+            solicitarCambioFormaPago(opcionFormaPago.dataset.formaPago);
+        }
+    });
+    document.addEventListener('change', evento => {
+        if (evento.target.matches('[data-tipo-pago-mensual]')) {
+            actualizarTipoPagoMensual(evento.target.value);
+        }
     });
     document.getElementById('btnConfirmarFormaPago')?.addEventListener('click', confirmarCambioFormaPago);
     document.getElementById('btnCancelarCambioFormaPago')?.addEventListener('click', cancelarCambioFormaPago);
@@ -3021,7 +3087,7 @@ function seleccionarSubtipo(subtipo) {
         tomador: '', tipoIdentificacion: 'NIT', numeroIdentificacion: '',
         modalidadPlan: 'Voluntaria (Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         actividadDetalle: null,
-        oficina: '', formaPago: 'Mensual', fechaCobro: '',
+        oficina: '', formaPago: 'Mensual', tipoPagoMensual: 'Vencida', fechaCobro: '',
         comision: 20, honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
@@ -3042,6 +3108,7 @@ function volverAlLanding() {
 function mostrarWizard() {
     mostrarSoloPantalla('mainContainer');
     actualizarBadgeFlujo();
+    actualizarCampoPagoMensual();
     // Mostrar / ocultar paneles de modo en paso 2 (asegurados)
     // Para renovación, no se muestran paneles de carga ya que los datos vienen del sistema
     const panelSim   = document.getElementById('panelSimulacion');
@@ -3603,6 +3670,7 @@ function seleccionarPolizaRenovacion(poliza) {
             vigenciaHasta:        estado.poliza.vigenciaHasta,
             oficina:              estado.poliza.oficina,
             formaPago:            estado.poliza.formaPago,
+            tipoPagoMensual:       estado.poliza.tipoPagoMensual || 'Vencida',
             fechaCobro:           estado.poliza.fechaCobro,
             comision:             estado.poliza.comision,
             honorarioPromotora:   estado.poliza.honorarioPromotora,
