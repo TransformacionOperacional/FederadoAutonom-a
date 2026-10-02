@@ -729,6 +729,23 @@
         </div>
     </div>
 
+    <!-- Resumen de cambios aplicados automáticamente -->
+    <div id="modalResumenModificaciones" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloResumenModificaciones" aria-describedby="mensajeResumenModificaciones">
+        <div class="modal-content resumen-modificaciones-contenido">
+            <div class="modal-header">
+                <h3 id="tituloResumenModificaciones">Modificaciones realizadas por el cotizador</h3>
+                <button class="btn-close" type="button" onclick="cerrarResumenModificaciones()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="mensajeResumenModificaciones"></p>
+                <div id="detalleResumenModificaciones"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="cerrarResumenModificaciones()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirmación de recargos comerciales -->
     <div id="modalRecargoComercial" class="modal modal-recargo-comercial" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloRecargoComercial">
         <div class="modal-content recargo-comercial-contenido">

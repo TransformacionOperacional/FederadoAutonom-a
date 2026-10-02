@@ -409,8 +409,9 @@ function guardarAseguradoDesdeModal() {
     const valorIngresado = obtenerValorMonetario(campoValor.value) || 0;
     const valorAsegurado = limitarValorAseguradoParaModalidad(valorIngresado);
     const asegurado = estado.asegurados.find(item => item.id === aseguradoEditandoId);
+    const fueAjustadoPorLimite = valorAsegurado !== valorIngresado;
 
-    if (valorAsegurado !== valorIngresado) {
+    if (fueAjustadoPorLimite) {
         campoValor.value = formatearValorMonetario(valorAsegurado);
         mostrarToast(`Para pólizas voluntarias el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}. Se ajustó automáticamente.`, 'info');
     }
@@ -452,6 +453,16 @@ function guardarAseguradoDesdeModal() {
     if (!asegurado) estado.asegurados.push(datos);
     recalcularTodo();
     cerrarModalAsegurado();
+    if (fueAjustadoPorLimite) {
+        mostrarResumenModificaciones({
+            ajustes: [{
+                nombre: datos.nombreCompleto || datos.numeroDocumento,
+                documento: datos.numeroDocumento,
+                valorOriginal: valorIngresado,
+                valorAjustado: valorAsegurado
+            }]
+        });
+    }
     mostrarToast(`Asegurado ${asegurado ? 'actualizado' : 'agregado'} correctamente.`, 'success');
 }
 
@@ -504,19 +515,57 @@ function limitarValorAseguradoParaModalidad(valor) {
 }
 
 function aplicarLimiteVoluntariaAValoresExistentes() {
-    if (!esModalidadContributiva()) return 0;
+    if (!esModalidadContributiva()) return [];
 
-    let ajustados = 0;
+    const ajustes = [];
     estado.asegurados.forEach(asegurado => {
         const vida = asegurado.coberturas?.find(cobertura =>
             cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
         );
         if (vida && Number(vida.valorAsegurado) > VALOR_ASEGURADO_MAXIMO_VOLUNTARIA) {
+            const valorOriginal = Number(vida.valorAsegurado);
             vida.valorAsegurado = VALOR_ASEGURADO_MAXIMO_VOLUNTARIA;
-            ajustados++;
+            asegurado.valorAseguradoAjustadoPorLimite = true;
+            asegurado.valorAseguradoOriginal = valorOriginal;
+            ajustes.push({
+                nombre: asegurado.nombreCompleto || asegurado.numeroDocumento,
+                documento: asegurado.numeroDocumento,
+                valorOriginal,
+                valorAjustado: VALOR_ASEGURADO_MAXIMO_VOLUNTARIA
+            });
         }
     });
-    return ajustados;
+    return ajustes;
+}
+
+function escaparHTML(valor) {
+    return String(valor ?? '').replace(/[&<>'"]/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[caracter]));
+}
+
+function mostrarResumenModificaciones({ ajustes = [], retirados = [] } = {}) {
+    if (ajustes.length === 0 && retirados.length === 0) return;
+
+    const modal = document.getElementById('modalResumenModificaciones');
+    const mensaje = document.getElementById('mensajeResumenModificaciones');
+    const detalle = document.getElementById('detalleResumenModificaciones');
+    if (!modal || !mensaje || !detalle) return;
+
+    const resumen = [];
+    if (ajustes.length > 0) resumen.push(`${ajustes.length} valor(es) asegurado(s) fueron limitados automáticamente.`);
+    if (retirados.length > 0) resumen.push(`${retirados.length} registro(s) fueron omitidos de la base.`);
+    mensaje.textContent = resumen.join(' ');
+
+    const seccionAjustes = ajustes.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Valores asegurados ajustados</h4><ul>${ajustes.map(ajuste => `<li><strong>${escaparHTML(ajuste.nombre)}</strong> (${escaparHTML(ajuste.documento)}): ${formatearDinero(ajuste.valorOriginal)} → ${formatearDinero(ajuste.valorAjustado)}</li>`).join('')}</ul></section>`;
+    const seccionRetirados = retirados.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Registros omitidos</h4><ul>${retirados.map(retirado => `<li>${escaparHTML(retirado)}</li>`).join('')}</ul></section>`;
+    detalle.innerHTML = seccionAjustes + seccionRetirados;
+    modal.style.display = 'flex';
+}
+
+function cerrarResumenModificaciones() {
+    const modal = document.getElementById('modalResumenModificaciones');
+    if (modal) modal.style.display = 'none';
 }
 
 function editarAsegurado(id) {
@@ -2882,11 +2931,12 @@ function setupEventListeners() {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             estado.poliza[campo] = e.target.value;
             if (campo === 'modalidadPlan') {
-                const ajustados = aplicarLimiteVoluntariaAValoresExistentes();
+                const ajustes = aplicarLimiteVoluntariaAValoresExistentes();
                 actualizarValidacionEdadModal();
-                if (ajustados > 0) {
+                if (ajustes.length > 0) {
                     recalcularTodo();
-                    mostrarToast(`${ajustados} valor(es) asegurado(s) fueron ajustados al máximo de ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)} para póliza voluntaria.`, 'info');
+                    mostrarResumenModificaciones({ ajustes });
+                    mostrarToast(`${ajustes.length} valor(es) asegurado(s) fueron ajustados al máximo de ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)} para póliza contributiva.`, 'info');
                 }
             }
             guardarEstado();
@@ -3927,6 +3977,7 @@ function importarExcel(evento) {
 
             const nuevos = [];
             const errores = [];
+            const ajustes = [];
             const documentosEnArchivo = new Set();
 
             for (let i = inicio; i < filas.length; i++) {
@@ -3962,6 +4013,17 @@ function importarExcel(evento) {
                 }
                 documentosEnArchivo.add(documento);
 
+                const valorAseguradoLimitado = limitarValorAseguradoParaModalidad(valorAsegurado);
+                const fueAjustadoPorLimite = valorAseguradoLimitado !== valorAsegurado;
+                if (fueAjustadoPorLimite) {
+                    ajustes.push({
+                        nombre: `Asegurado ${documento}`,
+                        documento,
+                        valorOriginal: valorAsegurado,
+                        valorAjustado: valorAseguradoLimitado
+                    });
+                }
+
                 nuevos.push({
                     id: generarUUID(),
                     tipoDocumento: 'Cédula',
@@ -3972,11 +4034,15 @@ function importarExcel(evento) {
                     sexo: 'Masculino',
                     ocupacion: 'Administrativo',
                     salario: 0,
-                    coberturas: generarCoberturasPorDefecto(valorAsegurado),
+                    coberturas: generarCoberturasPorDefecto(valorAseguradoLimitado),
                     subgrupoId: null,
                     planId: null,
                     primaIndividual: 0,
-                    simulado: false
+                    simulado: false,
+                    ...(fueAjustadoPorLimite && {
+                        valorAseguradoAjustadoPorLimite: true,
+                        valorAseguradoOriginal: valorAsegurado
+                    })
                 });
             }
 
@@ -3999,23 +4065,11 @@ function importarExcel(evento) {
             const msgOk = `${nuevos.length} asegurado(s) cargado(s) correctamente. La base anterior fue reemplazada.`;
             const msgErr = errores.length > 0 ? ` ${errores.length} fila(s) con error omitidas.` : '';
             mostrarToast(msgOk + msgErr, nuevos.length > 0 ? 'success' : 'error');
+            mostrarResumenModificaciones({ ajustes, retirados: errores });
 
             if (statusDiv) {
                 statusDiv.textContent = msgOk + msgErr;
                 statusDiv.className = `excel-status ${nuevos.length > 0 ? 'ok' : 'error'}`;
-            }
-
-            const erroresEdad = errores.filter(error => /edad inválida/i.test(error));
-            if (erroresEdad.length > 0) {
-                const detalle = erroresEdad.slice(0, 5).join(' ');
-                const adicionales = erroresEdad.length > 5
-                    ? ` Además, hay ${erroresEdad.length - 5} fila(s) adicional(es) con el mismo problema.`
-                    : '';
-                mostrarAlertaRango(
-                    `Se omitieron ${erroresEdad.length} registro(s) porque la edad permitida debe estar entre 14 y 100 años, excepto Hijos de pólizas Voluntarias (Contributivas), que pueden tener entre 0 y 100 años. ${detalle}${adicionales}`,
-                    null,
-                    'Registros omitidos por edad'
-                );
             }
 
             // Limpiar input para permitir recargar el mismo archivo

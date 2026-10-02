@@ -893,6 +893,40 @@ body {
     backdrop-filter: blur(3px);
 }
 
+.resumen-modificaciones-contenido {
+    width: min(100%, 640px);
+}
+
+#mensajeResumenModificaciones {
+    color: var(--color-gray-dark);
+    font-weight: 600;
+}
+
+.resumen-modificaciones-seccion {
+    margin-top: 18px;
+}
+
+.resumen-modificaciones-seccion h4 {
+    margin-bottom: 8px;
+    color: var(--color-primary-dark);
+    font-size: 14px;
+}
+
+.resumen-modificaciones-seccion ul {
+    max-height: 210px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 10px 12px 10px 30px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-light);
+    font-size: 13px;
+}
+
+.resumen-modificaciones-seccion li + li {
+    margin-top: 7px;
+}
+
 .recargo-comercial-contenido {
     width: min(100%, 780px);
 }
