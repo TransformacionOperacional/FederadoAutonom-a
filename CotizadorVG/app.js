@@ -251,6 +251,7 @@ let pasoActual = 1;
 let demoData = null;
 let aseguradoEditandoId = null;
 let confirmarRecargoAntesDeContinuar = false;
+let formaPagoPendiente = null;
 
 // Estado del flujo de negocio
 let flujo = {
@@ -482,19 +483,23 @@ function limitarValorAseguradoEnCampo(campo) {
     const valorLimitado = limitarValorAseguradoParaModalidad(valorIngresado);
     if (valorLimitado !== valorIngresado) {
         campo.value = formatearValorMonetario(valorLimitado);
-        mostrarToast(`Para pólizas voluntarias el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}.`, 'info');
+        mostrarToast(`Para pólizas contributivas el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}.`, 'info');
     }
     actualizarValidacionValorAseguradoModal();
 }
 
+function esModalidadContributiva() {
+    return ['Voluntaria (Contributiva)', 'Mixta (Contributiva)'].includes(estado.poliza.modalidadPlan);
+}
+
 function limitarValorAseguradoParaModalidad(valor) {
-    return estado.poliza.modalidadPlan === 'Voluntaria (Contributiva)'
+    return esModalidadContributiva()
         ? Math.min(Number(valor) || 0, VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)
         : Number(valor) || 0;
 }
 
 function aplicarLimiteVoluntariaAValoresExistentes() {
-    if (estado.poliza.modalidadPlan !== 'Voluntaria (Contributiva)') return 0;
+    if (!esModalidadContributiva()) return 0;
 
     let ajustados = 0;
     estado.asegurados.forEach(asegurado => {
@@ -607,7 +612,7 @@ function validarDocumento(tipoDoc, numeroDoc) {
 }
 
 function permiteEdadDesdeCero(tipoAsegurado) {
-    return estado.poliza.modalidadPlan === 'Voluntaria (Contributiva)'
+    return esModalidadContributiva()
         && tipoAsegurado === 'Hijos';
 }
 
@@ -916,7 +921,7 @@ function actualizarActividadEconomica(indice) {
     guardarEstado();
 
     if (actividad && esNoAsegurableActividad(actividad.field_3)) {
-        mostrarAlertaRango('La actividad seleccionada no es asegurable para Vida. Selecciona otra actividad económica para continuar con la cotización.', document.getElementById('actividad'), 'Actividad no asegurable');
+        mostrarAlertaRango('La actividad seleccionada no es asegurable.', document.getElementById('actividad'), 'Actividad no asegurable');
     }
     ocultarListaActividades();
 }
@@ -2339,13 +2344,43 @@ function renderizarOpcionesFraccionamiento(primaAnual) {
         ${Object.entries(CONFIG.FACTORES_FRACCIONAMIENTO).map(([formaPago, detalle]) => {
             const seleccionado = formaPago === formaSeleccionada;
             const valorPorPago = calcularPrimaPorFormaPago(primaAnual, formaPago);
-            return `<div class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}">
+            return `<button type="button" class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}" data-forma-pago="${formaPago}" aria-pressed="${seleccionado}"${seleccionado ? ' disabled' : ''}>
                 <span>${formaPago}${seleccionado ? ' · Seleccionada' : ''}</span>
                 <strong>${formatearDinero(valorPorPago)}</strong>
                 <small>${detalle.periodos} ${detalle.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalle.factor)}</small>
-            </div>`;
+            </button>`;
         }).join('')}
     </div>`;
+}
+
+function solicitarCambioFormaPago(formaPago) {
+    const formaPagoActual = estado.poliza.formaPago || 'Anual';
+    if (!formaPago || formaPago === formaPagoActual) return;
+
+    formaPagoPendiente = formaPago;
+    document.getElementById('mensajeConfirmarFormaPago').innerHTML = `¿Estás seguro de cambiar la forma de pago de <strong>${formaPagoActual}</strong> a <strong>${formaPago}</strong>? El valor por pago se recalculará.`;
+    document.getElementById('modalConfirmarFormaPago').style.display = 'flex';
+    document.getElementById('btnConfirmarFormaPago')?.focus();
+}
+
+function confirmarCambioFormaPago() {
+    if (!formaPagoPendiente) return;
+
+    estado.poliza.formaPago = formaPagoPendiente;
+    const selectorFormaPago = document.getElementById('formaPago');
+    if (selectorFormaPago) selectorFormaPago.value = formaPagoPendiente;
+
+    formaPagoPendiente = null;
+    document.getElementById('modalConfirmarFormaPago').style.display = 'none';
+    guardarEstado();
+    renderizarTablaCalculos();
+    renderizarDashboard();
+    mostrarToast('Forma de pago actualizada.', 'success');
+}
+
+function cancelarCambioFormaPago() {
+    formaPagoPendiente = null;
+    document.getElementById('modalConfirmarFormaPago').style.display = 'none';
 }
 
 function formatearPorcentaje(valor) {
@@ -2513,7 +2548,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
             <strong>${tasaUnicaPoliza}</strong>
         </section>`;
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
-        <header><strong>Valor según forma de pago</strong><span>Prima anual × (1 + factor de fraccionamiento) ÷ número de periodos</span></header>
+        <header><strong>Valor según forma de pago</strong><span>Selecciona la forma de pago que prefieras</span></header>
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
         <p class="fraccionamiento-resultado">${estado.poliza.formaPago || 'Anual'}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
     </section>`);
@@ -2812,6 +2847,16 @@ function setupEventListeners() {
                 renderizarDashboard();
             }
         });
+    });
+    document.addEventListener('click', evento => {
+        const opcionFormaPago = evento.target.closest('[data-forma-pago]');
+        if (opcionFormaPago) solicitarCambioFormaPago(opcionFormaPago.dataset.formaPago);
+    });
+    document.getElementById('btnConfirmarFormaPago')?.addEventListener('click', confirmarCambioFormaPago);
+    document.getElementById('btnCancelarCambioFormaPago')?.addEventListener('click', cancelarCambioFormaPago);
+    document.getElementById('btnCerrarConfirmarFormaPago')?.addEventListener('click', cancelarCambioFormaPago);
+    document.getElementById('modalConfirmarFormaPago')?.addEventListener('click', evento => {
+        if (evento.target.id === 'modalConfirmarFormaPago') cancelarCambioFormaPago();
     });
     document.getElementById('canalComercial')?.addEventListener('change', actualizarCamposComerciales);
     const buscadorActividad = document.getElementById('actividad');
