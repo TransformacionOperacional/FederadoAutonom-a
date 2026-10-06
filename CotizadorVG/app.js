@@ -14,6 +14,8 @@ const CONFIG = {
     GENERO: ['Masculino', 'Femenino'],
     TIPO_DOCUMENTO: ['Cédula', 'Pasaporte', 'Cédula Extranjería', 'NIT'],
     TIPO_ASEGURADO: ['Afiliado principal', 'Conyugue', 'Hijos', 'Hijastros', 'Hermanos', 'Sobrinos', 'Nietos', 'Padres', 'Padrastos'],
+    EDAD_MAXIMA_ASEGURADO: 70,
+    GRUPOS_ASIGNACION: ['Grupo 1', 'Grupo 2', 'Grupo 3', 'Grupo 4', 'Grupo 5'],
     COBERTURAS_EXCLUIDAS_POR_PARENTESCO: {
         // Cónyuge y descendientes no pueden contratar estos amparos.
         Conyugue: ['IPP', 'WE6', 'WE9'],
@@ -379,7 +381,8 @@ function limpiarEstado() {
 function agregarAsegurado(asegurado = null) {
     const modal = document.getElementById('modalAsegurado');
     const tipo = document.getElementById('aseguradoTipo');
-    if (!modal || !tipo) return;
+    const grupo = document.getElementById('aseguradoGrupo');
+    if (!modal || !tipo || !grupo) return;
 
     aseguradoEditandoId = asegurado?.id || null;
     document.getElementById('tituloModalAsegurado').textContent = asegurado ? 'Editar asegurado' : 'Agregar asegurado';
@@ -388,6 +391,10 @@ function agregarAsegurado(asegurado = null) {
     document.getElementById('aseguradoEdad').value = asegurado?.edad ?? '';
     tipo.innerHTML = CONFIG.TIPO_ASEGURADO.map(valor => `<option value="${valor}">${valor}</option>`).join('');
     tipo.value = asegurado?.tipoAsegurado || 'Afiliado principal';
+    grupo.innerHTML = CONFIG.GRUPOS_ASIGNACION.map(valor => `<option value="${valor}">${valor}</option>`).join('');
+    grupo.value = CONFIG.GRUPOS_ASIGNACION.includes(asegurado?.grupo)
+        ? asegurado.grupo
+        : CONFIG.GRUPOS_ASIGNACION[0];
     document.getElementById('aseguradoValor').value = formatearValorMonetario(asegurado ? obtenerValorAseguradoBase(asegurado) : null);
     actualizarValidacionEdadModal();
     actualizarValidacionValorAseguradoModal();
@@ -405,6 +412,7 @@ function guardarAseguradoDesdeModal() {
     const numeroDocumento = document.getElementById('aseguradoNumeroDocumento').value.trim();
     const nombreCompleto = document.getElementById('aseguradoNombreCompleto').value.trim();
     const tipoAsegurado = document.getElementById('aseguradoTipo').value;
+    const grupo = document.getElementById('aseguradoGrupo').value;
     const edad = Number(campoEdad.value);
     const valorIngresado = obtenerValorMonetario(campoValor.value) || 0;
     const valorAsegurado = limitarValorAseguradoParaModalidad(valorIngresado);
@@ -423,7 +431,7 @@ function guardarAseguradoDesdeModal() {
         mostrarToast('El valor asegurado mínimo es $ 10.000.000.', 'warning');
         return;
     }
-    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
+    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !CONFIG.GRUPOS_ASIGNACION.includes(grupo) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
         mostrarToast('Completa correctamente los campos obligatorios del asegurado.', 'warning');
         return;
     }
@@ -446,6 +454,7 @@ function guardarAseguradoDesdeModal() {
     datos.numeroDocumento = numeroDocumento;
     datos.nombreCompleto = nombreCompleto;
     datos.tipoAsegurado = tipoAsegurado;
+    datos.grupo = grupo;
     datos.edad = edad;
     const vida = datos.coberturas.find(cobertura => cobertura.codigo === 'WET');
     if (vida) vida.valorAsegurado = valorAsegurado;
@@ -476,6 +485,7 @@ function actualizarValidacionEdadModal() {
     const validacion = validarEdad(campoEdad.value, tipoAsegurado);
 
     campoEdad.min = admiteEdadDesdeCero ? '0' : '14';
+    campoEdad.max = String(CONFIG.EDAD_MAXIMA_ASEGURADO);
     ayuda.hidden = validacion.valido && !admiteEdadDesdeCero;
     ayuda.textContent = admiteEdadDesdeCero
         ? 'Para Hijos en pólizas Voluntarias (Contributivas), se permite una edad desde 0 años.'
@@ -673,12 +683,13 @@ function permiteEdadDesdeCero(tipoAsegurado) {
 function validarEdad(edad, tipoAsegurado = '') {
     const e = Number(edad);
     const edadMinima = permiteEdadDesdeCero(tipoAsegurado) ? 0 : 14;
-    if (edad === '' || !Number.isInteger(e) || e < edadMinima || e > 100) {
+    const edadMaxima = CONFIG.EDAD_MAXIMA_ASEGURADO;
+    if (edad === '' || !Number.isInteger(e) || e < edadMinima || e > edadMaxima) {
         return {
             valido: false,
             mensaje: edadMinima === 0
-                ? 'Edad debe estar entre 0 y 100 años'
-                : 'Edad debe estar entre 14 y 100 años'
+                ? `Edad debe estar entre 0 y ${edadMaxima} años`
+                : `Edad debe estar entre 14 y ${edadMaxima} años`
         };
     }
     return { valido: true, mensaje: '' };
@@ -1814,13 +1825,14 @@ async function exportarAseguradosExcel() {
 
     const libro = new ExcelJS.Workbook();
     const hoja = libro.addWorksheet('Asegurados');
-    hoja.addRow(['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP']);
+    hoja.addRow(['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP', 'Grupo']);
     estado.asegurados.forEach(asegurado => {
         hoja.addRow([
             String(asegurado.numeroDocumento || ''),
             asegurado.tipoAsegurado || '',
             Number(asegurado.edad) || '',
-            obtenerValorAseguradoBase(asegurado) || ''
+            obtenerValorAseguradoBase(asegurado) || '',
+            asegurado.grupo || ''
         ]);
     });
 
@@ -1828,7 +1840,8 @@ async function exportarAseguradosExcel() {
         { width: 22 },
         { width: 20 },
         { width: 8 },
-        { width: 22 }
+        { width: 22 },
+        { width: 12 }
     ];
     hoja.getColumn(1).numFmt = '@';
     hoja.getColumn(4).numFmt = '#,##0';
@@ -2700,6 +2713,7 @@ function renderizarTablaAsegurados() {
             <td>${asegurado.nombreCompleto}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${asegurado.edad}</td>
+            <td>${asegurado.grupo || '—'}</td>
             <td>${valorAseguradoTexto}</td>
             <td>
                 <button class="btn btn-small btn-secondary" onclick="editarAsegurado('${asegurado.id}')">Editar</button>
@@ -2712,7 +2726,7 @@ function renderizarTablaAsegurados() {
 
     if (estado.asegurados.length === 0) {
         const fila = document.createElement('tr');
-        fila.innerHTML = '<td colspan="6" class="text-center text-muted">No hay asegurados registrados</td>';
+        fila.innerHTML = '<td colspan="7" class="text-center text-muted">No hay asegurados registrados</td>';
         tbody.appendChild(fila);
     }
 }
@@ -3974,6 +3988,7 @@ function importarExcel(evento) {
             const columnaTipoAsegurado = indiceColumna(['tipoasegurado', 'parentesco'], 1);
             const columnaEdad = indiceColumna(['edad'], 2);
             const columnaValorAsegurado = indiceColumna(['valoraseguradocop', 'valorasegurado', 'valoraseguradovida'], 3);
+            const columnaGrupo = indiceColumna(['grupo'], 4);
 
             const nuevos = [];
             const errores = [];
@@ -3988,6 +4003,7 @@ function importarExcel(evento) {
                 const tipoAseguradoRaw = String(fila[columnaTipoAsegurado] ?? '').trim();
                 const edadRaw = fila[columnaEdad];
                 const valorAseguradoRaw = fila[columnaValorAsegurado];
+                const grupoRaw = String(fila[columnaGrupo] ?? '').trim();
 
                 if (!documento) { errores.push(`Fila ${i + 1}: documento vacío`); continue; }
 
@@ -3998,9 +4014,20 @@ function importarExcel(evento) {
                     errores.push(`Fila ${i + 1}: Tipo_Asegurado inválido (${tipoAseguradoRaw || 'vacío'})`); continue;
                 }
 
+                const grupo = CONFIG.GRUPOS_ASIGNACION.find(item =>
+                    item.toLowerCase() === grupoRaw.toLowerCase()
+                );
+                if (!grupo) {
+                    errores.push(`Fila ${i + 1}: Grupo inválido (${grupoRaw || 'vacío'}). Selecciona Grupo 1 a Grupo 5.`); continue;
+                }
+
                 const edad = Number(edadRaw);
-                if (!validarEdad(edadRaw, tipoAsegurado).valido) {
-                    errores.push(`Fila ${i + 1}: edad inválida (${edadRaw})`); continue;
+                if (Number.isInteger(edad) && edad > CONFIG.EDAD_MAXIMA_ASEGURADO) {
+                    errores.push(`Documento ${documento}: registro eliminado porque la edad (${edad}) supera el máximo permitido de ${CONFIG.EDAD_MAXIMA_ASEGURADO} años para la carga de Excel.`); continue;
+                }
+                const validacionEdad = validarEdad(edadRaw, tipoAsegurado);
+                if (!validacionEdad.valido) {
+                    errores.push(`Documento ${documento}: registro eliminado por edad inválida (${edadRaw}). ${validacionEdad.mensaje}.`); continue;
                 }
 
                 const valorAsegurado = parsearValorAsegurado(valorAseguradoRaw);
@@ -4029,6 +4056,7 @@ function importarExcel(evento) {
                     tipoDocumento: 'Cédula',
                     numeroDocumento: documento,
                     tipoAsegurado,
+                    grupo,
                     nombreCompleto: `Asegurado ${documento}`,
                     edad,
                     sexo: 'Masculino',
@@ -4092,12 +4120,12 @@ async function descargarPlantillaExcel() {
 
     // Datos de la plantilla: encabezados + filas de ejemplo
     const datos = [
-        ['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP'],
-        ['1012345678', 'Afiliado principal', 28, 67000000],
-        ['1023456789', 'Conyugue', 35, 132000000],
-        ['1034567890', 'Hijos', 42, 36000000],
-        ['1045678901', 'Padres', 31, 216000000],
-        ['1056789012', 'Padrastos', 25, 48000000]
+        ['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP', 'Grupo'],
+        ['1012345678', 'Afiliado principal', 28, 67000000, 'Grupo 1'],
+        ['1023456789', 'Conyugue', 35, 132000000, 'Grupo 2'],
+        ['1034567890', 'Hijos', 42, 36000000, 'Grupo 3'],
+        ['1045678901', 'Padres', 31, 216000000, 'Grupo 4'],
+        ['1056789012', 'Padrastos', 25, 48000000, 'Grupo 5']
     ];
 
     const libro = new ExcelJS.Workbook();
@@ -4108,7 +4136,8 @@ async function descargarPlantillaExcel() {
         { width: 22 },
         { width: 20 },
         { width: 8 },
-        { width: 22 }
+        { width: 22 },
+        { width: 12 }
     ];
     hoja.getColumn(1).numFmt = '@';
     hoja.getRow(1).font = { bold: true };
@@ -4128,6 +4157,22 @@ async function descargarPlantillaExcel() {
     };
     for (let fila = 3; fila <= 1000; fila++) {
         hoja.getCell(`B${fila}`).dataValidation = { ...hoja.getCell('B2').dataValidation };
+    }
+
+    const opcionesGrupo = `"${CONFIG.GRUPOS_ASIGNACION.join(',')}"`;
+    hoja.getCell('E2').dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: [opcionesGrupo],
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: 'Grupo inválido',
+        error: 'Selecciona un grupo entre Grupo 1 y Grupo 5.',
+        promptTitle: 'Grupo',
+        prompt: 'Selecciona el grupo que se usará como guía para la asignación manual.'
+    };
+    for (let fila = 3; fila <= 1000; fila++) {
+        hoja.getCell(`E${fila}`).dataValidation = { ...hoja.getCell('E2').dataValidation };
     }
 
     const contenido = await libro.xlsx.writeBuffer();
@@ -4974,7 +5019,7 @@ function renderizarAsignacionPlanes() {
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
         cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
-        cuerpoAsignacion.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        cuerpoAsignacion.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         actualizarContadorSeleccionAsignacion();
         return;
     }
@@ -5014,12 +5059,13 @@ function renderizarAsignacionPlanes() {
         filtroPlan.value = estado.planes.some(plan => plan.id === filtroPlanSeleccionado) ? filtroPlanSeleccionado : '';
     }
     cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
-        <tr data-documento="${asegurado.numeroDocumento || ''}" data-nombre="${asegurado.nombreCompleto || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
+        <tr data-documento="${asegurado.numeroDocumento || ''}" data-nombre="${asegurado.nombreCompleto || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-grupo="${asegurado.grupo || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
             <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}" onchange="actualizarContadorSeleccionAsignacion()" aria-label="Seleccionar ${asegurado.nombreCompleto || asegurado.numeroDocumento || 'asegurado'}"></td>
             <td>${asegurado.numeroDocumento || '—'}</td>
             <td>${asegurado.nombreCompleto || '—'}</td>
             <td>${asegurado.edad ?? '—'}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
+            <td>${asegurado.grupo || '—'}</td>
             <td>${formatearDinero(obtenerValorAseguradoBase(asegurado))}</td>
             <td><select onchange="asignarPlanAAsegurado('${asegurado.id}', this.value)"><option value="">Sin asignar</option>${opcionesPlanes}</select></td>
         </tr>`).join('');
@@ -5036,6 +5082,7 @@ function aplicarFiltrosAsignacionPlanes() {
         nombre: normalizarTexto(document.getElementById('filtroAsignacionNombre')?.value || ''),
         edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
         parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
+        grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
         valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
         planId: document.getElementById('filtroAsignacionPlan')?.value || ''
     };
@@ -5044,6 +5091,7 @@ function aplicarFiltrosAsignacionPlanes() {
             && (!filtros.nombre || normalizarTexto(fila.dataset.nombre).includes(filtros.nombre))
             && (!filtros.edad || normalizarTexto(fila.dataset.edad).includes(filtros.edad))
             && (!filtros.parentesco || normalizarTexto(fila.dataset.parentesco).includes(filtros.parentesco))
+            && (!filtros.grupo || fila.dataset.grupo === filtros.grupo)
             && (!filtros.valor || String(fila.dataset.valor).includes(filtros.valor))
             && (!filtros.planId || fila.dataset.planId === filtros.planId);
         fila.hidden = !coincide;
@@ -5468,14 +5516,13 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
 
     if (codigosPermitidos === codigosBase) return planBase;
 
-    // La restricción se determina por las coberturas resultantes, no por el
-    // parentesco. Por ejemplo, Padres y Padrastos tienen hoy la misma regla;
-    // si los valores y el rango también coinciden, deben compartir un plan.
+    // El parentesco únicamente define qué coberturas puede recibir la persona;
+    // no define un plan. Reutilizamos el plan derivado si ya existe otro con
+    // las mismas coberturas elegibles y los mismos valores de cobertura.
     const firmaValores = coberturasPermitidas
         .map(cobertura => `${cobertura.codigo}:${Number(planBase.valoresCobertura?.[cobertura.codigo]) || 0}`)
         .sort()
         .join('|');
-    const rangoPlanBase = obtenerRangoPlanBase(planBase);
     const planExistente = estado.planes.find(plan =>
         plan.generadoPorParentesco
         && obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo).sort().join(',') === codigosPermitidos
@@ -5483,13 +5530,11 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
             .map(cobertura => `${cobertura.codigo}:${Number(plan.valoresCobertura?.[cobertura.codigo]) || 0}`)
             .sort()
             .join('|') === firmaValores
-        && plan.valorDesde === rangoPlanBase.desde
-        && plan.valorHasta === rangoPlanBase.hasta
     );
     if (planExistente) {
-        const parentescos = new Set(planExistente.parentescosRestriccion || [planExistente.parentescoRestriccion]);
+        const parentescos = new Set(planExistente.parentescosRestriccion || [planExistente.parentescoRestriccion].filter(Boolean));
         parentescos.add(tipoAsegurado);
-        planExistente.parentescosRestriccion = [...parentescos].filter(Boolean);
+        planExistente.parentescosRestriccion = [...parentescos];
         return planExistente;
     }
 
@@ -5526,19 +5571,6 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
     };
     estado.planes.push(plan);
     return plan;
-}
-
-function obtenerRangoPlanBase(plan) {
-    let planActual = plan;
-    const planesVisitados = new Set();
-    while (planActual && !planesVisitados.has(planActual.id)) {
-        planesVisitados.add(planActual.id);
-        if (planActual.valorDesde !== undefined || planActual.valorHasta !== undefined) {
-            return { desde: planActual.valorDesde, hasta: planActual.valorHasta };
-        }
-        planActual = estado.planes.find(item => item.id === planActual.planBaseId);
-    }
-    return { desde: null, hasta: null };
 }
 
 function sincronizarCoberturasAseguradoConPlan(asegurado, plan) {
