@@ -26,7 +26,7 @@ def _connect_with_diagnostics(conn_string: str, context: str):
 
         host = _get_setting("TERADATA_HOST", "teradata.suranet.com")
         user = _get_setting("TERADATA_USER", "FREDARAN")
-        password = _get_setting("TERADATA_PASSWORD", "Charizard930618*")
+        password = _get_setting("TERADATA_PASSWORD", "Dragonite5161*")
         database = _get_setting("TERADATA_DATABASE", "").strip()
         connect_kwargs = {
             "host": host,
@@ -75,7 +75,7 @@ def _build_teradata_conn() -> str:
     driver = _get_setting("TERADATA_DRIVER", "Teradata Database ODBC Driver 20.00")
     host = _get_setting("TERADATA_HOST", "teradata.suranet.com")
     user = _get_setting("TERADATA_USER", "FREDARAN")
-    password = _get_setting("TERADATA_PASSWORD", "Articuno930618*")
+    password = _get_setting("TERADATA_PASSWORD", "Dragonite5161*")
     return (
         f"DRIVER={{{driver}}};"
         f"DBCName={host};"
