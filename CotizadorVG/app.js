@@ -1966,12 +1966,19 @@ function renderizarResumenPlanesConfigurados() {
 
     container.innerHTML = estado.planes.map(plan => {
         const subgrupo = estado.subgrupos.find(item => item.id === plan.subgrupoId);
-        const coberturas = (subgrupo?.coberturas || [])
+        const coberturas = ordenarCoberturasPorNombre((subgrupo?.coberturas || [])
             .map(codigo => {
-                const nombre = coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)?.nombre || codigo;
+                const cobertura = coberturasDisponibles.find(item => item.codigo === codigo);
                 const deducible = obtenerDeducibleCoberturaPlan(plan, codigo);
-                return deducible ? `${nombre} (Deducible ${deducible})` : nombre;
-            });
+                return {
+                    codigo,
+                    nombre: cobertura?.nombre || codigo,
+                    deducible
+                };
+            }), true)
+            .map(cobertura => cobertura.deducible
+                ? `${cobertura.nombre} (Deducible ${cobertura.deducible})`
+                : cobertura.nombre);
         return `
             <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#f8fbff;">
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
@@ -1984,6 +1991,18 @@ function renderizarResumenPlanesConfigurados() {
                 <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--color-gray);">${coberturas.join(' · ')}</p>
             </article>`;
     }).join('');
+}
+
+function ordenarCoberturasPorNombre(coberturas, vidaPrimero = false) {
+    return [...coberturas].sort((primera, segunda) => {
+        if (vidaPrimero && primera.codigo === 'WET') return -1;
+        if (vidaPrimero && segunda.codigo === 'WET') return 1;
+        return String(primera.nombre || primera.codigo).localeCompare(
+            String(segunda.nombre || segunda.codigo),
+            'es',
+            { sensitivity: 'base' }
+        );
+    });
 }
 
 function buscarCoberturaPorReferencia(referencia) {
@@ -2229,7 +2248,7 @@ function abrirModalCrearPlan() {
 
     planEditandoId = null;
     nombre.value = siguienteNombrePlan();
-    contenedor.innerHTML = coberturasDisponibles.map(cobertura => {
+    contenedor.innerHTML = ordenarCoberturasPorNombre(coberturasDisponibles).map(cobertura => {
         const esVida = cobertura.codigo === 'WET';
         return `<label class="cobertura-check-item${esVida ? ' obligatoria-lock' : ''}">
             <input type="checkbox" value="${cobertura.codigo}" ${esVida ? 'checked disabled' : ''}>
@@ -2274,7 +2293,7 @@ function abrirModalEditarPlan(planId) {
 
     planEditandoId = planId;
     nombre.value = plan.nombre;
-    contenedor.innerHTML = coberturasDisponibles.map(cobertura => {
+    contenedor.innerHTML = ordenarCoberturasPorNombre(coberturasDisponibles).map(cobertura => {
         const esVida = cobertura.codigo === 'WET';
         const seleccionada = esVida || estado.subgrupos
             .find(subgrupo => subgrupo.id === plan.subgrupoId)?.coberturas.includes(cobertura.codigo);
@@ -4140,6 +4159,7 @@ async function descargarPlantillaExcel() {
         { width: 12 }
     ];
     hoja.getColumn(1).numFmt = '@';
+    hoja.getColumn(4).numFmt = '"$" #,##0';
     hoja.getRow(1).font = { bold: true };
     hoja.getRow(1).alignment = { horizontal: 'center' };
 
