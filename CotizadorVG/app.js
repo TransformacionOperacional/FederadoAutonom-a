@@ -14,6 +14,8 @@ const CONFIG = {
     GENERO: ['Masculino', 'Femenino'],
     TIPO_DOCUMENTO: ['Cédula', 'Pasaporte', 'Cédula Extranjería', 'NIT'],
     TIPO_ASEGURADO: ['Afiliado principal', 'Conyugue', 'Hijos', 'Hijastros', 'Hermanos', 'Sobrinos', 'Nietos', 'Padres', 'Padrastos'],
+    EDAD_MAXIMA_ASEGURADO: 70,
+    GRUPOS_ASIGNACION: ['Grupo 1', 'Grupo 2', 'Grupo 3', 'Grupo 4', 'Grupo 5'],
     COBERTURAS_EXCLUIDAS_POR_PARENTESCO: {
         // Cónyuge y descendientes no pueden contratar estos amparos.
         Conyugue: ['IPP', 'WE6', 'WE9'],
@@ -223,6 +225,7 @@ let estado = {
         vigenciaHasta: '',
         oficina: '',
         formaPago: 'Mensual',
+        tipoPagoMensual: 'Vencida',
         fechaCobro: '',
         comision: 20,
         honorarioPromotora: 10,
@@ -251,6 +254,7 @@ let pasoActual = 1;
 let demoData = null;
 let aseguradoEditandoId = null;
 let confirmarRecargoAntesDeContinuar = false;
+let formaPagoPendiente = null;
 
 // Estado del flujo de negocio
 let flujo = {
@@ -298,6 +302,9 @@ function cargarEstado() {
                     : asegurado.tipoAsegurado
             }));
             estado.poliza.modalidadPlan = estado.poliza.modalidadPlan || 'Voluntaria (Contributiva)';
+            estado.poliza.tipoPagoMensual = estado.poliza.tipoPagoMensual
+                || (estado.poliza.pagoMensualAnticipado === true ? 'Anticipada' : 'Vencida');
+            delete estado.poliza.pagoMensualAnticipado;
             estado.poliza.canalComercial = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
             estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
@@ -336,6 +343,7 @@ function limpiarEstado() {
                 vigenciaHasta: '',
                 oficina: '',
                 formaPago: 'Mensual',
+                tipoPagoMensual: 'Vencida',
                 fechaCobro: '',
                 comision: 20,
                 honorarioPromotora: 10,
@@ -373,7 +381,8 @@ function limpiarEstado() {
 function agregarAsegurado(asegurado = null) {
     const modal = document.getElementById('modalAsegurado');
     const tipo = document.getElementById('aseguradoTipo');
-    if (!modal || !tipo) return;
+    const grupo = document.getElementById('aseguradoGrupo');
+    if (!modal || !tipo || !grupo) return;
 
     aseguradoEditandoId = asegurado?.id || null;
     document.getElementById('tituloModalAsegurado').textContent = asegurado ? 'Editar asegurado' : 'Agregar asegurado';
@@ -382,6 +391,10 @@ function agregarAsegurado(asegurado = null) {
     document.getElementById('aseguradoEdad').value = asegurado?.edad ?? '';
     tipo.innerHTML = CONFIG.TIPO_ASEGURADO.map(valor => `<option value="${valor}">${valor}</option>`).join('');
     tipo.value = asegurado?.tipoAsegurado || 'Afiliado principal';
+    grupo.innerHTML = CONFIG.GRUPOS_ASIGNACION.map(valor => `<option value="${valor}">${valor}</option>`).join('');
+    grupo.value = CONFIG.GRUPOS_ASIGNACION.includes(asegurado?.grupo)
+        ? asegurado.grupo
+        : CONFIG.GRUPOS_ASIGNACION[0];
     document.getElementById('aseguradoValor').value = formatearValorMonetario(asegurado ? obtenerValorAseguradoBase(asegurado) : null);
     actualizarValidacionEdadModal();
     actualizarValidacionValorAseguradoModal();
@@ -399,12 +412,14 @@ function guardarAseguradoDesdeModal() {
     const numeroDocumento = document.getElementById('aseguradoNumeroDocumento').value.trim();
     const nombreCompleto = document.getElementById('aseguradoNombreCompleto').value.trim();
     const tipoAsegurado = document.getElementById('aseguradoTipo').value;
+    const grupo = document.getElementById('aseguradoGrupo').value;
     const edad = Number(campoEdad.value);
     const valorIngresado = obtenerValorMonetario(campoValor.value) || 0;
     const valorAsegurado = limitarValorAseguradoParaModalidad(valorIngresado);
     const asegurado = estado.asegurados.find(item => item.id === aseguradoEditandoId);
+    const fueAjustadoPorLimite = valorAsegurado !== valorIngresado;
 
-    if (valorAsegurado !== valorIngresado) {
+    if (fueAjustadoPorLimite) {
         campoValor.value = formatearValorMonetario(valorAsegurado);
         mostrarToast(`Para pólizas voluntarias el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}. Se ajustó automáticamente.`, 'info');
     }
@@ -416,7 +431,7 @@ function guardarAseguradoDesdeModal() {
         mostrarToast('El valor asegurado mínimo es $ 10.000.000.', 'warning');
         return;
     }
-    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
+    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !CONFIG.GRUPOS_ASIGNACION.includes(grupo) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
         mostrarToast('Completa correctamente los campos obligatorios del asegurado.', 'warning');
         return;
     }
@@ -439,6 +454,7 @@ function guardarAseguradoDesdeModal() {
     datos.numeroDocumento = numeroDocumento;
     datos.nombreCompleto = nombreCompleto;
     datos.tipoAsegurado = tipoAsegurado;
+    datos.grupo = grupo;
     datos.edad = edad;
     const vida = datos.coberturas.find(cobertura => cobertura.codigo === 'WET');
     if (vida) vida.valorAsegurado = valorAsegurado;
@@ -446,6 +462,16 @@ function guardarAseguradoDesdeModal() {
     if (!asegurado) estado.asegurados.push(datos);
     recalcularTodo();
     cerrarModalAsegurado();
+    if (fueAjustadoPorLimite) {
+        mostrarResumenModificaciones({
+            ajustes: [{
+                nombre: datos.nombreCompleto || datos.numeroDocumento,
+                documento: datos.numeroDocumento,
+                valorOriginal: valorIngresado,
+                valorAjustado: valorAsegurado
+            }]
+        });
+    }
     mostrarToast(`Asegurado ${asegurado ? 'actualizado' : 'agregado'} correctamente.`, 'success');
 }
 
@@ -459,6 +485,7 @@ function actualizarValidacionEdadModal() {
     const validacion = validarEdad(campoEdad.value, tipoAsegurado);
 
     campoEdad.min = admiteEdadDesdeCero ? '0' : '14';
+    campoEdad.max = String(CONFIG.EDAD_MAXIMA_ASEGURADO);
     ayuda.hidden = validacion.valido && !admiteEdadDesdeCero;
     ayuda.textContent = admiteEdadDesdeCero
         ? 'Para Hijos en pólizas Voluntarias (Contributivas), se permite una edad desde 0 años.'
@@ -482,31 +509,73 @@ function limitarValorAseguradoEnCampo(campo) {
     const valorLimitado = limitarValorAseguradoParaModalidad(valorIngresado);
     if (valorLimitado !== valorIngresado) {
         campo.value = formatearValorMonetario(valorLimitado);
-        mostrarToast(`Para pólizas voluntarias el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}.`, 'info');
+        mostrarToast(`Para pólizas contributivas el valor asegurado máximo es ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)}.`, 'info');
     }
     actualizarValidacionValorAseguradoModal();
 }
 
+function esModalidadContributiva() {
+    return ['Voluntaria (Contributiva)', 'Mixta (Contributiva)'].includes(estado.poliza.modalidadPlan);
+}
+
 function limitarValorAseguradoParaModalidad(valor) {
-    return estado.poliza.modalidadPlan === 'Voluntaria (Contributiva)'
+    return esModalidadContributiva()
         ? Math.min(Number(valor) || 0, VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)
         : Number(valor) || 0;
 }
 
 function aplicarLimiteVoluntariaAValoresExistentes() {
-    if (estado.poliza.modalidadPlan !== 'Voluntaria (Contributiva)') return 0;
+    if (!esModalidadContributiva()) return [];
 
-    let ajustados = 0;
+    const ajustes = [];
     estado.asegurados.forEach(asegurado => {
         const vida = asegurado.coberturas?.find(cobertura =>
             cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
         );
         if (vida && Number(vida.valorAsegurado) > VALOR_ASEGURADO_MAXIMO_VOLUNTARIA) {
+            const valorOriginal = Number(vida.valorAsegurado);
             vida.valorAsegurado = VALOR_ASEGURADO_MAXIMO_VOLUNTARIA;
-            ajustados++;
+            asegurado.valorAseguradoAjustadoPorLimite = true;
+            asegurado.valorAseguradoOriginal = valorOriginal;
+            ajustes.push({
+                nombre: asegurado.nombreCompleto || asegurado.numeroDocumento,
+                documento: asegurado.numeroDocumento,
+                valorOriginal,
+                valorAjustado: VALOR_ASEGURADO_MAXIMO_VOLUNTARIA
+            });
         }
     });
-    return ajustados;
+    return ajustes;
+}
+
+function escaparHTML(valor) {
+    return String(valor ?? '').replace(/[&<>'"]/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[caracter]));
+}
+
+function mostrarResumenModificaciones({ ajustes = [], retirados = [] } = {}) {
+    if (ajustes.length === 0 && retirados.length === 0) return;
+
+    const modal = document.getElementById('modalResumenModificaciones');
+    const mensaje = document.getElementById('mensajeResumenModificaciones');
+    const detalle = document.getElementById('detalleResumenModificaciones');
+    if (!modal || !mensaje || !detalle) return;
+
+    const resumen = [];
+    if (ajustes.length > 0) resumen.push(`${ajustes.length} valor(es) asegurado(s) fueron limitados automáticamente.`);
+    if (retirados.length > 0) resumen.push(`${retirados.length} registro(s) fueron omitidos de la base.`);
+    mensaje.textContent = resumen.join(' ');
+
+    const seccionAjustes = ajustes.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Valores asegurados ajustados</h4><ul>${ajustes.map(ajuste => `<li><strong>${escaparHTML(ajuste.nombre)}</strong> (${escaparHTML(ajuste.documento)}): ${formatearDinero(ajuste.valorOriginal)} → ${formatearDinero(ajuste.valorAjustado)}</li>`).join('')}</ul></section>`;
+    const seccionRetirados = retirados.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Registros omitidos</h4><ul>${retirados.map(retirado => `<li>${escaparHTML(retirado)}</li>`).join('')}</ul></section>`;
+    detalle.innerHTML = seccionAjustes + seccionRetirados;
+    modal.style.display = 'flex';
+}
+
+function cerrarResumenModificaciones() {
+    const modal = document.getElementById('modalResumenModificaciones');
+    if (modal) modal.style.display = 'none';
 }
 
 function editarAsegurado(id) {
@@ -607,19 +676,20 @@ function validarDocumento(tipoDoc, numeroDoc) {
 }
 
 function permiteEdadDesdeCero(tipoAsegurado) {
-    return estado.poliza.modalidadPlan === 'Voluntaria (Contributiva)'
+    return esModalidadContributiva()
         && tipoAsegurado === 'Hijos';
 }
 
 function validarEdad(edad, tipoAsegurado = '') {
     const e = Number(edad);
     const edadMinima = permiteEdadDesdeCero(tipoAsegurado) ? 0 : 14;
-    if (edad === '' || !Number.isInteger(e) || e < edadMinima || e > 100) {
+    const edadMaxima = CONFIG.EDAD_MAXIMA_ASEGURADO;
+    if (edad === '' || !Number.isInteger(e) || e < edadMinima || e > edadMaxima) {
         return {
             valido: false,
             mensaje: edadMinima === 0
-                ? 'Edad debe estar entre 0 y 100 años'
-                : 'Edad debe estar entre 14 y 100 años'
+                ? `Edad debe estar entre 0 y ${edadMaxima} años`
+                : `Edad debe estar entre 14 y ${edadMaxima} años`
         };
     }
     return { valido: true, mensaje: '' };
@@ -916,7 +986,7 @@ function actualizarActividadEconomica(indice) {
     guardarEstado();
 
     if (actividad && esNoAsegurableActividad(actividad.field_3)) {
-        mostrarAlertaRango('La actividad seleccionada no es asegurable para Vida. Selecciona otra actividad económica para continuar con la cotización.', document.getElementById('actividad'), 'Actividad no asegurable');
+        mostrarAlertaRango('La actividad seleccionada no es asegurable.', document.getElementById('actividad'), 'Actividad no asegurable');
     }
     ocultarListaActividades();
 }
@@ -1755,13 +1825,14 @@ async function exportarAseguradosExcel() {
 
     const libro = new ExcelJS.Workbook();
     const hoja = libro.addWorksheet('Asegurados');
-    hoja.addRow(['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP']);
+    hoja.addRow(['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP', 'Grupo']);
     estado.asegurados.forEach(asegurado => {
         hoja.addRow([
             String(asegurado.numeroDocumento || ''),
             asegurado.tipoAsegurado || '',
             Number(asegurado.edad) || '',
-            obtenerValorAseguradoBase(asegurado) || ''
+            obtenerValorAseguradoBase(asegurado) || '',
+            asegurado.grupo || ''
         ]);
     });
 
@@ -1769,7 +1840,8 @@ async function exportarAseguradosExcel() {
         { width: 22 },
         { width: 20 },
         { width: 8 },
-        { width: 22 }
+        { width: 22 },
+        { width: 12 }
     ];
     hoja.getColumn(1).numFmt = '@';
     hoja.getColumn(4).numFmt = '#,##0';
@@ -2339,13 +2411,86 @@ function renderizarOpcionesFraccionamiento(primaAnual) {
         ${Object.entries(CONFIG.FACTORES_FRACCIONAMIENTO).map(([formaPago, detalle]) => {
             const seleccionado = formaPago === formaSeleccionada;
             const valorPorPago = calcularPrimaPorFormaPago(primaAnual, formaPago);
-            return `<div class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}">
+            const selectorTipoPagoMensual = formaPago === 'Mensual' && seleccionado
+                ? renderizarSelectorTipoPagoMensual()
+                : '';
+            return `<div class="fraccionamiento-opcion${seleccionado ? ' seleccionada' : ''}" data-forma-pago="${formaPago}" role="button" tabindex="${seleccionado ? '-1' : '0'}" aria-pressed="${seleccionado}">
                 <span>${formaPago}${seleccionado ? ' · Seleccionada' : ''}</span>
                 <strong>${formatearDinero(valorPorPago)}</strong>
                 <small>${detalle.periodos} ${detalle.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalle.factor)}</small>
+                ${selectorTipoPagoMensual}
             </div>`;
         }).join('')}
     </div>`;
+}
+
+function solicitarCambioFormaPago(formaPago) {
+    const formaPagoActual = estado.poliza.formaPago || 'Anual';
+    if (!formaPago || formaPago === formaPagoActual) return;
+
+    formaPagoPendiente = formaPago;
+    document.getElementById('mensajeConfirmarFormaPago').innerHTML = `¿Estás seguro de cambiar la forma de pago de <strong>${formaPagoActual}</strong> a <strong>${formaPago}</strong>? El valor por pago se recalculará.`;
+    document.getElementById('modalConfirmarFormaPago').style.display = 'flex';
+    document.getElementById('btnConfirmarFormaPago')?.focus();
+}
+
+function confirmarCambioFormaPago() {
+    if (!formaPagoPendiente) return;
+
+    estado.poliza.formaPago = formaPagoPendiente;
+    const selectorFormaPago = document.getElementById('formaPago');
+    if (selectorFormaPago) selectorFormaPago.value = formaPagoPendiente;
+    actualizarCampoPagoMensual();
+
+    formaPagoPendiente = null;
+    document.getElementById('modalConfirmarFormaPago').style.display = 'none';
+    guardarEstado();
+    renderizarTablaCalculos();
+    renderizarDashboard();
+    mostrarToast('Forma de pago actualizada.', 'success');
+}
+
+function cancelarCambioFormaPago() {
+    formaPagoPendiente = null;
+    document.getElementById('modalConfirmarFormaPago').style.display = 'none';
+}
+
+function actualizarCampoPagoMensual() {
+    const esPagoMensual = estado.poliza.formaPago === 'Mensual';
+    const grupo = document.getElementById('grupoTipoPagoMensual');
+    const campo = document.getElementById('tipoPagoMensual');
+
+    if (grupo) grupo.hidden = !esPagoMensual;
+    if (campo) campo.value = estado.poliza.tipoPagoMensual || 'Vencida';
+}
+
+function obtenerDescripcionFormaPago() {
+    if (estado.poliza.formaPago !== 'Mensual') return estado.poliza.formaPago || 'Anual';
+    return `Mensual (${estado.poliza.tipoPagoMensual || 'Vencida'})`;
+}
+
+function renderizarSelectorTipoPagoMensual() {
+    if (estado.poliza.formaPago !== 'Mensual') return '';
+
+    const tipoSeleccionado = estado.poliza.tipoPagoMensual || 'Vencida';
+    return `<div class="fraccionamiento-tipo-mensual">
+        <label for="tipoPagoMensualResumen">Pago</label>
+        <select id="tipoPagoMensualResumen" data-tipo-pago-mensual>
+            <option value="Anticipada"${tipoSeleccionado === 'Anticipada' ? ' selected' : ''}>Anticipada</option>
+            <option value="Vencida"${tipoSeleccionado === 'Vencida' ? ' selected' : ''}>Vencida</option>
+        </select>
+    </div>`;
+}
+
+function actualizarTipoPagoMensual(tipoPagoMensual) {
+    if (!['Anticipada', 'Vencida'].includes(tipoPagoMensual)) return;
+
+    estado.poliza.tipoPagoMensual = tipoPagoMensual;
+    const selectorInicial = document.getElementById('tipoPagoMensual');
+    if (selectorInicial) selectorInicial.value = tipoPagoMensual;
+    guardarEstado();
+    renderizarTablaCalculos();
+    renderizarDashboard();
 }
 
 function formatearPorcentaje(valor) {
@@ -2513,9 +2658,9 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
             <strong>${tasaUnicaPoliza}</strong>
         </section>`;
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
-        <header><strong>Valor según forma de pago</strong><span>Prima anual × (1 + factor de fraccionamiento) ÷ número de periodos</span></header>
+        <header><strong>Valor según forma de pago</strong><span>Selecciona la forma de pago que prefieras</span></header>
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
-        <p class="fraccionamiento-resultado">${estado.poliza.formaPago || 'Anual'}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
+        <p class="fraccionamiento-resultado">${obtenerDescripcionFormaPago()}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
     </section>`);
     if (estado.poliza.aplicaCredibilidad === true) {
         contenedor.insertAdjacentHTML('beforeend', `<section class="comparativa-credibilidad-acciones">
@@ -2568,6 +2713,7 @@ function renderizarTablaAsegurados() {
             <td>${asegurado.nombreCompleto}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${asegurado.edad}</td>
+            <td>${asegurado.grupo || '—'}</td>
             <td>${valorAseguradoTexto}</td>
             <td>
                 <button class="btn btn-small btn-secondary" onclick="editarAsegurado('${asegurado.id}')">Editar</button>
@@ -2580,7 +2726,7 @@ function renderizarTablaAsegurados() {
 
     if (estado.asegurados.length === 0) {
         const fila = document.createElement('tr');
-        fila.innerHTML = '<td colspan="6" class="text-center text-muted">No hay asegurados registrados</td>';
+        fila.innerHTML = '<td colspan="7" class="text-center text-muted">No hay asegurados registrados</td>';
         tbody.appendChild(fila);
     }
 }
@@ -2663,7 +2809,7 @@ function renderizarDashboard() {
     document.getElementById('nivelComplejidad').textContent = complejidad;
     document.getElementById('primaAnual').textContent = formatearDinero(primaAnual);
     document.getElementById('primaFormaPago').textContent = formatearDinero(primaSegunFormaPago);
-    document.getElementById('etiquetaPrimaFormaPago').textContent = `${estado.poliza.formaPago || 'Anual'} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
+    document.getElementById('etiquetaPrimaFormaPago').textContent = `${obtenerDescripcionFormaPago()} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
 
     // Métricas y póliza en el resumen
     const infoPoliza = document.getElementById('infoPolizaResumen');
@@ -2676,7 +2822,7 @@ function renderizarDashboard() {
             <p><strong>Vigencia:</strong> ${p.vigenciaDesde || '—'} → ${p.vigenciaHasta || '—'}</p>
             <p><strong>Asesor:</strong> ${p.asesor || '—'}</p>
             <p><strong>Canal:</strong> ${p.canalComercial || '—'}</p>
-            <p><strong>Forma de pago:</strong> ${p.formaPago || 'Anual'} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
+            <p><strong>Forma de pago:</strong> ${obtenerDescripcionFormaPago()} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
             <p><strong>Comisión:</strong> ${p.comision || 0}%${p.canalComercial === 'Promotora' ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
             <p><strong>Siniestralidad:</strong> ${formatearDinero(p.valorSiniestrosTotales || 0)} en ${p.anosExposicion || 0} año(s) de exposición | Promedio: ${formatearDinero(p.siniestrosPromedio || 0)}</p>
         `;
@@ -2690,7 +2836,7 @@ function renderizarDashboard() {
             <p><strong>Subgrupos:</strong> ${totalSubgrupos}</p>
             <p><strong>Planes:</strong> ${totalPlanes}</p>
             <p><strong>Prima anual:</strong> ${formatearDinero(primaAnual)}</p>
-            <p><strong>Valor por pago (${estado.poliza.formaPago || 'Anual'}):</strong> ${formatearDinero(primaSegunFormaPago)}</p>
+            <p><strong>Valor por pago (${obtenerDescripcionFormaPago()}):</strong> ${formatearDinero(primaSegunFormaPago)}</p>
             <p><strong>Complejidad:</strong> ${complejidad}</p>
             ${sinAsig}${sinPlanTxt}
         `;
@@ -2799,19 +2945,48 @@ function setupEventListeners() {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             estado.poliza[campo] = e.target.value;
             if (campo === 'modalidadPlan') {
-                const ajustados = aplicarLimiteVoluntariaAValoresExistentes();
+                const ajustes = aplicarLimiteVoluntariaAValoresExistentes();
                 actualizarValidacionEdadModal();
-                if (ajustados > 0) {
+                if (ajustes.length > 0) {
                     recalcularTodo();
-                    mostrarToast(`${ajustados} valor(es) asegurado(s) fueron ajustados al máximo de ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)} para póliza voluntaria.`, 'info');
+                    mostrarResumenModificaciones({ ajustes });
+                    mostrarToast(`${ajustes.length} valor(es) asegurado(s) fueron ajustados al máximo de ${formatearDinero(VALOR_ASEGURADO_MAXIMO_VOLUNTARIA)} para póliza contributiva.`, 'info');
                 }
             }
             guardarEstado();
             if (campo === 'formaPago') {
+                actualizarCampoPagoMensual();
                 renderizarTablaCalculos();
                 renderizarDashboard();
             }
         });
+    });
+    document.getElementById('tipoPagoMensual')?.addEventListener('change', evento => {
+        actualizarTipoPagoMensual(evento.target.value);
+    });
+    document.addEventListener('click', evento => {
+        const opcionFormaPago = evento.target.closest('[data-forma-pago]');
+        if (opcionFormaPago && !evento.target.closest('[data-tipo-pago-mensual]')) {
+            solicitarCambioFormaPago(opcionFormaPago.dataset.formaPago);
+        }
+    });
+    document.addEventListener('keydown', evento => {
+        const opcionFormaPago = evento.target.closest('[data-forma-pago]');
+        if (opcionFormaPago && (evento.key === 'Enter' || evento.key === ' ')) {
+            evento.preventDefault();
+            solicitarCambioFormaPago(opcionFormaPago.dataset.formaPago);
+        }
+    });
+    document.addEventListener('change', evento => {
+        if (evento.target.matches('[data-tipo-pago-mensual]')) {
+            actualizarTipoPagoMensual(evento.target.value);
+        }
+    });
+    document.getElementById('btnConfirmarFormaPago')?.addEventListener('click', confirmarCambioFormaPago);
+    document.getElementById('btnCancelarCambioFormaPago')?.addEventListener('click', cancelarCambioFormaPago);
+    document.getElementById('btnCerrarConfirmarFormaPago')?.addEventListener('click', cancelarCambioFormaPago);
+    document.getElementById('modalConfirmarFormaPago')?.addEventListener('click', evento => {
+        if (evento.target.id === 'modalConfirmarFormaPago') cancelarCambioFormaPago();
     });
     document.getElementById('canalComercial')?.addEventListener('change', actualizarCamposComerciales);
     const buscadorActividad = document.getElementById('actividad');
@@ -2976,7 +3151,7 @@ function seleccionarSubtipo(subtipo) {
         tomador: '', tipoIdentificacion: 'NIT', numeroIdentificacion: '',
         modalidadPlan: 'Voluntaria (Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         actividadDetalle: null,
-        oficina: '', formaPago: 'Mensual', fechaCobro: '',
+        oficina: '', formaPago: 'Mensual', tipoPagoMensual: 'Vencida', fechaCobro: '',
         comision: 20, honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
@@ -2997,6 +3172,7 @@ function volverAlLanding() {
 function mostrarWizard() {
     mostrarSoloPantalla('mainContainer');
     actualizarBadgeFlujo();
+    actualizarCampoPagoMensual();
     // Mostrar / ocultar paneles de modo en paso 2 (asegurados)
     // Para renovación, no se muestran paneles de carga ya que los datos vienen del sistema
     const panelSim   = document.getElementById('panelSimulacion');
@@ -3558,6 +3734,7 @@ function seleccionarPolizaRenovacion(poliza) {
             vigenciaHasta:        estado.poliza.vigenciaHasta,
             oficina:              estado.poliza.oficina,
             formaPago:            estado.poliza.formaPago,
+            tipoPagoMensual:       estado.poliza.tipoPagoMensual || 'Vencida',
             fechaCobro:           estado.poliza.fechaCobro,
             comision:             estado.poliza.comision,
             honorarioPromotora:   estado.poliza.honorarioPromotora,
@@ -3811,9 +3988,11 @@ function importarExcel(evento) {
             const columnaTipoAsegurado = indiceColumna(['tipoasegurado', 'parentesco'], 1);
             const columnaEdad = indiceColumna(['edad'], 2);
             const columnaValorAsegurado = indiceColumna(['valoraseguradocop', 'valorasegurado', 'valoraseguradovida'], 3);
+            const columnaGrupo = indiceColumna(['grupo'], 4);
 
             const nuevos = [];
             const errores = [];
+            const ajustes = [];
             const documentosEnArchivo = new Set();
 
             for (let i = inicio; i < filas.length; i++) {
@@ -3824,6 +4003,7 @@ function importarExcel(evento) {
                 const tipoAseguradoRaw = String(fila[columnaTipoAsegurado] ?? '').trim();
                 const edadRaw = fila[columnaEdad];
                 const valorAseguradoRaw = fila[columnaValorAsegurado];
+                const grupoRaw = String(fila[columnaGrupo] ?? '').trim();
 
                 if (!documento) { errores.push(`Fila ${i + 1}: documento vacío`); continue; }
 
@@ -3834,9 +4014,20 @@ function importarExcel(evento) {
                     errores.push(`Fila ${i + 1}: Tipo_Asegurado inválido (${tipoAseguradoRaw || 'vacío'})`); continue;
                 }
 
+                const grupo = CONFIG.GRUPOS_ASIGNACION.find(item =>
+                    item.toLowerCase() === grupoRaw.toLowerCase()
+                );
+                if (!grupo) {
+                    errores.push(`Fila ${i + 1}: Grupo inválido (${grupoRaw || 'vacío'}). Selecciona Grupo 1 a Grupo 5.`); continue;
+                }
+
                 const edad = Number(edadRaw);
-                if (!validarEdad(edadRaw, tipoAsegurado).valido) {
-                    errores.push(`Fila ${i + 1}: edad inválida (${edadRaw})`); continue;
+                if (Number.isInteger(edad) && edad > CONFIG.EDAD_MAXIMA_ASEGURADO) {
+                    errores.push(`Documento ${documento}: registro eliminado porque la edad (${edad}) supera el máximo permitido de ${CONFIG.EDAD_MAXIMA_ASEGURADO} años para la carga de Excel.`); continue;
+                }
+                const validacionEdad = validarEdad(edadRaw, tipoAsegurado);
+                if (!validacionEdad.valido) {
+                    errores.push(`Documento ${documento}: registro eliminado por edad inválida (${edadRaw}). ${validacionEdad.mensaje}.`); continue;
                 }
 
                 const valorAsegurado = parsearValorAsegurado(valorAseguradoRaw);
@@ -3849,21 +4040,37 @@ function importarExcel(evento) {
                 }
                 documentosEnArchivo.add(documento);
 
+                const valorAseguradoLimitado = limitarValorAseguradoParaModalidad(valorAsegurado);
+                const fueAjustadoPorLimite = valorAseguradoLimitado !== valorAsegurado;
+                if (fueAjustadoPorLimite) {
+                    ajustes.push({
+                        nombre: `Asegurado ${documento}`,
+                        documento,
+                        valorOriginal: valorAsegurado,
+                        valorAjustado: valorAseguradoLimitado
+                    });
+                }
+
                 nuevos.push({
                     id: generarUUID(),
                     tipoDocumento: 'Cédula',
                     numeroDocumento: documento,
                     tipoAsegurado,
+                    grupo,
                     nombreCompleto: `Asegurado ${documento}`,
                     edad,
                     sexo: 'Masculino',
                     ocupacion: 'Administrativo',
                     salario: 0,
-                    coberturas: generarCoberturasPorDefecto(valorAsegurado),
+                    coberturas: generarCoberturasPorDefecto(valorAseguradoLimitado),
                     subgrupoId: null,
                     planId: null,
                     primaIndividual: 0,
-                    simulado: false
+                    simulado: false,
+                    ...(fueAjustadoPorLimite && {
+                        valorAseguradoAjustadoPorLimite: true,
+                        valorAseguradoOriginal: valorAsegurado
+                    })
                 });
             }
 
@@ -3886,23 +4093,11 @@ function importarExcel(evento) {
             const msgOk = `${nuevos.length} asegurado(s) cargado(s) correctamente. La base anterior fue reemplazada.`;
             const msgErr = errores.length > 0 ? ` ${errores.length} fila(s) con error omitidas.` : '';
             mostrarToast(msgOk + msgErr, nuevos.length > 0 ? 'success' : 'error');
+            mostrarResumenModificaciones({ ajustes, retirados: errores });
 
             if (statusDiv) {
                 statusDiv.textContent = msgOk + msgErr;
                 statusDiv.className = `excel-status ${nuevos.length > 0 ? 'ok' : 'error'}`;
-            }
-
-            const erroresEdad = errores.filter(error => /edad inválida/i.test(error));
-            if (erroresEdad.length > 0) {
-                const detalle = erroresEdad.slice(0, 5).join(' ');
-                const adicionales = erroresEdad.length > 5
-                    ? ` Además, hay ${erroresEdad.length - 5} fila(s) adicional(es) con el mismo problema.`
-                    : '';
-                mostrarAlertaRango(
-                    `Se omitieron ${erroresEdad.length} registro(s) porque la edad permitida debe estar entre 14 y 100 años, excepto Hijos de pólizas Voluntarias (Contributivas), que pueden tener entre 0 y 100 años. ${detalle}${adicionales}`,
-                    null,
-                    'Registros omitidos por edad'
-                );
             }
 
             // Limpiar input para permitir recargar el mismo archivo
@@ -3925,12 +4120,12 @@ async function descargarPlantillaExcel() {
 
     // Datos de la plantilla: encabezados + filas de ejemplo
     const datos = [
-        ['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP'],
-        ['1012345678', 'Afiliado principal', 28, 67000000],
-        ['1023456789', 'Conyugue', 35, 132000000],
-        ['1034567890', 'Hijos', 42, 36000000],
-        ['1045678901', 'Padres', 31, 216000000],
-        ['1056789012', 'Padrastos', 25, 48000000]
+        ['Numero_Documento', 'Tipo_Asegurado', 'Edad', 'Valor_Asegurado_COP', 'Grupo'],
+        ['1012345678', 'Afiliado principal', 28, 67000000, 'Grupo 1'],
+        ['1023456789', 'Conyugue', 35, 132000000, 'Grupo 2'],
+        ['1034567890', 'Hijos', 42, 36000000, 'Grupo 3'],
+        ['1045678901', 'Padres', 31, 216000000, 'Grupo 4'],
+        ['1056789012', 'Padrastos', 25, 48000000, 'Grupo 5']
     ];
 
     const libro = new ExcelJS.Workbook();
@@ -3941,7 +4136,8 @@ async function descargarPlantillaExcel() {
         { width: 22 },
         { width: 20 },
         { width: 8 },
-        { width: 22 }
+        { width: 22 },
+        { width: 12 }
     ];
     hoja.getColumn(1).numFmt = '@';
     hoja.getRow(1).font = { bold: true };
@@ -3961,6 +4157,22 @@ async function descargarPlantillaExcel() {
     };
     for (let fila = 3; fila <= 1000; fila++) {
         hoja.getCell(`B${fila}`).dataValidation = { ...hoja.getCell('B2').dataValidation };
+    }
+
+    const opcionesGrupo = `"${CONFIG.GRUPOS_ASIGNACION.join(',')}"`;
+    hoja.getCell('E2').dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: [opcionesGrupo],
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: 'Grupo inválido',
+        error: 'Selecciona un grupo entre Grupo 1 y Grupo 5.',
+        promptTitle: 'Grupo',
+        prompt: 'Selecciona el grupo que se usará como guía para la asignación manual.'
+    };
+    for (let fila = 3; fila <= 1000; fila++) {
+        hoja.getCell(`E${fila}`).dataValidation = { ...hoja.getCell('E2').dataValidation };
     }
 
     const contenido = await libro.xlsx.writeBuffer();
@@ -4807,7 +5019,7 @@ function renderizarAsignacionPlanes() {
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
         cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
-        cuerpoAsignacion.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        cuerpoAsignacion.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         actualizarContadorSeleccionAsignacion();
         return;
     }
@@ -4847,12 +5059,13 @@ function renderizarAsignacionPlanes() {
         filtroPlan.value = estado.planes.some(plan => plan.id === filtroPlanSeleccionado) ? filtroPlanSeleccionado : '';
     }
     cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
-        <tr data-documento="${asegurado.numeroDocumento || ''}" data-nombre="${asegurado.nombreCompleto || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
+        <tr data-documento="${asegurado.numeroDocumento || ''}" data-nombre="${asegurado.nombreCompleto || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-grupo="${asegurado.grupo || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
             <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}" onchange="actualizarContadorSeleccionAsignacion()" aria-label="Seleccionar ${asegurado.nombreCompleto || asegurado.numeroDocumento || 'asegurado'}"></td>
             <td>${asegurado.numeroDocumento || '—'}</td>
             <td>${asegurado.nombreCompleto || '—'}</td>
             <td>${asegurado.edad ?? '—'}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
+            <td>${asegurado.grupo || '—'}</td>
             <td>${formatearDinero(obtenerValorAseguradoBase(asegurado))}</td>
             <td><select onchange="asignarPlanAAsegurado('${asegurado.id}', this.value)"><option value="">Sin asignar</option>${opcionesPlanes}</select></td>
         </tr>`).join('');
@@ -4869,6 +5082,7 @@ function aplicarFiltrosAsignacionPlanes() {
         nombre: normalizarTexto(document.getElementById('filtroAsignacionNombre')?.value || ''),
         edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
         parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
+        grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
         valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
         planId: document.getElementById('filtroAsignacionPlan')?.value || ''
     };
@@ -4877,6 +5091,7 @@ function aplicarFiltrosAsignacionPlanes() {
             && (!filtros.nombre || normalizarTexto(fila.dataset.nombre).includes(filtros.nombre))
             && (!filtros.edad || normalizarTexto(fila.dataset.edad).includes(filtros.edad))
             && (!filtros.parentesco || normalizarTexto(fila.dataset.parentesco).includes(filtros.parentesco))
+            && (!filtros.grupo || fila.dataset.grupo === filtros.grupo)
             && (!filtros.valor || String(fila.dataset.valor).includes(filtros.valor))
             && (!filtros.planId || fila.dataset.planId === filtros.planId);
         fila.hidden = !coincide;
@@ -5301,14 +5516,13 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
 
     if (codigosPermitidos === codigosBase) return planBase;
 
-    // La restricción se determina por las coberturas resultantes, no por el
-    // parentesco. Por ejemplo, Padres y Padrastos tienen hoy la misma regla;
-    // si los valores y el rango también coinciden, deben compartir un plan.
+    // El parentesco únicamente define qué coberturas puede recibir la persona;
+    // no define un plan. Reutilizamos el plan derivado si ya existe otro con
+    // las mismas coberturas elegibles y los mismos valores de cobertura.
     const firmaValores = coberturasPermitidas
         .map(cobertura => `${cobertura.codigo}:${Number(planBase.valoresCobertura?.[cobertura.codigo]) || 0}`)
         .sort()
         .join('|');
-    const rangoPlanBase = obtenerRangoPlanBase(planBase);
     const planExistente = estado.planes.find(plan =>
         plan.generadoPorParentesco
         && obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo).sort().join(',') === codigosPermitidos
@@ -5316,13 +5530,11 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
             .map(cobertura => `${cobertura.codigo}:${Number(plan.valoresCobertura?.[cobertura.codigo]) || 0}`)
             .sort()
             .join('|') === firmaValores
-        && plan.valorDesde === rangoPlanBase.desde
-        && plan.valorHasta === rangoPlanBase.hasta
     );
     if (planExistente) {
-        const parentescos = new Set(planExistente.parentescosRestriccion || [planExistente.parentescoRestriccion]);
+        const parentescos = new Set(planExistente.parentescosRestriccion || [planExistente.parentescoRestriccion].filter(Boolean));
         parentescos.add(tipoAsegurado);
-        planExistente.parentescosRestriccion = [...parentescos].filter(Boolean);
+        planExistente.parentescosRestriccion = [...parentescos];
         return planExistente;
     }
 
@@ -5359,19 +5571,6 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
     };
     estado.planes.push(plan);
     return plan;
-}
-
-function obtenerRangoPlanBase(plan) {
-    let planActual = plan;
-    const planesVisitados = new Set();
-    while (planActual && !planesVisitados.has(planActual.id)) {
-        planesVisitados.add(planActual.id);
-        if (planActual.valorDesde !== undefined || planActual.valorHasta !== undefined) {
-            return { desde: planActual.valorDesde, hasta: planActual.valorHasta };
-        }
-        planActual = estado.planes.find(item => item.id === planActual.planBaseId);
-    }
-    return { desde: null, hasta: null };
 }
 
 function sincronizarCoberturasAseguradoConPlan(asegurado, plan) {

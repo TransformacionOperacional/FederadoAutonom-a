@@ -426,6 +426,22 @@ body {
     border: 1px solid var(--color-border, #d5dce8);
     border-radius: 8px;
     background: #f8fbff;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.fraccionamiento-opcion:not(.seleccionada):hover,
+.fraccionamiento-opcion:not(.seleccionada):focus-visible {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+    outline: none;
+}
+
+.fraccionamiento-opcion.seleccionada {
+    cursor: default;
 }
 
 .fraccionamiento-opcion span,
@@ -446,6 +462,29 @@ body {
     box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
 }
 
+.fraccionamiento-tipo-mensual {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.fraccionamiento-tipo-mensual label {
+    color: var(--color-primary-dark, #003b75);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.fraccionamiento-tipo-mensual select {
+    min-width: 0;
+    padding: 4px 22px 4px 6px;
+    border: 1px solid var(--color-border, #d5dce8);
+    border-radius: 5px;
+    color: var(--color-gray-dark, #1a2e4a);
+    font-size: 12px;
+    font-family: inherit;
+}
+
 .fraccionamiento-resultado {
     margin: 14px 0 0;
     color: var(--color-primary-dark, #003b75);
@@ -461,6 +500,7 @@ body {
     .fraccionamiento-pagos {
         grid-template-columns: 1fr;
     }
+
 }
 
 @keyframes fadeInUp {
@@ -851,6 +891,40 @@ body {
     padding: 20px;
     background: rgba(4, 42, 86, 0.48);
     backdrop-filter: blur(3px);
+}
+
+.resumen-modificaciones-contenido {
+    width: min(100%, 640px);
+}
+
+#mensajeResumenModificaciones {
+    color: var(--color-gray-dark);
+    font-weight: 600;
+}
+
+.resumen-modificaciones-seccion {
+    margin-top: 18px;
+}
+
+.resumen-modificaciones-seccion h4 {
+    margin-bottom: 8px;
+    color: var(--color-primary-dark);
+    font-size: 14px;
+}
+
+.resumen-modificaciones-seccion ul {
+    max-height: 210px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 10px 12px 10px 30px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-light);
+    font-size: 13px;
+}
+
+.resumen-modificaciones-seccion li + li {
+    margin-top: 7px;
 }
 
 .recargo-comercial-contenido {

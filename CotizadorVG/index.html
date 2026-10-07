@@ -195,6 +195,7 @@
                         <label for="modalidadPlan">Modalidad del Plan</label>
                         <select id="modalidadPlan">
                             <option value="Voluntaria (Contributiva)">Voluntaria (Contributiva)</option>
+                            <option value="Mixta (Contributiva)">Mixta (Contributiva)</option>
                             <option value="Patronal (No Contributiva)">Patronal (No Contributiva)</option>
                         </select>
                     </div>
@@ -222,6 +223,13 @@
                             <option value="Semestral">Semestral</option>
                             <option value="Anual">Anual</option>
                         </select>
+                        <div id="grupoTipoPagoMensual" hidden>
+                            <label for="tipoPagoMensual">Modalidad de pago mensual</label>
+                            <select id="tipoPagoMensual">
+                                <option value="Anticipada">Anticipada</option>
+                                <option value="Vencida">Vencida</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="fechaCobro">Fecha de Facturación</label>
@@ -399,12 +407,13 @@
                     <div class="excel-upload-area">
                         <div class="excel-icon">&#128196;</div>
                         <h4>Archivo Excel (.xlsx)</h4>
-                        <p>El archivo debe contener exactamente 4 columnas:</p>
+                        <p>El archivo debe contener exactamente 5 columnas:</p>
                         <ul class="excel-columnas">
                             <li><strong>Columna A:</strong> Documento del cliente</li>
                             <li><strong>Columna B:</strong> Tipo de asegurado</li>
-                            <li><strong>Columna C:</strong> Edad</li>
+                            <li><strong>Columna C:</strong> Edad (máximo 70 años)</li>
                             <li><strong>Columna D:</strong> Valor asegurado (COP)</li>
+                            <li><strong>Columna E:</strong> Grupo (Grupo 1 a Grupo 5)</li>
                         </ul>
                         <input type="file" id="fileExcel" accept=".xlsx,.xls" style="display:none;" onchange="importarExcel(event)">
                         <div class="excel-acciones">
@@ -429,6 +438,7 @@
                                 <th>Nombre</th>
                                 <th>Tipo de asegurado</th>
                                 <th>Edad</th>
+                                <th>Grupo</th>
                                 <th>Valor asegurado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -474,8 +484,8 @@
                     </div>
                     <table class="table-editable tabla-asignacion-planes">
                         <thead>
-                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados visibles"></th><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Valor asegurado</th><th>Plan</th></tr>
-                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionNombre" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por nombre"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><input id="filtroAsignacionValor" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">🔍 Filtrar</option></select></th></tr>
+                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados visibles"></th><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
+                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionNombre" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por nombre"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><select id="filtroAsignacionGrupo" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo"><option value="">🔍 Filtrar</option><option value="Grupo 1">Grupo 1</option><option value="Grupo 2">Grupo 2</option><option value="Grupo 3">Grupo 3</option><option value="Grupo 4">Grupo 4</option><option value="Grupo 5">Grupo 5</option></select></th><th><input id="filtroAsignacionValor" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">🔍 Filtrar</option></select></th></tr>
                         </thead>
                         <tbody id="tbody-asignacion-planes"></tbody>
                     </table>
@@ -691,8 +701,12 @@
                         <select id="aseguradoTipo" required></select>
                     </div>
                     <div class="form-group">
+                        <label for="aseguradoGrupo">Grupo *</label>
+                        <select id="aseguradoGrupo" required></select>
+                    </div>
+                    <div class="form-group">
                         <label for="aseguradoEdad">Edad *</label>
-                        <input type="number" id="aseguradoEdad" min="14" max="100" required aria-describedby="ayudaEdadMinima">
+                        <input type="number" id="aseguradoEdad" min="14" max="70" required aria-describedby="ayudaEdadMinima">
                         <small id="ayudaEdadMinima" class="validacion-campo" hidden>La edad mínima permitida es de 14 años.</small>
                     </div>
                     <div class="form-group form-full">
@@ -721,6 +735,23 @@
         </div>
     </div>
 
+    <!-- Resumen de cambios aplicados automáticamente -->
+    <div id="modalResumenModificaciones" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloResumenModificaciones" aria-describedby="mensajeResumenModificaciones">
+        <div class="modal-content resumen-modificaciones-contenido">
+            <div class="modal-header">
+                <h3 id="tituloResumenModificaciones">Modificaciones realizadas por el cotizador</h3>
+                <button class="btn-close" type="button" onclick="cerrarResumenModificaciones()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="mensajeResumenModificaciones"></p>
+                <div id="detalleResumenModificaciones"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="cerrarResumenModificaciones()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirmación de recargos comerciales -->
     <div id="modalRecargoComercial" class="modal modal-recargo-comercial" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloRecargoComercial">
         <div class="modal-content recargo-comercial-contenido">
@@ -732,6 +763,23 @@
             <div class="modal-footer">
                 <button class="btn btn-primary" type="button" onclick="confirmarRecargoComercial()">Aplicar recargos y continuar</button>
                 <button class="btn btn-secondary" type="button" onclick="cancelarConfirmacionRecargoComercial()">Revisar datos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmación de cambio de forma de pago desde los cálculos -->
+    <div id="modalConfirmarFormaPago" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloConfirmarFormaPago" aria-describedby="mensajeConfirmarFormaPago">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h3 id="tituloConfirmarFormaPago">Cambiar forma de pago</h3>
+                <button class="btn-close" id="btnCerrarConfirmarFormaPago" type="button" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="mensajeConfirmarFormaPago"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnConfirmarFormaPago" type="button">Sí, cambiar</button>
+                <button class="btn btn-secondary" id="btnCancelarCambioFormaPago" type="button">Cancelar</button>
             </div>
         </div>
     </div>
