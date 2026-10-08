@@ -865,15 +865,14 @@
                 <button class="btn-close" type="button" onclick="cancelarDeducibleRentaIncapacidad()">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">Selecciona el deducible para <strong>Renta por incapacidad por accidente y enfermedad</strong>. Esta elección determina la tasa que se aplicará.</p>
+                <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">Selecciona el deducible para <strong>Renta por incapacidad por accidente y enfermedad</strong>. El primer valor corresponde a los días mínimos y el segundo a los días máximos. Esta elección determina la tasa que se aplicará.</p>
                 <div class="form-group">
                     <label for="deducibleRentaIncapacidad">Deducible *</label>
                     <select id="deducibleRentaIncapacidad" required>
-                        <option value="">Selecciona una opción...</option>
-                        <option value="7-30">7-30</option>
-                        <option value="3-30">3-30</option>
-                        <option value="15-60">15-60</option>
-                        <option value="14-90">14-90</option>
+                        <option value="7-30" selected>Mín. 7 días - Máx. 30 días</option>
+                        <option value="3-30">Mín. 3 días - Máx. 30 días</option>
+                        <option value="15-60">Mín. 15 días - Máx. 60 días</option>
+                        <option value="14-90">Mín. 14 días - Máx. 90 días</option>
                     </select>
                 </div>
             </div>

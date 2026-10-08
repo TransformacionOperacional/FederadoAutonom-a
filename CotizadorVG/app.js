@@ -78,6 +78,7 @@ const FACTOR_REFERENCIA_CANCER_IN_SITU = 0.50;
 const TASA_CANCER_IN_SITU = 0.678 / 1000;
 const RECARGO_CANCER_IN_SITU = 0.10;
 const DEDUCIBLES_RENTA_INCAPACIDAD = ['7-30', '3-30', '15-60', '14-90'];
+const DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO = '7-30';
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/16/workflows/374bc9c80f6b420685df2183774e894d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=LhYASD77gGYm50BCzeFYIuWN_kEx_VYeUbzlMfMPG1U';
 const API_OFICINAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/28/workflows/b6994d575dae4b06bd596582b87c72bc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0Yi9rk7-G5vyOSRuaGj-cl2TyKHU6DjQhi40iQX3NyI';
@@ -1977,7 +1978,7 @@ function renderizarResumenPlanesConfigurados() {
                 };
             }), true)
             .map(cobertura => cobertura.deducible
-                ? `${cobertura.nombre} (Deducible ${cobertura.deducible})`
+                ? `${cobertura.nombre} (Deducible: ${obtenerEtiquetaDeducible(cobertura.deducible)})`
                 : cobertura.nombre);
         return `
             <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#f8fbff;">
@@ -2120,10 +2121,16 @@ function configurarOpcionesPlan(contenedor) {
     actualizarOpcionesExcluyentesPlan(contenedor);
 }
 
-function opcionesDeduciblePlan(deducible = '', seleccionada = false) {
+function obtenerEtiquetaDeducible(deducible) {
+    const [diasMinimos, diasMaximos] = String(deducible || '').split('-');
+    return diasMinimos && diasMaximos
+        ? `Mín. ${diasMinimos} días - Máx. ${diasMaximos} días`
+        : 'Deducible...';
+}
+
+function opcionesDeduciblePlan(deducible = DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO, seleccionada = false) {
     return `<select class="deducible-cobertura-plan" data-deducible-cobertura="${COBERTURA_RENTA_INCAPACIDAD}" ${seleccionada ? '' : 'disabled'} aria-label="Deducible para renta por incapacidad">
-        <option value="">Deducible...</option>
-        ${DEDUCIBLES_RENTA_INCAPACIDAD.map(opcion => `<option value="${opcion}" ${opcion === deducible ? 'selected' : ''}>${opcion}</option>`).join('')}
+        ${DEDUCIBLES_RENTA_INCAPACIDAD.map(opcion => `<option value="${opcion}" ${opcion === deducible ? 'selected' : ''}>${obtenerEtiquetaDeducible(opcion)}</option>`).join('')}
     </select>`;
 }
 
@@ -2169,7 +2176,7 @@ function solicitarDeducibleParaCrearPlan(nombre, coberturas, deduciblesCobertura
         return crearPlanConCoberturas(nombre, coberturas, deduciblesCobertura, configuracionEnfermedadesGraves);
     }
     planPendienteDeducible = { nombre, coberturas, configuracionEnfermedadesGraves };
-    document.getElementById('deducibleRentaIncapacidad').value = '';
+    document.getElementById('deducibleRentaIncapacidad').value = DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO;
     document.getElementById('modalDeducibleRentaIncapacidad').style.display = 'flex';
     return false;
 }
@@ -4666,7 +4673,7 @@ function agregarPlanAlSubgrupo() {
 
     if (subgrupo.coberturas.includes(COBERTURA_RENTA_INCAPACIDAD)) {
         planPendienteDeducible = { tipo: 'subgrupo', subgrupoId: subgrupo.id };
-        document.getElementById('deducibleRentaIncapacidad').value = '';
+        document.getElementById('deducibleRentaIncapacidad').value = DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO;
         document.getElementById('modalDeducibleRentaIncapacidad').style.display = 'flex';
         return;
     }

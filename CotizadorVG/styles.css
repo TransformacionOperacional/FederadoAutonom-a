@@ -1033,14 +1033,37 @@ body {
 
 .deducible-cobertura-plan {
     width: 100%;
-    margin-top: 8px;
-    padding: 7px 8px;
-    border: 1px solid var(--color-border);
-    border-radius: 5px;
+    margin: 0;
+    padding: 8px 24px 8px 8px;
+    border: 1px solid #9db4d1;
+    border-radius: 7px;
     color: var(--color-gray-dark);
-    background: var(--color-white);
+    background-color: var(--color-white);
     font: inherit;
     font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 43, 91, 0.08);
+    transition: var(--transition);
+    flex-basis: 100%;
+}
+
+.deducible-cobertura-plan:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 6px rgba(45, 109, 246, 0.16);
+}
+
+.deducible-cobertura-plan:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(45, 109, 246, 0.18);
+}
+
+.deducible-cobertura-plan option {
+    margin: 0;
+    padding: 0;
+    font-weight: 500;
 }
 
 .deducible-cobertura-plan:disabled {
@@ -2383,8 +2406,14 @@ body {
     cursor: pointer;
     transition: var(--transition);
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 12px;
+}
+
+.cobertura-check-item > span:not(.opcion-cancer-in-situ) {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .cobertura-check-item:hover {
