@@ -184,20 +184,21 @@ textarea {
 .progress-steps::before {
     content: '';
     position: absolute;
-    top: 24px;
-    left: 0;
-    right: 0;
-    height: 2px;
+    top: 32px;
+    left: calc(100% / 14);
+    right: calc(100% / 14);
+    height: 3px;
     background: var(--color-gray-light);
     z-index: 0;
 }
 
 .progress-fill {
     position: absolute;
-    top: 24px;
-    left: 0;
-    height: 2px;
-    background: var(--color-secondary);
+    top: 32px;
+    left: calc(100% / 14);
+    width: 0;
+    height: 3px;
+    background: var(--color-primary);
     transition: width 0.5s ease;
     z-index: 1;
 }
@@ -206,53 +207,93 @@ textarea {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     position: relative;
     z-index: 2;
     flex: 1;
     cursor: pointer;
-    opacity: 0.5;
     transition: var(--transition);
 }
 
-.step:hover {
-    opacity: 0.8;
-}
-
-.step.active {
-    opacity: 1;
-}
-
 .step-number {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 6px;
     background: var(--color-gray-light);
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
     color: var(--color-gray);
     transition: var(--transition);
 }
 
+.step-icon,
+.step-check {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.step-check {
+    display: none;
+    stroke-width: 2.6;
+}
+
+.step:hover .step-number {
+    border-color: var(--color-border);
+}
+
 .step.active .step-number {
-    background: var(--color-secondary);
-    color: var(--color-primary-dark);
-    border-color: var(--color-secondary);
-    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.25);
+    background: var(--color-white);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 6px var(--color-blue-light);
+}
+
+.step.completed .step-number {
+    background: var(--color-primary);
+    color: var(--color-white);
+    border-color: var(--color-primary);
+}
+
+.step.completed .step-icon {
+    display: none;
+}
+
+.step.completed .step-check {
+    display: block;
 }
 
 .step-label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--color-gray);
     white-space: nowrap;
 }
 
+.step.completed .step-label {
+    color: var(--color-gray-dark);
+}
+
 .step.active .step-label {
-    color: var(--color-primary-dark);
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.step-estado {
+    font-size: 12px;
+    color: var(--color-gray);
+    white-space: nowrap;
+}
+
+.step.active .step-estado {
+    color: var(--color-primary);
 }
 
 .calculos-container {
@@ -543,10 +584,10 @@ textarea {
 }
 
 .step-section h2 {
-    color: #888B8D;
+    color: #2D6DF6;
     font-size: 28px;
     margin-bottom: 10px;
-    border-bottom: 2px solid var(--color-secondary);
+    border-bottom: 2px solid var(--color-border);
     padding-bottom: 15px;
 }
 
@@ -1616,17 +1657,21 @@ textarea {
         gap: 10px;
     }
 
-    .progress-steps::before {
+    .progress-steps::before,
+    .progress-fill {
         display: none;
     }
 
     .step {
-        opacity: 1 !important;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 12px;
     }
 
-    .step.active .step-number {
-        background: var(--color-secondary);
-        color: var(--color-primary-dark);
+    .step-number {
+        width: 44px;
+        height: 44px;
+        margin-bottom: 0;
     }
 
     .toolbar {
@@ -1887,10 +1932,20 @@ textarea {
 }
 
 .card-opcion-icono {
-    font-size: 40px;
     margin-bottom: 16px;
-    display: block;
-    color: var(--color-primary);
+    display: flex;
+    justify-content: center;
+    color: var(--color-border);
+}
+
+.card-opcion-icono svg {
+    width: 44px;
+    height: 44px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .card-opcion-titulo {
@@ -2763,7 +2818,7 @@ textarea {
     color: var(--color-primary);
     margin: 20px 0 12px;
     padding-bottom: 6px;
-    border-bottom: 2px solid var(--color-secondary);
+    border-bottom: 2px solid var(--color-border);
     grid-column: 1 / -1;
 }
 

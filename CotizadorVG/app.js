@@ -5026,14 +5026,20 @@ function pasosNavegacion() {
     }
 
     document.querySelectorAll('.step').forEach((step, index) => {
-        step.classList.toggle('active', index + 1 === pasoActual);
+        const numero = index + 1;
+        step.classList.toggle('active', numero === pasoActual);
+        step.classList.toggle('completed', numero < pasoActual);
+        const estado = step.querySelector('.step-estado');
+        if (estado) {
+            estado.textContent = numero < pasoActual ? 'Completado' : (numero === pasoActual ? 'En curso' : 'Pendiente');
+        }
     });
 
-    // Actualizar barra de progreso
-    const progreso = ((pasoActual - 1) / 6) * 100;
+    // Actualizar barra de progreso (entre el centro del primer y último paso)
+    const progreso = (pasoActual - 1) / 6;
     const progressFill = document.querySelector('.progress-fill');
     if (progressFill) {
-        progressFill.style.width = progreso + '%';
+        progressFill.style.width = `calc((100% - 100% / 7) * ${progreso})`;
     }
 
     // Mostrar/ocultar botones de navegación apropiados
