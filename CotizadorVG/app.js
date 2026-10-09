@@ -2010,7 +2010,7 @@ function renderizarResumenPlanesConfigurados() {
                 ? `${cobertura.nombre} (Deducible: ${obtenerEtiquetaDeducible(cobertura.deducible)})`
                 : cobertura.nombre);
         return `
-            <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#f8fbff;">
+            <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:var(--color-light);">
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
                     <strong>${plan.nombre}</strong>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
@@ -3650,7 +3650,7 @@ function renderizarPolizasRenovacion(polizas, personaId) {
     // Encabezado
     const thead = document.createElement('thead');
     thead.innerHTML = `
-        <tr style="background: #004080; color: white;">
+        <tr style="background: var(--color-primary-dark); color: white;">
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Ramo</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Producto</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Nº Póliza</th>
@@ -3665,9 +3665,9 @@ function renderizarPolizasRenovacion(polizas, personaId) {
     // Cuerpo
     const tbody = document.createElement('tbody');
     polizas.forEach((p, idx) => {
-        const badgeClase = p.estado === 'Vigente' ? 'background: #4CAF50; color: white;' : 'background: #f44336; color: white;';
+        const badgeClase = p.estado === 'Vigente' ? 'background: var(--color-success); color: white;' : 'background: var(--color-danger); color: white;';
         const row = document.createElement('tr');
-        row.style.cssText = `border-bottom: 1px solid #ddd; ${idx % 2 === 0 ? 'background: #f9f9f9;' : ''}`;
+        row.style.cssText = `border-bottom: 1px solid #ddd; ${idx % 2 === 0 ? 'background: var(--color-light);' : ''}`;
         row.innerHTML = `
             <td style="padding: 12px; border: 1px solid #ddd;">${p.ramo || '--'}</td>
             <td style="padding: 12px; border: 1px solid #ddd;">

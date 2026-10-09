@@ -3,25 +3,39 @@
    Estilos CSS3 - Diseño corporativo moderna y responsivo
    ============================================================ */
 
-:root {
-    --color-primary-dark: #002B5B;      /* Azul marino Suramericana */
-    --color-primary: #2D6DF6;           /* Azul medio SURA */
-    --color-secondary: #E3E829;         /* Amarillo-lima SURA */
-    --color-secondary-light: #FAFAD0;   /* Fondo amarillo-lima suave */
-    --color-accent: #E3E829;
-    --color-success: #1A7A4A;
-    --color-warning: #E09000;
-    --color-danger: #C8222E;
-    --color-light: #F5F7FA;
-    --color-white: #ffffff;
-    --color-gray-dark: #1A2E4A;
-    --color-gray: #6B7C93;
-    --color-gray-light: #E4EAF2;
-    --color-border: #C8D3E3;
+@font-face {
+    font-family: 'FS Joey';
+    src: url('FS%20Joey%20Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
 
-    --shadow-sm: 0 1px 4px rgba(0,43,91,0.08);
-    --shadow-md: 0 4px 12px rgba(0,43,91,0.13);
-    --shadow-lg: 0 8px 24px rgba(0,43,91,0.18);
+:root {
+    --font-family-base: 'FS Joey', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+    /* Paleta principal y complementaria - Manual de marca SURA */
+    --color-primary-dark: #0033A0;      /* Azul Sura (Pantone 286 C) */
+    --color-primary: #2D6DF6;           /* Azul vivo (Pantone 2727 C) */
+    --color-secondary: #E3E829;         /* Amarillo alegre (Pantone 809 C) */
+    --color-secondary-light: #F9FAE1;   /* Amarillo - tono neutro para fondos digitales */
+    --color-accent: #E3E829;
+    --color-aqua: #00AEC7;              /* Aqua (Pantone 3125 C) */
+    --color-aqua-light: #D5F5F8;        /* Aqua - tono neutro para fondos digitales */
+    --color-blue-light: #DFEAFF;        /* Azul - tono neutro para fondos digitales */
+    --color-blue-soft: #81B1FF;         /* Azul - tono neutro (Pantone 284 C) */
+    --color-success: #1E6B4F;
+    --color-warning: #E09000;
+    --color-danger: #A4262C;
+    --color-light: #F8F8F8;             /* Gris neutro para fondos digitales */
+    --color-white: #ffffff;             /* Blanco puro */
+    --color-gray-dark: #1A2E4A;
+    --color-gray: #888B8D;              /* Gris (Pantone Cool Gray 8 C) */
+    --color-gray-light: #E5E9EA;        /* Gris - tono neutro para fondos digitales */
+    --color-border: #B4B4B5;            /* Gris neutro (Pantone 429 C) */
+
+    --shadow-sm: 0 1px 4px rgba(0,51,160,0.08);
+    --shadow-md: 0 4px 12px rgba(0,51,160,0.13);
+    --shadow-lg: 0 8px 24px rgba(0,51,160,0.18);
 
     --radius: 8px;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -38,9 +52,7 @@ html, body {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-                 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-                 sans-serif;
+    font-family: var(--font-family-base);
     font-size: 16px;
     line-height: 1.5;
     color: var(--color-gray-dark);
@@ -48,15 +60,22 @@ body {
     overflow-x: hidden;
 }
 
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
 /* ============================================================
    HEADER
    ============================================================ */
 
 .header {
-    background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
-    color: var(--color-white);
-    padding: 20px 0;
-    box-shadow: var(--shadow-md);
+    background: var(--color-blue-light);
+    color: var(--color-primary);
+    padding: 8px 0;
+    box-shadow: var(--shadow-sm);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -104,9 +123,9 @@ body {
 }
 
 .btn-icon {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: var(--color-white);
+    background: var(--color-white);
+    border: 1px solid var(--color-blue-soft);
+    color: var(--color-primary);
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -116,7 +135,16 @@ body {
 }
 
 .btn-icon:hover {
-    background: rgba(255,255,255,0.3);
+    background: var(--color-primary);
+    color: var(--color-white);
+}
+
+.header-logo {
+    height: 56px;
+    width: auto;
+    margin-left: 10px;
+    mix-blend-mode: multiply;
+    object-fit: contain;
 }
 
 .header-info {
@@ -289,7 +317,7 @@ body {
     justify-content: space-between;
     gap: 16px;
     padding: 14px 18px;
-    background: #f3f7fc;
+    background: var(--color-gray-light);
     border-bottom: 1px solid var(--color-border, #d5dce8);
 }
 
@@ -323,7 +351,7 @@ body {
 }
 
 .tabla-calculos tfoot {
-    background: #f8fbff;
+    background: var(--color-light);
 }
 
 .tabla-calculos tfoot td {
@@ -425,7 +453,7 @@ body {
     padding: 12px;
     border: 1px solid var(--color-border, #d5dce8);
     border-radius: 8px;
-    background: #f8fbff;
+    background: var(--color-light);
     color: inherit;
     font: inherit;
     text-align: left;
@@ -692,7 +720,7 @@ body {
 .table-subgrupos thead,
 .table-planes thead,
 .table-coberturas-modal thead {
-    background: var(--color-primary-dark);
+    background: var(--color-primary);
     color: var(--color-white);
 }
 
@@ -793,7 +821,7 @@ body {
 
 .tabla-asignacion-planes .fila-filtros-asignacion th {
     padding: 9px 10px 11px;
-    background: #f4f8fc;
+    background: var(--color-gray-light);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -803,9 +831,9 @@ body {
     padding: 7px 28px 7px 30px;
     font-weight: 400;
     color: var(--color-gray-dark);
-    border-color: #c7d5e5;
+    border-color: var(--color-border);
     background-color: var(--color-white);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23808a96' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888B8D' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: 9px center;
     background-size: 14px 14px;
@@ -815,20 +843,20 @@ body {
     appearance: none;
     -webkit-appearance: none;
     background-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23808a96' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E"),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23808a96' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888B8D' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888B8D' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-position: 9px center, right 9px center;
     background-size: 14px 14px, 12px 12px;
     cursor: pointer;
 }
 
 .tabla-asignacion-planes .fila-filtros-asignacion input::placeholder {
-    color: #808a96;
+    color: var(--color-gray);
     opacity: 1;
 }
 
 .tabla-asignacion-planes .fila-filtros-asignacion select:has(option[value=""]:checked) {
-    color: #808a96;
+    color: var(--color-gray);
 }
 
 .tabla-asignacion-planes .fila-filtros-asignacion select option {
@@ -845,7 +873,7 @@ body {
 }
 
 .modal-reasignar-seleccionados .modal-header {
-    background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+    background: var(--color-primary);
 }
 
 .modal-reasignar-seleccionados .modal-body {
@@ -854,7 +882,7 @@ body {
 
 .modal-reasignar-seleccionados .modal-footer {
     padding: 16px 24px 20px;
-    background: #f6f9fc;
+    background: var(--color-light);
 }
 
 .modal-reasignar-seleccionados label {
@@ -868,7 +896,7 @@ body {
     width: 100%;
     margin-top: 8px;
     padding: 10px 38px 10px 12px;
-    border: 1px solid #9fb9d5;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     background-color: var(--color-white);
     color: var(--color-gray-dark);
@@ -1063,7 +1091,7 @@ body {
     width: 100%;
     margin: 0;
     padding: 8px 24px 8px 8px;
-    border: 1px solid #9db4d1;
+    border: 1px solid var(--color-border);
     border-radius: 7px;
     color: var(--color-gray-dark);
     background-color: var(--color-white);
@@ -1201,7 +1229,7 @@ body {
 }
 
 .btn-success:hover:not(:disabled) {
-    background: #218838;
+    background: #165540;
 }
 
 .btn-outline {
@@ -1227,7 +1255,7 @@ body {
 }
 
 .btn-danger:hover:not(:disabled) {
-    background: #c82333;
+    background: #8A1F24;
 }
 
 /* ============================================================
@@ -1325,8 +1353,8 @@ body {
 }
 
 .sugerencias-panel {
-    background: #f0f8ff;
-    border: 2px solid #b3d9ff;
+    background: var(--color-blue-light);
+    border: 2px solid var(--color-blue-soft);
     border-radius: var(--radius);
     padding: 20px;
     margin: 30px 0;
@@ -1411,7 +1439,7 @@ body {
 }
 
 .modal-header {
-    background: var(--color-primary-dark);
+    background: var(--color-primary);
     color: var(--color-white);
     padding: 20px;
     display: flex;
@@ -1851,7 +1879,7 @@ body {
 }
 
 .card-opcion-simulacion::before {
-    background: linear-gradient(90deg, var(--color-secondary), #00cccc);
+    background: linear-gradient(90deg, var(--color-secondary), var(--color-aqua));
 }
 
 .card-opcion-cotizacion::before {
@@ -2091,15 +2119,15 @@ body {
 }
 
 .badge-simulacion {
-    background: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
+    background: var(--color-aqua-light);
+    color: var(--color-primary-dark);
+    border: 1px solid #9BE1E9;
 }
 
 .badge-cotizacion {
-    background: #cce5ff;
-    color: #004085;
-    border: 1px solid #b8daff;
+    background: var(--color-blue-light);
+    color: var(--color-primary-dark);
+    border: 1px solid var(--color-blue-soft);
 }
 
 /* --- SIMULACIÓN PARAMS --- */
@@ -2266,18 +2294,20 @@ body {
 
 /* --- RENOVACIÓN BADGE EN HEADER --- */
 .btn-menu-inicio {
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.35);
-    color: var(--color-white);
+    background: var(--color-white);
+    border: 1px solid var(--color-blue-soft);
+    color: var(--color-primary);
     padding: 6px 14px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
+    font-weight: 600;
     transition: var(--transition);
 }
 
 .btn-menu-inicio:hover {
-    background: rgba(255,255,255,0.25);
+    background: var(--color-primary);
+    color: var(--color-white);
 }
 
 .loading {
@@ -2646,7 +2676,7 @@ body {
 }
 
 .tabla-planes-valores th {
-    background: var(--color-primary-dark);
+    background: var(--color-primary);
     color: var(--color-white);
     padding: 10px 12px;
     text-align: left;
