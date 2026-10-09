@@ -435,7 +435,6 @@
                         <thead>
                             <tr>
                                 <th>Documento</th>
-                                <th>Nombre</th>
                                 <th>Tipo de asegurado</th>
                                 <th>Edad</th>
                                 <th>Grupo</th>
@@ -480,12 +479,13 @@
                 <div style="overflow-x:auto;">
                     <div class="asignacion-planes-acciones">
                         <span id="contadorSeleccionAsignacion" aria-live="polite">0 seleccionados</span>
+                        <button class="btn btn-outline btn-small" id="btnLimpiarFiltrosAsignacion" type="button" onclick="limpiarFiltrosAsignacionPlanes()">Limpiar filtros</button>
                         <button class="btn btn-accent btn-small btn-reasignar-seleccionados" id="btnReasignarSeleccionados" type="button" onclick="abrirReasignacionSeleccionados()" disabled>↻ Reasignar seleccionados</button>
                     </div>
                     <table class="table-editable tabla-asignacion-planes">
                         <thead>
-                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados visibles"></th><th>Documento</th><th>Nombre</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
-                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionNombre" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por nombre"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><select id="filtroAsignacionGrupo" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo"><option value="">🔍 Filtrar</option><option value="Grupo 1">Grupo 1</option><option value="Grupo 2">Grupo 2</option><option value="Grupo 3">Grupo 3</option><option value="Grupo 4">Grupo 4</option><option value="Grupo 5">Grupo 5</option></select></th><th><input id="filtroAsignacionValor" type="search" placeholder="🔍 Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">🔍 Filtrar</option></select></th></tr>
+                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados visibles"></th><th>Documento</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
+                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><select id="filtroAsignacionGrupo" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo"><option value="">Filtrar</option><option value="Grupo 1">Grupo 1</option><option value="Grupo 2">Grupo 2</option><option value="Grupo 3">Grupo 3</option><option value="Grupo 4">Grupo 4</option><option value="Grupo 5">Grupo 5</option></select></th><th><input id="filtroAsignacionValor" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">Filtrar</option></select></th></tr>
                         </thead>
                         <tbody id="tbody-asignacion-planes"></tbody>
                     </table>
@@ -693,10 +693,6 @@
                         <input type="text" id="aseguradoNumeroDocumento" required>
                     </div>
                     <div class="form-group">
-                        <label for="aseguradoNombreCompleto">Nombre completo *</label>
-                        <input type="text" id="aseguradoNombreCompleto" required>
-                    </div>
-                    <div class="form-group">
                         <label for="aseguradoTipo">Tipo de asegurado *</label>
                         <select id="aseguradoTipo" required></select>
                     </div>
@@ -747,6 +743,7 @@
                 <div id="detalleResumenModificaciones"></div>
             </div>
             <div class="modal-footer">
+                <button class="btn btn-success" id="btnExportarRegistrosOmitidos" type="button" onclick="exportarRegistrosOmitidosExcel()" hidden>Exportar omitidos a Excel</button>
                 <button class="btn btn-primary" type="button" onclick="cerrarResumenModificaciones()">Entendido</button>
             </div>
         </div>

@@ -388,7 +388,6 @@ function agregarAsegurado(asegurado = null) {
     aseguradoEditandoId = asegurado?.id || null;
     document.getElementById('tituloModalAsegurado').textContent = asegurado ? 'Editar asegurado' : 'Agregar asegurado';
     document.getElementById('aseguradoNumeroDocumento').value = asegurado?.numeroDocumento || '';
-    document.getElementById('aseguradoNombreCompleto').value = asegurado?.nombreCompleto || '';
     document.getElementById('aseguradoEdad').value = asegurado?.edad ?? '';
     tipo.innerHTML = CONFIG.TIPO_ASEGURADO.map(valor => `<option value="${valor}">${valor}</option>`).join('');
     tipo.value = asegurado?.tipoAsegurado || 'Afiliado principal';
@@ -411,7 +410,6 @@ function guardarAseguradoDesdeModal() {
     const campoEdad = document.getElementById('aseguradoEdad');
     const campoValor = document.getElementById('aseguradoValor');
     const numeroDocumento = document.getElementById('aseguradoNumeroDocumento').value.trim();
-    const nombreCompleto = document.getElementById('aseguradoNombreCompleto').value.trim();
     const tipoAsegurado = document.getElementById('aseguradoTipo').value;
     const grupo = document.getElementById('aseguradoGrupo').value;
     const edad = Number(campoEdad.value);
@@ -432,7 +430,7 @@ function guardarAseguradoDesdeModal() {
         mostrarToast('El valor asegurado mínimo es $ 10.000.000.', 'warning');
         return;
     }
-    if (!numeroDocumento || !nombreCompleto || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !CONFIG.GRUPOS_ASIGNACION.includes(grupo) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
+    if (!numeroDocumento || !CONFIG.TIPO_ASEGURADO.includes(tipoAsegurado) || !CONFIG.GRUPOS_ASIGNACION.includes(grupo) || !validarEdad(campoEdad.value, tipoAsegurado).valido) {
         mostrarToast('Completa correctamente los campos obligatorios del asegurado.', 'warning');
         return;
     }
@@ -453,7 +451,6 @@ function guardarAseguradoDesdeModal() {
         coberturas: generarCoberturasPorDefecto(valorAsegurado), subgrupoId: null, planId: null, primaIndividual: 0, simulado: false
     };
     datos.numeroDocumento = numeroDocumento;
-    datos.nombreCompleto = nombreCompleto;
     datos.tipoAsegurado = tipoAsegurado;
     datos.grupo = grupo;
     datos.edad = edad;
@@ -563,12 +560,16 @@ function mostrarResumenModificaciones({ ajustes = [], retirados = [] } = {}) {
     const detalle = document.getElementById('detalleResumenModificaciones');
     if (!modal || !mensaje || !detalle) return;
 
+    registrosOmitidosResumen = [...retirados];
+    const botonExportar = document.getElementById('btnExportarRegistrosOmitidos');
+    if (botonExportar) botonExportar.hidden = retirados.length === 0;
+
     const resumen = [];
     if (ajustes.length > 0) resumen.push(`${ajustes.length} valor(es) asegurado(s) fueron limitados automáticamente.`);
     if (retirados.length > 0) resumen.push(`${retirados.length} registro(s) fueron omitidos de la base.`);
     mensaje.textContent = resumen.join(' ');
 
-    const seccionAjustes = ajustes.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Valores asegurados ajustados</h4><ul>${ajustes.map(ajuste => `<li><strong>${escaparHTML(ajuste.nombre)}</strong> (${escaparHTML(ajuste.documento)}): ${formatearDinero(ajuste.valorOriginal)} → ${formatearDinero(ajuste.valorAjustado)}</li>`).join('')}</ul></section>`;
+    const seccionAjustes = ajustes.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Valores asegurados ajustados</h4><ul>${ajustes.map(ajuste => `<li><strong>Asegurado con documento ${escaparHTML(ajuste.documento)}</strong>: ${formatearDinero(ajuste.valorOriginal)} → ${formatearDinero(ajuste.valorAjustado)}</li>`).join('')}</ul></section>`;
     const seccionRetirados = retirados.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Registros omitidos</h4><ul>${retirados.map(retirado => `<li>${escaparHTML(retirado)}</li>`).join('')}</ul></section>`;
     detalle.innerHTML = seccionAjustes + seccionRetirados;
     modal.style.display = 'flex';
@@ -577,6 +578,34 @@ function mostrarResumenModificaciones({ ajustes = [], retirados = [] } = {}) {
 function cerrarResumenModificaciones() {
     const modal = document.getElementById('modalResumenModificaciones');
     if (modal) modal.style.display = 'none';
+}
+
+let registrosOmitidosResumen = [];
+
+async function exportarRegistrosOmitidosExcel() {
+    if (registrosOmitidosResumen.length === 0) return;
+    if (typeof ExcelJS === 'undefined') {
+        mostrarToast('La librería Excel no está disponible. Verifica tu conexión.', 'error');
+        return;
+    }
+
+    const libro = new ExcelJS.Workbook();
+    const hoja = libro.addWorksheet('Registros omitidos');
+    hoja.addRow(['No.', 'Detalle del registro omitido']);
+    registrosOmitidosResumen.forEach((detalle, indice) => hoja.addRow([indice + 1, String(detalle)]));
+    hoja.columns = [{ width: 8 }, { width: 110 }];
+    hoja.getRow(1).font = { bold: true };
+    hoja.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const contenido = await libro.xlsx.writeBuffer();
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(new Blob([contenido], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }));
+    enlace.download = 'Registros_Omitidos_VidaGrupo.xlsx';
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
+    mostrarToast('Registros omitidos exportados en Excel.', 'success');
 }
 
 function editarAsegurado(id) {
@@ -596,7 +625,7 @@ function validarValoresMinimosParaCotizar() {
 
     if (aseguradosNoPrincipales.length > 0) {
         const detalle = aseguradosNoPrincipales.slice(0, 5)
-            .map(asegurado => `${asegurado.nombreCompleto || asegurado.numeroDocumento} (${asegurado.tipoAsegurado || 'sin tipo'}).`)
+            .map(asegurado => `Asegurado con documento ${asegurado.numeroDocumento} (${asegurado.tipoAsegurado || 'sin tipo'}).`)
             .join(' ');
         const adicionales = aseguradosNoPrincipales.length > 5
             ? ` Hay ${aseguradosNoPrincipales.length - 5} asegurado(s) adicional(es) con esta condición.`
@@ -621,7 +650,7 @@ function validarValoresMinimosParaCotizar() {
     if (noElegibles.length === 0) return true;
 
     const detalle = noElegibles.slice(0, 5)
-        .map(asegurado => `${asegurado.nombreCompleto || asegurado.numeroDocumento}: ${formatearDinero(obtenerValorAseguradoBase(asegurado))}.`)
+        .map(asegurado => `Asegurado con documento ${asegurado.numeroDocumento}: ${formatearDinero(obtenerValorAseguradoBase(asegurado))}.`)
         .join(' ');
     const adicionales = noElegibles.length > 5 ? ` Hay ${noElegibles.length - 5} asegurado(s) adicional(es) con esta condición.` : '';
     mostrarAlertaRango(
@@ -1650,7 +1679,7 @@ function sugerirValoresRedondeados() {
 
                 if (diferencia > tolerance && diferencia < 0.15) {
                     sugerencias.push({
-                        asegurado: asegurado.nombreCompleto,
+                        asegurado: asegurado.numeroDocumento,
                         cobertura: cob.nombre,
                         actual: formatearDinero(cob.valorAsegurado),
                         sugerido: formatearDinero(redondeado),
@@ -1698,7 +1727,7 @@ function detectarPlanesUnicos() {
         if (plan.asegurados.length === 1) {
             const asegurado = estado.asegurados.find(a => a.id === plan.asegurados[0]);
             sugerencias.push({
-                asegurado: asegurado.nombreCompleto,
+                asegurado: asegurado.numeroDocumento,
                 plan: plan.coberturas,
                 prima: formatearDinero(plan.primaTotal),
                 razon: 'Plan aplicable solo a 1 asegurado - Evalúa su necesidad'
@@ -2736,7 +2765,6 @@ function renderizarTablaAsegurados() {
         const fila = document.createElement('tr');
         fila.innerHTML = `
             <td>${asegurado.numeroDocumento}</td>
-            <td>${asegurado.nombreCompleto}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${asegurado.edad}</td>
             <td>${asegurado.grupo || '—'}</td>
@@ -2752,7 +2780,7 @@ function renderizarTablaAsegurados() {
 
     if (estado.asegurados.length === 0) {
         const fila = document.createElement('tr');
-        fila.innerHTML = '<td colspan="7" class="text-center text-muted">No hay asegurados registrados</td>';
+        fila.innerHTML = '<td colspan="6" class="text-center text-muted">No hay asegurados registrados</td>';
         tbody.appendChild(fila);
     }
 }
@@ -5046,7 +5074,7 @@ function renderizarAsignacionPlanes() {
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
         cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
-        cuerpoAsignacion.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        cuerpoAsignacion.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
         actualizarContadorSeleccionAsignacion();
         return;
     }
@@ -5082,14 +5110,13 @@ function renderizarAsignacionPlanes() {
     const filtroPlan = document.getElementById('filtroAsignacionPlan');
     const filtroPlanSeleccionado = filtroPlan?.value || '';
     if (filtroPlan) {
-        filtroPlan.innerHTML = `<option value="">🔍 Filtrar</option>${opcionesPlanes}`;
+        filtroPlan.innerHTML = `<option value="">Filtrar</option>${opcionesPlanes}`;
         filtroPlan.value = estado.planes.some(plan => plan.id === filtroPlanSeleccionado) ? filtroPlanSeleccionado : '';
     }
     cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
-        <tr data-documento="${asegurado.numeroDocumento || ''}" data-nombre="${asegurado.nombreCompleto || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-grupo="${asegurado.grupo || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
-            <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}" onchange="actualizarContadorSeleccionAsignacion()" aria-label="Seleccionar ${asegurado.nombreCompleto || asegurado.numeroDocumento || 'asegurado'}"></td>
+        <tr data-documento="${asegurado.numeroDocumento || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-grupo="${asegurado.grupo || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
+            <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}" onchange="actualizarContadorSeleccionAsignacion()" aria-label="Seleccionar ${asegurado.numeroDocumento || 'asegurado'}"></td>
             <td>${asegurado.numeroDocumento || '—'}</td>
-            <td>${asegurado.nombreCompleto || '—'}</td>
             <td>${asegurado.edad ?? '—'}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${asegurado.grupo || '—'}</td>
@@ -5103,10 +5130,17 @@ function renderizarAsignacionPlanes() {
     aplicarFiltrosAsignacionPlanes();
 }
 
+function limpiarFiltrosAsignacionPlanes() {
+    ['Documento', 'Edad', 'Parentesco', 'Grupo', 'Valor', 'Plan'].forEach(sufijo => {
+        const filtro = document.getElementById(`filtroAsignacion${sufijo}`);
+        if (filtro) filtro.value = '';
+    });
+    aplicarFiltrosAsignacionPlanes();
+}
+
 function aplicarFiltrosAsignacionPlanes() {
     const filtros = {
         documento: normalizarTexto(document.getElementById('filtroAsignacionDocumento')?.value || ''),
-        nombre: normalizarTexto(document.getElementById('filtroAsignacionNombre')?.value || ''),
         edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
         parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
         grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
@@ -5115,7 +5149,6 @@ function aplicarFiltrosAsignacionPlanes() {
     };
     document.querySelectorAll('#tbody-asignacion-planes tr[data-documento]').forEach(fila => {
         const coincide = (!filtros.documento || normalizarTexto(fila.dataset.documento).includes(filtros.documento))
-            && (!filtros.nombre || normalizarTexto(fila.dataset.nombre).includes(filtros.nombre))
             && (!filtros.edad || normalizarTexto(fila.dataset.edad).includes(filtros.edad))
             && (!filtros.parentesco || normalizarTexto(fila.dataset.parentesco).includes(filtros.parentesco))
             && (!filtros.grupo || fila.dataset.grupo === filtros.grupo)
@@ -5382,7 +5415,7 @@ function validarAseguradosAsignadosParaCalculos() {
     if (sinPlan.length === 0) return true;
 
     const nombres = sinPlan.slice(0, 5)
-        .map(asegurado => asegurado.nombreCompleto || asegurado.numeroDocumento || 'Asegurado sin nombre')
+        .map(asegurado => `Asegurado con documento ${asegurado.numeroDocumento}`)
         .join(', ');
     const adicionales = sinPlan.length > 5 ? ` y ${sinPlan.length - 5} más` : '';
     mostrarAlertaRango(
@@ -5479,7 +5512,7 @@ function asignarPlanAAsegurado(aseguradoId, planId, opciones = {}) {
         if (coberturasElegibles.length === 0) {
             if (notificar) {
                 mostrarAlertaRango(
-                    `${asegurado.nombreCompleto || 'El asegurado'} tiene ${asegurado.edad} años y no tiene coberturas habilitadas en ${plan.nombre}. No se realizó la asignación.`,
+                    `El asegurado ${asegurado.numeroDocumento || ''} tiene ${asegurado.edad} años y no tiene coberturas habilitadas en ${plan.nombre}. No se realizó la asignación.`,
                     null,
                     'Restricción de edad para el plan'
                 );
@@ -5722,7 +5755,7 @@ function asignarPlanesPorRango() {
             });
             if (coberturasElegibles.length === 0) {
                 sinCoberturasElegibles++;
-                ajustesPorEdad.push(`${asegurado.nombreCompleto || asegurado.numeroDocumento || 'Asegurado sin nombre'}: no tiene coberturas habilitadas.`);
+                ajustesPorEdad.push(`Asegurado con documento ${asegurado.numeroDocumento}: no tiene coberturas habilitadas.`);
                 return;
             }
 
@@ -5731,7 +5764,7 @@ function asignarPlanesPorRango() {
                 const coberturasRetiradas = coberturasPlan
                     .filter(cobertura => !coberturasElegibles.some(elegible => elegible.codigo === cobertura.codigo))
                     .map(cobertura => cobertura.nombre || cobertura.codigo);
-                ajustesPorEdad.push(`${asegurado.nombreCompleto || asegurado.numeroDocumento || 'Asegurado sin nombre'}: se retiraron ${coberturasRetiradas.join(', ')}.`);
+                ajustesPorEdad.push(`Asegurado con documento ${asegurado.numeroDocumento}: se retiraron ${coberturasRetiradas.join(', ')}.`);
                 const llave = `${plan.id}:${coberturasElegibles.map(cobertura => cobertura.codigo).sort().join(',')}`;
                 planAsignado = planesElegibles.get(llave);
                 if (!planAsignado) {
