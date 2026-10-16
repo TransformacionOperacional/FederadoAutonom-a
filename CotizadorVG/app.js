@@ -2793,6 +2793,79 @@ function renderizarResumenCredibilidad() {
     </section>`;
 }
 
+let registrosPorPaginaCalculos = 10;
+const paginasCalculos = new Map();
+const filasCalculosPorPlan = new Map();
+
+function renderizarPaginaCalculosPlan(llave) {
+    const tbody = document.querySelector(`tbody[data-calculos-plan="${llave}"]`);
+    if (!tbody) return;
+
+    const filas = filasCalculosPorPlan.get(llave) || [];
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / registrosPorPaginaCalculos));
+    const pagina = Math.min(Math.max(1, paginasCalculos.get(llave) || 1), totalPaginas);
+    paginasCalculos.set(llave, pagina);
+    const inicio = (pagina - 1) * registrosPorPaginaCalculos;
+    const visibles = filas.slice(inicio, inicio + registrosPorPaginaCalculos);
+    tbody.innerHTML = visibles.join('');
+
+    const barra = document.querySelector(`[data-paginacion-calculos="${llave}"]`);
+    if (!barra) return;
+    barra.hidden = filas.length <= REGISTROS_POR_PAGINA_MIN;
+    barra.querySelector('.paginacion-info').textContent = `Mostrando ${filas.length ? inicio + 1 : 0}-${inicio + visibles.length} de ${filas.length}`;
+    barra.querySelector('.paginacion-pagina').textContent = `P\u00e1gina ${pagina} de ${totalPaginas}`;
+    const campo = barra.querySelector('input[data-accion-calculos="registros"]');
+    if (campo && document.activeElement !== campo) campo.value = registrosPorPaginaCalculos;
+    const enPrimera = pagina <= 1;
+    const enUltima = pagina >= totalPaginas;
+    barra.querySelector('[data-accion-calculos="primera"]')?.toggleAttribute('disabled', enPrimera);
+    barra.querySelector('[data-accion-calculos="anterior"]')?.toggleAttribute('disabled', enPrimera);
+    barra.querySelector('[data-accion-calculos="siguiente"]')?.toggleAttribute('disabled', enUltima);
+    barra.querySelector('[data-accion-calculos="ultima"]')?.toggleAttribute('disabled', enUltima);
+}
+
+function renderizarBarraPaginacionCalculos(llave) {
+    return `<div class="paginacion-asegurados" data-paginacion-calculos="${llave}" hidden>
+        <div class="paginacion-info" aria-live="polite"></div>
+        <div class="paginacion-opciones">
+            <label>Registros por página (20-100)
+                <input type="number" min="20" max="100" step="1" value="${registrosPorPaginaCalculos}" data-accion-calculos="registros">
+            </label>
+        </div>
+        <div class="paginacion-controles">
+            <button class="btn btn-secondary btn-small" type="button" data-accion-calculos="primera" aria-label="Primera página">&laquo;</button>
+            <button class="btn btn-secondary btn-small" type="button" data-accion-calculos="anterior">&lsaquo; Anterior</button>
+            <span class="paginacion-pagina"></span>
+            <button class="btn btn-secondary btn-small" type="button" data-accion-calculos="siguiente">Siguiente &rsaquo;</button>
+            <button class="btn btn-secondary btn-small" type="button" data-accion-calculos="ultima" aria-label="Última página">&raquo;</button>
+        </div>
+    </div>`;
+}
+
+function configurarPaginacionCalculos() {
+    const contenedor = document.querySelector('.calculos-container');
+    contenedor?.addEventListener('click', evento => {
+        const boton = evento.target.closest('button[data-accion-calculos]');
+        const llave = boton?.closest('[data-paginacion-calculos]')?.dataset.paginacionCalculos;
+        if (!boton || !llave) return;
+
+        const actual = paginasCalculos.get(llave) || 1;
+        const accion = boton.dataset.accionCalculos;
+        paginasCalculos.set(llave, accion === 'primera' ? 1
+            : accion === 'anterior' ? actual - 1
+            : accion === 'siguiente' ? actual + 1
+            : Number.MAX_SAFE_INTEGER);
+        renderizarPaginaCalculosPlan(llave);
+    });
+    contenedor?.addEventListener('change', evento => {
+        if (!evento.target.matches('input[data-accion-calculos="registros"]')) return;
+        registrosPorPaginaCalculos = normalizarRegistrosPorPagina(evento.target.value);
+        evento.target.value = registrosPorPaginaCalculos;
+        paginasCalculos.clear();
+        filasCalculosPorPlan.forEach((_, llave) => renderizarPaginaCalculosPlan(llave));
+    });
+}
+
 function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     const contenedor = document.querySelector('.calculos-container');
     if (!contenedor) return;
@@ -2813,6 +2886,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     });
 
     let primaTotalPoliza = 0;
+    filasCalculosPorPlan.clear();
     const totalesPolizaPorCobertura = new Map();
     const ajustesCredibilidad = esComparativaSinCredibilidad ? null : obtenerAjustesCredibilidad();
     const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
@@ -2844,7 +2918,8 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 return `<td>${formatearTasa(tasa)}</td><td>${formatearPorcentaje(recargoActividad / 100)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
             }).join('');
             return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
-        }).join('');
+        });
+        if (plan) filasCalculosPorPlan.set(plan.id, filas);
 
         if (plan) {
             if (ajustePlan) {
@@ -2880,7 +2955,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 <div><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span></div>
                 <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong><span>Tasa única total</span><strong>${plan ? tasaUnicaPlan : '—'}</strong></div>
             </header>
-            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Extraprima ocup. ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody>${filas}</tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>` : ''}
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Tasa ${cobertura.codigo}</th><th>Extraprima ocup. ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody data-calculos-plan="${plan.id}"></tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
         </section>`;
     }).join('');
 
@@ -2914,6 +2989,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
             <span>Tasa única total de la póliza</span>
             <strong>${tasaUnicaPoliza}</strong>
         </section>`;
+    filasCalculosPorPlan.forEach((_, llave) => renderizarPaginaCalculosPlan(llave));
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
         <header><strong>Valor según forma de pago</strong><span>Selecciona la forma de pago que prefieras</span></header>
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
@@ -3481,6 +3557,7 @@ function setupEventListeners() {
     });
     configurarPaginacionAsegurados();
     configurarPaginacionAsignacion();
+    configurarPaginacionCalculos();
 
     document.getElementById('btnAgregarAsegurado')?.addEventListener('click', () => agregarAsegurado());
     document.getElementById('aseguradoEdad')?.addEventListener('input', actualizarValidacionEdadModal);
