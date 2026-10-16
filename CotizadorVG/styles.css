@@ -623,6 +623,17 @@ textarea {
     grid-column: 1 / -1;
 }
 
+.form-group[hidden] {
+    display: none;
+}
+
+#asesor[readonly],
+#canalComercial[readonly],
+#regional[readonly] {
+    background: #f5f5f5;
+    cursor: default;
+}
+
 .form-group label {
     font-weight: 600;
     color: var(--color-primary-dark);

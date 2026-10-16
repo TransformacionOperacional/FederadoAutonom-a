@@ -30,7 +30,7 @@ const CONFIG = {
         Padres: ['WET', 'WEZ', 'WEN'],
         Padrastos: ['WET', 'WEZ', 'WEN']
     },
-    CANAL_COMERCIAL: ['Sucursal', 'Promotora'],
+    CANAL_COMERCIAL: ['SUCURSALES', 'PROMOTORAS', 'CORREDORES'],
     FACTORES_FRACCIONAMIENTO: {
         Mensual: { factor: 0.091, periodos: 12 },
         Trimestral: { factor: 0.07, periodos: 4 },
@@ -82,6 +82,7 @@ const DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO = '7-30';
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/28/workflows/a8b0296c9f99415d97cdcf35b7c687a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=yrpT0ViTVfP0CyV-rvuzActJpjpMjKBnXmyY4CG7-ZI';
 const API_OFICINAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/28/workflows/b6994d575dae4b06bd596582b87c72bc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0Yi9rk7-G5vyOSRuaGj-cl2TyKHU6DjQhi40iQX3NyI';
+const API_ASESORES = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/10e4ac573ce149bd97fc24395250e74d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=e2rhuYqdrphOVntoVnBjtrNqFTXYrIhAhEaNyfk_onc';
 const coberturaVidaPredeterminada = {
     codigo: 'WET',
     codigoAmparo: 63717,
@@ -93,6 +94,8 @@ let coberturasDisponibles = [coberturaVidaPredeterminada];
 let catalogoCoberturasCompleto = [...coberturasDisponibles];
 let actividadesEconomicas = [];
 let oficinas = [];
+let ultimoCodigoAsesorConsultado = '';
+let consultaAsesorEnCurso = 0;
 const CAMPOS_ACTIVIDAD_POR_COBERTURA = { WET: 'field_3', WEZ: 'field_4', WE1: 'field_5', WEY: 'field_6' };
 
 // La API entrega el nombre funcional en Amparo_Resumido_Definitivo.
@@ -234,8 +237,13 @@ let estado = {
         valorSiniestrosTotales: 0,
         anosExposicion: 0,
         siniestrosPromedio: 0,
+        codigoAsesor: '',
         asesor: '',
-        canalComercial: 'Sucursal',
+        regional: '',
+        oficinasAsesor: [],
+        oficinaAsesor: '',
+        codigoOficinaAsesor: '',
+        canalComercial: '',
         observaciones: ''
     },
     coberturasCatalogo: crearCatalogoInicial(),
@@ -306,10 +314,10 @@ function cargarEstado() {
             estado.poliza.tipoPagoMensual = estado.poliza.tipoPagoMensual
                 || (estado.poliza.pagoMensualAnticipado === true ? 'Anticipada' : 'Vencida');
             delete estado.poliza.pagoMensualAnticipado;
-            estado.poliza.canalComercial = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
+            estado.poliza.canalComercial = normalizarCanalComercial(estado.poliza.canalComercial);
             estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
-            if (estado.poliza.canalComercial === 'Sucursal') estado.poliza.honorarioPromotora = 0;
+            if (!esCanalPromotora(estado.poliza.canalComercial)) estado.poliza.honorarioPromotora = 0;
             estado.poliza.aplicaCredibilidad = estado.poliza.aplicaCredibilidad === true;
             estado.poliza.valorSiniestrosTotales = Number(estado.poliza.valorSiniestrosTotales) || 0;
             estado.poliza.anosExposicion = Math.min(4, Math.max(0, Math.round(Number(estado.poliza.anosExposicion) || 0)));
@@ -352,8 +360,13 @@ function limpiarEstado() {
                 valorSiniestrosTotales: 0,
                 anosExposicion: 0,
                 siniestrosPromedio: 0,
+                codigoAsesor: '',
                 asesor: '',
-                canalComercial: 'Sucursal',
+                regional: '',
+                oficinasAsesor: [],
+                oficinaAsesor: '',
+                codigoOficinaAsesor: '',
+                canalComercial: '',
                 observaciones: ''
             },
             coberturasCatalogo: crearCatalogoInicial(),
@@ -898,6 +911,162 @@ async function cargarActividadesEconomicas() {
     }
 }
 
+function normalizarCanalComercial(valor) {
+    const texto = String(valor || '').trim().toUpperCase();
+    if (texto === 'PROMOTORA' || texto === 'PROMOTORAS') return 'PROMOTORAS';
+    if (texto === 'SUCURSAL' || texto === 'SUCURSALES') return 'SUCURSALES';
+    if (texto === 'CORREDOR' || texto === 'CORREDORES') return 'CORREDORES';
+    return '';
+}
+
+function esCanalPromotora(valor) {
+    return normalizarCanalComercial(valor) === 'PROMOTORAS';
+}
+
+function limpiarDatosAsesor(limpiarCodigo = false) {
+    const campoCodigo = document.getElementById('codigoAsesor');
+    const campoNombre = document.getElementById('asesor');
+    const ayuda = document.getElementById('ayudaCodigoAsesor');
+    if (limpiarCodigo && campoCodigo) campoCodigo.value = '';
+    if (campoNombre) campoNombre.value = '';
+    if (ayuda) ayuda.textContent = '';
+    estado.poliza.asesor = '';
+    estado.poliza.oficinasAsesor = [];
+    estado.poliza.oficinaAsesor = '';
+    estado.poliza.codigoOficinaAsesor = '';
+    estado.poliza.regional = '';
+    estado.poliza.canalComercial = '';
+    renderizarOficinasAsesor();
+    actualizarCamposComerciales();
+}
+
+function renderizarOficinasAsesor() {
+    const select = document.getElementById('oficinaAsesor');
+    if (!select) return;
+
+    const lista = estado.poliza.oficinasAsesor || [];
+    select.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Selecciona una oficina';
+    select.appendChild(placeholder);
+    lista.forEach((oficina, indice) => {
+        const opcion = document.createElement('option');
+        opcion.value = String(indice);
+        opcion.textContent = oficina.nombre;
+        select.appendChild(opcion);
+    });
+
+    const indiceActual = lista.findIndex(oficina =>
+        oficina.codigo === estado.poliza.codigoOficinaAsesor && oficina.nombre === estado.poliza.oficinaAsesor);
+    select.value = indiceActual >= 0 ? String(indiceActual) : '';
+}
+
+function seleccionarOficinaAsesor(indice) {
+    const oficina = (estado.poliza.oficinasAsesor || [])[Number(indice)];
+    estado.poliza.oficinaAsesor = oficina ? oficina.nombre : '';
+    estado.poliza.codigoOficinaAsesor = oficina ? oficina.codigo : '';
+    estado.poliza.regional = oficina ? oficina.regional : '';
+    estado.poliza.canalComercial = oficina ? oficina.canal : '';
+
+    const select = document.getElementById('oficinaAsesor');
+    if (select) select.value = oficina ? String(indice) : '';
+    const ayuda = document.getElementById('ayudaCodigoAsesor');
+    if (ayuda) ayuda.textContent = '';
+    if (oficina && !oficina.canal) {
+        if (ayuda) ayuda.textContent = 'El canal comercial de la oficina no es reconocido.';
+        mostrarToast(`Canal comercial no reconocido: ${oficina.canalOriginal || 'sin dato'}.`, 'warning');
+    }
+    actualizarCamposComerciales();
+}
+
+function extraerFilasAsesor(datos) {
+    const candidatos = [datos, datos?.ResultSets?.Table1, datos?.value, datos?.Table1, datos?.data];
+    const filas = candidatos.find(Array.isArray) || [];
+    return filas.map(fila => Object.fromEntries(
+        Object.entries(fila || {}).map(([clave, valor]) => [clave.toUpperCase(), valor])
+    ));
+}
+
+async function consultarAsesorPorCodigo() {
+    const campoCodigo = document.getElementById('codigoAsesor');
+    const campoNombre = document.getElementById('asesor');
+    const ayuda = document.getElementById('ayudaCodigoAsesor');
+    if (!campoCodigo) return;
+
+    const codigo = campoCodigo.value.trim();
+    estado.poliza.codigoAsesor = codigo;
+    if (!codigo) {
+        ultimoCodigoAsesorConsultado = '';
+        limpiarDatosAsesor();
+        guardarEstado();
+        return;
+    }
+    if (codigo === ultimoCodigoAsesorConsultado) return;
+
+    ultimoCodigoAsesorConsultado = codigo;
+    const consultaId = ++consultaAsesorEnCurso;
+    limpiarDatosAsesor();
+    if (ayuda) ayuda.textContent = 'Consultando asesor...';
+
+    try {
+        const respuesta = await fetch(API_ASESORES, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ Usuario: 'CotizadorVG', Contrasena: 'Sura2025*', CodigoAsesor: codigo })
+        });
+        if (!respuesta.ok) throw new Error(`La API respondió HTTP ${respuesta.status}.`);
+
+        const filas = extraerFilasAsesor(await respuesta.json());
+        if (consultaId !== consultaAsesorEnCurso) return;
+
+        const filasAsesor = filas.filter(fila => fila.NOMBRE_ASESOR);
+        if (!filasAsesor.length) {
+            ultimoCodigoAsesorConsultado = '';
+            if (ayuda) ayuda.textContent = 'No se encontró un asesor con ese código.';
+            mostrarToast('No se encontró un asesor con ese código.', 'warning');
+            return;
+        }
+
+        const clavesVistas = new Set();
+        const oficinasAsesor = [];
+        filasAsesor.forEach(fila => {
+            const nombre = String(fila.SUCURSAL || '').trim();
+            const codigoOficina = String(fila.CODIGO_OFICINA || '').trim();
+            const clave = `${codigoOficina}|${nombre}`;
+            if (!nombre || clavesVistas.has(clave)) return;
+            clavesVistas.add(clave);
+            oficinasAsesor.push({
+                codigo: codigoOficina,
+                nombre,
+                regional: String(fila.REGIONAL || '').trim(),
+                canal: normalizarCanalComercial(fila.CANAL_COMERCIAL),
+                canalOriginal: fila.CANAL_COMERCIAL
+            });
+        });
+
+        estado.poliza.asesor = String(filasAsesor[0].NOMBRE_ASESOR).trim();
+        estado.poliza.oficinasAsesor = oficinasAsesor;
+        if (campoNombre) campoNombre.value = estado.poliza.asesor;
+        renderizarOficinasAsesor();
+
+        if (oficinasAsesor.length === 1) {
+            seleccionarOficinaAsesor(0);
+        } else {
+            actualizarCamposComerciales();
+            if (ayuda) ayuda.textContent = oficinasAsesor.length
+                ? 'El asesor tiene varias oficinas. Selecciona una.'
+                : 'El asesor no tiene oficinas asociadas.';
+        }
+    } catch (error) {
+        if (consultaId !== consultaAsesorEnCurso) return;
+        console.error('No fue posible consultar el asesor:', error);
+        ultimoCodigoAsesorConsultado = '';
+        if (ayuda) ayuda.textContent = 'No fue posible consultar el asesor. Intenta de nuevo.';
+        mostrarToast('No fue posible consultar el asesor.', 'warning');
+    }
+}
+
 function obtenerNombreOficina(oficina) {
     const codigo = String(oficina?.Title || '').trim();
     const nombre = String(oficina?.field_1 || '').trim();
@@ -1149,19 +1318,21 @@ function aplicarRecargoATasa(tasaPura) {
 }
 
 function obtenerRecargoComercial() {
-    const canal = estado.poliza.canalComercial === 'Promotora' ? 'Promotora' : 'Sucursal';
+    const canalNormalizado = normalizarCanalComercial(estado.poliza.canalComercial);
+    const esPromotora = canalNormalizado === 'PROMOTORAS';
+    const canal = canalNormalizado || 'SUCURSALES';
     const comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
-    const honorarioPromotora = canal === 'Promotora'
+    const honorarioPromotora = esPromotora
         ? Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10)
         : 0;
     const retorno = 0;
     const costoContrato = 1.64;
-    const gastoAdministracion = canal === 'Promotora' ? 8 : 13;
+    const gastoAdministracion = esPromotora ? 8 : 13;
     const utilidad = 1.6;
     const iva = (comision + honorarioPromotora + retorno) * 0.19;
     const total = comision + honorarioPromotora + retorno + costoContrato + iva + gastoAdministracion + utilidad;
 
-    return { canal, comision, honorarioPromotora, retorno, costoContrato, iva, gastoAdministracion, utilidad, total };
+    return { canal, esPromotora, comision, honorarioPromotora, retorno, costoContrato, iva, gastoAdministracion, utilidad, total };
 }
 
 function esCoberturaVida(cobertura) {
@@ -1399,7 +1570,7 @@ function mostrarConfirmacionRecargoComercial() {
 
     const filas = [
         ['Comisión', detalle.comision, 'Variable, diligenciada en la primera pestaña'],
-        ['Honorario promotora', detalle.honorarioPromotora, detalle.canal === 'Promotora' ? 'Variable, diligenciado en la primera pestaña' : 'No aplica para Sucursal'],
+        ['Honorario promotora', detalle.honorarioPromotora, detalle.esPromotora ? 'Variable, diligenciado en la primera pestaña' : 'No aplica para este canal'],
         ['Retorno', detalle.retorno, 'Fijo'],
         ['Costo contrato', detalle.costoContrato, 'Fijo'],
         ['IVA', detalle.iva, `Calculado: (Comisión + Honorario promotora + Retorno) × 19%`],
@@ -2876,7 +3047,7 @@ function renderizarDashboard() {
             <p><strong>Asesor:</strong> ${p.asesor || '—'}</p>
             <p><strong>Canal:</strong> ${p.canalComercial || '—'}</p>
             <p><strong>Forma de pago:</strong> ${obtenerDescripcionFormaPago()} (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'} · Factor ${formatearPorcentaje(detalleFraccionamiento.factor)})</p>
-            <p><strong>Comisión:</strong> ${p.comision || 0}%${p.canalComercial === 'Promotora' ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
+            <p><strong>Comisión:</strong> ${p.comision || 0}%${esCanalPromotora(p.canalComercial) ? ` | Honorario Promotora: ${p.honorarioPromotora || 0}%` : ''}</p>
             <p><strong>Siniestralidad:</strong> ${formatearDinero(p.valorSiniestrosTotales || 0)} en ${p.anosExposicion || 0} año(s) de exposición | Promedio: ${formatearDinero(p.siniestrosPromedio || 0)}</p>
         `;
     }
@@ -2939,7 +3110,16 @@ function actualizarCamposComerciales() {
     const contenedorComisiones = document.querySelector('.comisiones-grid');
     const grupoPromotora = document.getElementById('grupoHonorarioPromotora');
     const honorarioPromotora = document.getElementById('honorarioPromotora');
-    const esPromotora = canal?.value === 'Promotora';
+    const canalActual = normalizarCanalComercial(estado.poliza.canalComercial);
+    const esPromotora = canalActual === 'PROMOTORAS';
+
+    if (canal) canal.value = canalActual;
+    const campoRegional = document.getElementById('regional');
+    if (campoRegional) campoRegional.value = estado.poliza.regional || '';
+    document.querySelectorAll('.dato-asesor').forEach(el => { el.hidden = !estado.poliza.asesor; });
+    document.querySelectorAll('.dato-oficina-asesor').forEach(el => {
+        el.hidden = !(estado.poliza.oficinaAsesor || canalActual);
+    });
 
     if (grupoPromotora) grupoPromotora.hidden = !esPromotora;
     contenedorComisiones?.classList.toggle('solo-comision', !esPromotora);
@@ -2948,7 +3128,7 @@ function actualizarCamposComerciales() {
         if (!esPromotora) honorarioPromotora.value = '0';
     }
 
-    estado.poliza.canalComercial = esPromotora ? 'Promotora' : 'Sucursal';
+    estado.poliza.canalComercial = canalActual;
     if (!esPromotora) estado.poliza.honorarioPromotora = 0;
     actualizarFactorGasto();
     guardarEstado();
@@ -2992,7 +3172,7 @@ function setupEventListeners() {
     const camposPoliza = [
         'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'modalidadPlan',
         'vigenciaDesde', 'vigenciaHasta',
-        'formaPago', 'fechaCobro', 'asesor', 'canalComercial', 'observaciones'
+        'formaPago', 'fechaCobro', 'observaciones'
     ];
     camposPoliza.forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
@@ -3041,7 +3221,30 @@ function setupEventListeners() {
     document.getElementById('modalConfirmarFormaPago')?.addEventListener('click', evento => {
         if (evento.target.id === 'modalConfirmarFormaPago') cancelarCambioFormaPago();
     });
-    document.getElementById('canalComercial')?.addEventListener('change', actualizarCamposComerciales);
+    const campoCodigoAsesor = document.getElementById('codigoAsesor');
+    campoCodigoAsesor?.addEventListener('input', () => {
+        ultimoCodigoAsesorConsultado = '';
+        limpiarDatosAsesor();
+        estado.poliza.codigoAsesor = campoCodigoAsesor.value.trim();
+        guardarEstado();
+    });
+    campoCodigoAsesor?.addEventListener('blur', consultarAsesorPorCodigo);
+    document.getElementById('oficinaAsesor')?.addEventListener('change', evento => {
+        seleccionarOficinaAsesor(evento.target.value);
+    });
+    campoCodigoAsesor?.addEventListener('keydown', evento => {
+        if (evento.key === 'Enter') {
+            evento.preventDefault();
+            consultarAsesorPorCodigo();
+        }
+    });
+    if (campoCodigoAsesor && estado.poliza.codigoAsesor) {
+        campoCodigoAsesor.value = estado.poliza.codigoAsesor;
+        const campoNombreAsesor = document.getElementById('asesor');
+        if (campoNombreAsesor) campoNombreAsesor.value = estado.poliza.asesor || '';
+        renderizarOficinasAsesor();
+        if (estado.poliza.asesor) ultimoCodigoAsesorConsultado = estado.poliza.codigoAsesor;
+    }
     const buscadorActividad = document.getElementById('actividad');
     buscadorActividad?.addEventListener('input', () => {
         estado.poliza.actividad = '';
@@ -3208,8 +3411,10 @@ function seleccionarSubtipo(subtipo) {
         comision: 20, honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
-        asesor: '', canalComercial: '', observaciones: ''
+        codigoAsesor: '', asesor: '', regional: '', oficinasAsesor: [], oficinaAsesor: '', codigoOficinaAsesor: '',
+        canalComercial: '', observaciones: ''
     };
+    limpiarDatosAsesor(true);
     mostrarWizard();
     cargarActividadesEconomicas();
     cargarOficinas();

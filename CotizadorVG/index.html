@@ -246,15 +246,27 @@
                     <span class="form-section-title">Comercial y Comisiones</span>
 
                     <div class="form-group">
-                        <label for="asesor">Asesor *</label>
-                        <input type="text" id="asesor" placeholder="Ej: Juan P&eacute;rez" required>
+                        <label for="codigoAsesor">C&oacute;digo de Asesor *</label>
+                        <input type="text" id="codigoAsesor" placeholder="Ej: 97562" autocomplete="off" inputmode="numeric" aria-describedby="ayudaCodigoAsesor" required>
+                        <small id="ayudaCodigoAsesor" aria-live="polite"></small>
                     </div>
-                    <div class="form-group">
-                        <label for="canalComercial">Canal Comercial</label>
-                        <select id="canalComercial">
-                            <option>Sucursal</option>
-                            <option>Promotora</option>
+                    <div class="form-group dato-asesor" hidden>
+                        <label for="asesor">Nombre de Asesor</label>
+                        <input type="text" id="asesor" placeholder="Se completa al ingresar el c&oacute;digo" readonly aria-readonly="true">
+                    </div>
+                    <div class="form-group dato-asesor" hidden>
+                        <label for="oficinaAsesor">Oficina</label>
+                        <select id="oficinaAsesor">
+                            <option value="">Selecciona una oficina</option>
                         </select>
+                    </div>
+                    <div class="form-group dato-oficina-asesor" hidden>
+                        <label for="canalComercial">Canal Comercial</label>
+                        <input type="text" id="canalComercial" placeholder="Se completa al seleccionar la oficina" readonly aria-readonly="true">
+                    </div>
+                    <div class="form-group dato-oficina-asesor" hidden>
+                        <label for="regional">Regional</label>
+                        <input type="text" id="regional" placeholder="Se completa al seleccionar la oficina" readonly aria-readonly="true">
                     </div>
 
                     <div class="comisiones-grid">
