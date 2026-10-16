@@ -722,6 +722,15 @@ textarea {
     font-size: 13px;
 }
 
+.actividad-lista.lista-compacta {
+    max-height: 180px;
+}
+
+.lista-compacta .actividad-opcion {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
 .recargos-actividad {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2865,6 +2874,64 @@ textarea {
     margin-top: 8px;
 }
 
+.siniestralidad-grid .siniestros-full {
+    grid-column: 1 / -1;
+}
+
+.siniestros-detalle[hidden] {
+    display: none;
+}
+
+.siniestros-detalle-agregar {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.siniestros-detalle-agregar .form-group {
+    flex: 1;
+}
+
+.siniestros-detalle-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 8px;
+}
+
+.siniestro-cobertura-fila {
+    display: grid;
+    grid-template-columns: 1fr 220px auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.siniestro-cobertura-fila input {
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: inherit;
+    width: 100%;
+}
+
+.siniestro-cobertura-fila input.campo-invalido {
+    border-color: var(--color-danger, #dc3545);
+    background: #fff5f5;
+}
+
+.siniestros-vacio {
+    color: var(--color-text-light, #666);
+    font-size: 13px;
+}
+
+#valorSiniestrosTotales[readonly] {
+    background: var(--color-light);
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    cursor: not-allowed;
+}
+
 #siniestrosPromedio {
     background: var(--color-light);
     color: var(--color-primary-dark);
@@ -2875,5 +2942,6 @@ textarea {
 @media (max-width: 768px) {
     .comisiones-grid { grid-template-columns: 1fr; }
     .siniestralidad-grid { grid-template-columns: 1fr; }
+    .siniestro-cobertura-fila { grid-template-columns: 1fr; }
     .form-group-inline { grid-template-columns: 1fr; }
 }

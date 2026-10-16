@@ -297,13 +297,35 @@
 
                     <div class="siniestralidad-grid" id="seccionSiniestralidad" hidden>
                         <span class="form-section-title">Siniestralidad</span>
+                        <div class="form-group siniestros-full">
+                            <label for="detalleSiniestrosCobertura">¿Conoce el valor de siniestros por cobertura?</label>
+                            <select id="detalleSiniestrosCobertura">
+                                <option value="no" selected>No, ingresar el total general</option>
+                                <option value="si">Sí, detallar por cobertura</option>
+                            </select>
+                        </div>
+                        <div class="siniestros-detalle siniestros-full" id="bloqueSiniestrosCobertura" hidden>
+                            <div class="siniestros-detalle-agregar">
+                                <div class="form-group">
+                                    <label for="buscadorCoberturaSiniestro">Agregar cobertura</label>
+                                    <div class="actividad-selector">
+                                        <input type="search" id="buscadorCoberturaSiniestro" placeholder="Busca o selecciona una cobertura..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="listaCoberturasSiniestro" aria-expanded="false">
+                                        <div id="listaCoberturasSiniestro" class="actividad-lista lista-compacta" role="listbox" hidden></div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-accent btn-small" type="button" id="btnAgregarCoberturaSiniestro">+ Agregar</button>
+                            </div>
+                            <small>Puedes ingresar $ 0 en una cobertura sin siniestros.</small>
+                            <div class="siniestros-detalle-lista" id="listaSiniestrosCobertura" aria-live="polite"></div>
+                        </div>
                         <div class="form-group">
                             <label for="valorSiniestrosTotales">Valor de siniestros totales</label>
                             <input type="text" id="valorSiniestrosTotales" inputmode="numeric" placeholder="$ 0" autocomplete="off">
                         </div>
                         <div class="form-group">
                             <label for="anosExposicion">Cantidad de a&ntilde;os de exposici&oacute;n</label>
-                            <input type="number" id="anosExposicion" min="0" max="4" step="1" placeholder="Ej: 3">
+                            <input type="number" id="anosExposicion" min="0" max="4" step="1" placeholder="Ej: 3" aria-describedby="ayudaAnosExposicion">
+                            <small id="ayudaAnosExposicion">Máximo 4 años de siniestros.</small>
                         </div>
                         <div class="form-group">
                             <label for="siniestrosPromedio">Siniestros promedio</label>
