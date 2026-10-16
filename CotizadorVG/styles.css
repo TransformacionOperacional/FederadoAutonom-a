@@ -2663,6 +2663,49 @@ textarea {
     box-shadow: var(--shadow-sm);
 }
 
+.paginacion-asegurados {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+.paginacion-asegurados[hidden] {
+    display: none;
+}
+
+.paginacion-opciones {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.paginacion-opciones input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font: inherit;
+}
+
+.paginacion-controles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.paginacion-pagina {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .asig-masiva-bar {
     background: var(--color-secondary-light);
     border: 1px solid var(--color-secondary);

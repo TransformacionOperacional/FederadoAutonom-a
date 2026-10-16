@@ -2954,13 +2954,47 @@ function obtenerAmparoResumidoDefinitivo(nombre) {
     return equivalencia?.[1] || nombre;
 }
 
+const REGISTROS_POR_PAGINA_MIN = 20;
+const REGISTROS_POR_PAGINA_MAX = 100;
+let paginaAsegurados = 1;
+let registrosPorPaginaAsegurados = REGISTROS_POR_PAGINA_MIN;
+let filtroAsegurados = '';
+
+function normalizarRegistrosPorPagina(valor) {
+    const numero = Math.round(Number(valor));
+    if (!Number.isFinite(numero)) return REGISTROS_POR_PAGINA_MIN;
+    return Math.min(REGISTROS_POR_PAGINA_MAX, Math.max(REGISTROS_POR_PAGINA_MIN, numero));
+}
+
+function obtenerAseguradosFiltrados() {
+    const texto = normalizarTexto(filtroAsegurados);
+    if (!texto) return estado.asegurados;
+    return estado.asegurados.filter(asegurado => {
+        const valorAsegurado = obtenerValorAseguradoBase(asegurado);
+        const contenido = [
+            asegurado.numeroDocumento,
+            asegurado.tipoAsegurado,
+            asegurado.edad,
+            asegurado.grupo,
+            valorAsegurado > 0 ? formatearDinero(valorAsegurado) : ''
+        ].join(' ');
+        return normalizarTexto(contenido).includes(texto);
+    });
+}
+
 function renderizarTablaAsegurados() {
     const tbody = document.querySelector('.table-asegurados tbody');
     if (!tbody) return;
 
     tbody.innerHTML = '';
 
-    estado.asegurados.forEach(asegurado => {
+    const filtrados = obtenerAseguradosFiltrados();
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / registrosPorPaginaAsegurados));
+    paginaAsegurados = Math.min(Math.max(1, paginaAsegurados), totalPaginas);
+    const inicio = (paginaAsegurados - 1) * registrosPorPaginaAsegurados;
+    const visibles = filtrados.slice(inicio, inicio + registrosPorPaginaAsegurados);
+
+    visibles.forEach(asegurado => {
         const valorAsegurado = obtenerValorAseguradoBase(asegurado);
         const valorAseguradoTexto = valorAsegurado > 0 ? formatearDinero(valorAsegurado) : '—';
 
@@ -2980,11 +3014,57 @@ function renderizarTablaAsegurados() {
         tbody.appendChild(fila);
     });
 
-    if (estado.asegurados.length === 0) {
+    if (visibles.length === 0) {
         const fila = document.createElement('tr');
-        fila.innerHTML = '<td colspan="6" class="text-center text-muted">No hay asegurados registrados</td>';
+        fila.innerHTML = `<td colspan="6" class="text-center text-muted">${estado.asegurados.length === 0
+            ? 'No hay asegurados registrados'
+            : 'No se encontraron asegurados con ese criterio'}</td>`;
         tbody.appendChild(fila);
     }
+
+    actualizarPaginacionAsegurados(filtrados.length, inicio, visibles.length, totalPaginas);
+}
+
+function actualizarPaginacionAsegurados(totalFiltrados, inicio, cantidadVisible, totalPaginas) {
+    const contenedor = document.getElementById('paginacionAsegurados');
+    if (!contenedor) return;
+
+    contenedor.hidden = estado.asegurados.length === 0;
+    const info = document.getElementById('infoPaginacionAsegurados');
+    if (info) {
+        info.textContent = totalFiltrados === 0
+            ? 'Sin registros'
+            : `Mostrando ${inicio + 1}-${inicio + cantidadVisible} de ${totalFiltrados}${totalFiltrados !== estado.asegurados.length ? ` (filtrados de ${estado.asegurados.length})` : ''}`;
+    }
+    const pagina = document.getElementById('paginaActualAsegurados');
+    if (pagina) pagina.textContent = `P\u00e1gina ${paginaAsegurados} de ${totalPaginas}`;
+    const campo = document.getElementById('registrosPorPaginaAsegurados');
+    if (campo && document.activeElement !== campo) campo.value = registrosPorPaginaAsegurados;
+
+    const enPrimera = paginaAsegurados <= 1;
+    const enUltima = paginaAsegurados >= totalPaginas;
+    document.getElementById('btnPrimeraPaginaAsegurados')?.toggleAttribute('disabled', enPrimera);
+    document.getElementById('btnAnteriorPaginaAsegurados')?.toggleAttribute('disabled', enPrimera);
+    document.getElementById('btnSiguientePaginaAsegurados')?.toggleAttribute('disabled', enUltima);
+    document.getElementById('btnUltimaPaginaAsegurados')?.toggleAttribute('disabled', enUltima);
+}
+
+function irAPaginaAsegurados(pagina) {
+    paginaAsegurados = pagina;
+    renderizarTablaAsegurados();
+}
+
+function configurarPaginacionAsegurados() {
+    document.getElementById('btnPrimeraPaginaAsegurados')?.addEventListener('click', () => irAPaginaAsegurados(1));
+    document.getElementById('btnAnteriorPaginaAsegurados')?.addEventListener('click', () => irAPaginaAsegurados(paginaAsegurados - 1));
+    document.getElementById('btnSiguientePaginaAsegurados')?.addEventListener('click', () => irAPaginaAsegurados(paginaAsegurados + 1));
+    document.getElementById('btnUltimaPaginaAsegurados')?.addEventListener('click', () => irAPaginaAsegurados(Number.MAX_SAFE_INTEGER));
+    const campo = document.getElementById('registrosPorPaginaAsegurados');
+    campo?.addEventListener('change', () => {
+        registrosPorPaginaAsegurados = normalizarRegistrosPorPagina(campo.value);
+        campo.value = registrosPorPaginaAsegurados;
+        irAPaginaAsegurados(1);
+    });
 }
 
 function renderizarTablaSubgrupos() {
@@ -3395,13 +3475,12 @@ function setupEventListeners() {
 
     // Paso 2: Asegurados
     document.getElementById('buscadorAsegurado')?.addEventListener('input', (e) => {
-        const valor = e.target.value.toLowerCase();
-        const filas = document.querySelectorAll('.table-asegurados tbody tr');
-        filas.forEach(fila => {
-            const texto = fila.textContent.toLowerCase();
-            fila.style.display = texto.includes(valor) ? '' : 'none';
-        });
+        filtroAsegurados = e.target.value;
+        paginaAsegurados = 1;
+        renderizarTablaAsegurados();
     });
+    configurarPaginacionAsegurados();
+    configurarPaginacionAsignacion();
 
     document.getElementById('btnAgregarAsegurado')?.addEventListener('click', () => agregarAsegurado());
     document.getElementById('aseguradoEdad')?.addEventListener('input', actualizarValidacionEdadModal);
@@ -5356,6 +5435,7 @@ function renderizarAsignacionPlanes() {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
         cuerpoPlanesAsignados.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>';
         cuerpoAsignacion.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay planes disponibles para asignar.</td></tr>';
+        document.getElementById('paginacionAsignacion')?.setAttribute('hidden', '');
         actualizarContadorSeleccionAsignacion();
         return;
     }
@@ -5394,21 +5474,98 @@ function renderizarAsignacionPlanes() {
         filtroPlan.innerHTML = `<option value="">Filtrar</option>${opcionesPlanes}`;
         filtroPlan.value = estado.planes.some(plan => plan.id === filtroPlanSeleccionado) ? filtroPlanSeleccionado : '';
     }
-    cuerpoAsignacion.innerHTML = estado.asegurados.map(asegurado => `
-        <tr data-documento="${asegurado.numeroDocumento || ''}" data-edad="${asegurado.edad ?? ''}" data-parentesco="${asegurado.tipoAsegurado || ''}" data-grupo="${asegurado.grupo || ''}" data-valor="${obtenerValorAseguradoBase(asegurado)}" data-plan-id="${asegurado.planId || ''}">
-            <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}" onchange="actualizarContadorSeleccionAsignacion()" aria-label="Seleccionar ${asegurado.numeroDocumento || 'asegurado'}"></td>
+    aplicarFiltrosAsignacionPlanes(false);
+}
+
+const seleccionAsignacionIds = new Set();
+let paginaAsignacion = 1;
+let registrosPorPaginaAsignacion = REGISTROS_POR_PAGINA_MIN;
+
+function obtenerAseguradosAsignacionFiltrados() {
+    const filtros = {
+        documento: normalizarTexto(document.getElementById('filtroAsignacionDocumento')?.value || ''),
+        edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
+        parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
+        grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
+        valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
+        planId: document.getElementById('filtroAsignacionPlan')?.value || ''
+    };
+    return estado.asegurados.filter(asegurado =>
+        (!filtros.documento || normalizarTexto(asegurado.numeroDocumento || '').includes(filtros.documento))
+        && (!filtros.edad || normalizarTexto(asegurado.edad ?? '').includes(filtros.edad))
+        && (!filtros.parentesco || normalizarTexto(asegurado.tipoAsegurado || '').includes(filtros.parentesco))
+        && (!filtros.grupo || (asegurado.grupo || '') === filtros.grupo)
+        && (!filtros.valor || String(obtenerValorAseguradoBase(asegurado)).includes(filtros.valor))
+        && (!filtros.planId || (asegurado.planId || '') === filtros.planId));
+}
+
+function renderizarFilasAsignacionPlanes() {
+    const cuerpo = document.getElementById('tbody-asignacion-planes');
+    if (!cuerpo) return;
+
+    const idsExistentes = new Set(estado.asegurados.map(asegurado => asegurado.id));
+    seleccionAsignacionIds.forEach(id => { if (!idsExistentes.has(id)) seleccionAsignacionIds.delete(id); });
+
+    const filtrados = obtenerAseguradosAsignacionFiltrados();
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / registrosPorPaginaAsignacion));
+    paginaAsignacion = Math.min(Math.max(1, paginaAsignacion), totalPaginas);
+    const inicio = (paginaAsignacion - 1) * registrosPorPaginaAsignacion;
+    const visibles = filtrados.slice(inicio, inicio + registrosPorPaginaAsignacion);
+
+    cuerpo.innerHTML = visibles.length ? visibles.map(asegurado => {
+        const opcionesPlanes = estado.planes.map(plan =>
+            `<option value="${plan.id}"${plan.id === asegurado.planId ? ' selected' : ''}>${obtenerNombreCortoPlan(plan)}</option>`).join('');
+        return `
+        <tr>
+            <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" value="${asegurado.id}"${seleccionAsignacionIds.has(asegurado.id) ? ' checked' : ''} onchange="alternarSeleccionAsignacion('${asegurado.id}', this.checked)" aria-label="Seleccionar ${asegurado.numeroDocumento || 'asegurado'}"></td>
             <td>${asegurado.numeroDocumento || '—'}</td>
             <td>${asegurado.edad ?? '—'}</td>
             <td>${asegurado.tipoAsegurado || '—'}</td>
             <td>${asegurado.grupo || '—'}</td>
             <td>${formatearDinero(obtenerValorAseguradoBase(asegurado))}</td>
             <td><select onchange="asignarPlanAAsegurado('${asegurado.id}', this.value)"><option value="">Sin asignar</option>${opcionesPlanes}</select></td>
-        </tr>`).join('');
-    estado.asegurados.forEach(asegurado => {
-        const selector = cuerpoAsignacion.querySelector(`select[onchange*="'${asegurado.id}'"]`);
-        if (selector) selector.value = asegurado.planId || '';
+        </tr>`;
+    }).join('') : '<tr><td colspan="7" class="text-center text-muted">No se encontraron asegurados con esos filtros.</td></tr>';
+
+    const contenedor = document.getElementById('paginacionAsignacion');
+    if (contenedor) {
+        contenedor.hidden = estado.asegurados.length === 0;
+        const info = document.getElementById('infoPaginacionAsignacion');
+        if (info) {
+            info.textContent = filtrados.length === 0
+                ? 'Sin registros'
+                : `Mostrando ${inicio + 1}-${inicio + visibles.length} de ${filtrados.length}${filtrados.length !== estado.asegurados.length ? ` (filtrados de ${estado.asegurados.length})` : ''}`;
+        }
+        const pagina = document.getElementById('paginaActualAsignacion');
+        if (pagina) pagina.textContent = `P\u00e1gina ${paginaAsignacion} de ${totalPaginas}`;
+        const campo = document.getElementById('registrosPorPaginaAsignacion');
+        if (campo && document.activeElement !== campo) campo.value = registrosPorPaginaAsignacion;
+        const enPrimera = paginaAsignacion <= 1;
+        const enUltima = paginaAsignacion >= totalPaginas;
+        document.getElementById('btnPrimeraPaginaAsignacion')?.toggleAttribute('disabled', enPrimera);
+        document.getElementById('btnAnteriorPaginaAsignacion')?.toggleAttribute('disabled', enPrimera);
+        document.getElementById('btnSiguientePaginaAsignacion')?.toggleAttribute('disabled', enUltima);
+        document.getElementById('btnUltimaPaginaAsignacion')?.toggleAttribute('disabled', enUltima);
+    }
+    actualizarContadorSeleccionAsignacion();
+}
+
+function irAPaginaAsignacion(pagina) {
+    paginaAsignacion = pagina;
+    renderizarFilasAsignacionPlanes();
+}
+
+function configurarPaginacionAsignacion() {
+    document.getElementById('btnPrimeraPaginaAsignacion')?.addEventListener('click', () => irAPaginaAsignacion(1));
+    document.getElementById('btnAnteriorPaginaAsignacion')?.addEventListener('click', () => irAPaginaAsignacion(paginaAsignacion - 1));
+    document.getElementById('btnSiguientePaginaAsignacion')?.addEventListener('click', () => irAPaginaAsignacion(paginaAsignacion + 1));
+    document.getElementById('btnUltimaPaginaAsignacion')?.addEventListener('click', () => irAPaginaAsignacion(Number.MAX_SAFE_INTEGER));
+    const campo = document.getElementById('registrosPorPaginaAsignacion');
+    campo?.addEventListener('change', () => {
+        registrosPorPaginaAsignacion = normalizarRegistrosPorPagina(campo.value);
+        campo.value = registrosPorPaginaAsignacion;
+        irAPaginaAsignacion(1);
     });
-    aplicarFiltrosAsignacionPlanes();
 }
 
 function limpiarFiltrosAsignacionPlanes() {
@@ -5419,50 +5576,42 @@ function limpiarFiltrosAsignacionPlanes() {
     aplicarFiltrosAsignacionPlanes();
 }
 
-function aplicarFiltrosAsignacionPlanes() {
-    const filtros = {
-        documento: normalizarTexto(document.getElementById('filtroAsignacionDocumento')?.value || ''),
-        edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
-        parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
-        grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
-        valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
-        planId: document.getElementById('filtroAsignacionPlan')?.value || ''
-    };
-    document.querySelectorAll('#tbody-asignacion-planes tr[data-documento]').forEach(fila => {
-        const coincide = (!filtros.documento || normalizarTexto(fila.dataset.documento).includes(filtros.documento))
-            && (!filtros.edad || normalizarTexto(fila.dataset.edad).includes(filtros.edad))
-            && (!filtros.parentesco || normalizarTexto(fila.dataset.parentesco).includes(filtros.parentesco))
-            && (!filtros.grupo || fila.dataset.grupo === filtros.grupo)
-            && (!filtros.valor || String(fila.dataset.valor).includes(filtros.valor))
-            && (!filtros.planId || fila.dataset.planId === filtros.planId);
-        fila.hidden = !coincide;
-    });
+function aplicarFiltrosAsignacionPlanes(reiniciarPagina = true) {
+    if (reiniciarPagina) paginaAsignacion = 1;
+    renderizarFilasAsignacionPlanes();
+}
+
+function alternarSeleccionAsignacion(aseguradoId, seleccionado) {
+    if (seleccionado) seleccionAsignacionIds.add(aseguradoId);
+    else seleccionAsignacionIds.delete(aseguradoId);
     actualizarContadorSeleccionAsignacion();
 }
 
 function seleccionarTodosAsignacionPlanes(seleccionar) {
-    document.querySelectorAll('#tbody-asignacion-planes tr:not([hidden]) .checkbox-asignacion-plan').forEach(casilla => {
-        casilla.checked = seleccionar;
+    obtenerAseguradosAsignacionFiltrados().forEach(asegurado => {
+        if (seleccionar) seleccionAsignacionIds.add(asegurado.id);
+        else seleccionAsignacionIds.delete(asegurado.id);
     });
-    actualizarContadorSeleccionAsignacion();
+    renderizarFilasAsignacionPlanes();
 }
 
 function actualizarContadorSeleccionAsignacion() {
-    const seleccionados = document.querySelectorAll('.checkbox-asignacion-plan:checked').length;
+    const seleccionados = seleccionAsignacionIds.size;
     const contador = document.getElementById('contadorSeleccionAsignacion');
     const boton = document.getElementById('btnReasignarSeleccionados');
     const seleccionarTodos = document.getElementById('seleccionarTodosAsignacion');
-    const visibles = [...document.querySelectorAll('#tbody-asignacion-planes tr:not([hidden]) .checkbox-asignacion-plan')];
     if (contador) contador.textContent = `${seleccionados} seleccionado${seleccionados === 1 ? '' : 's'}`;
     if (boton) boton.disabled = seleccionados === 0;
     if (seleccionarTodos) {
-        seleccionarTodos.checked = visibles.length > 0 && visibles.every(casilla => casilla.checked);
-        seleccionarTodos.indeterminate = visibles.some(casilla => casilla.checked) && !seleccionarTodos.checked;
+        const filtrados = obtenerAseguradosAsignacionFiltrados();
+        const marcados = filtrados.filter(asegurado => seleccionAsignacionIds.has(asegurado.id)).length;
+        seleccionarTodos.checked = filtrados.length > 0 && marcados === filtrados.length;
+        seleccionarTodos.indeterminate = marcados > 0 && !seleccionarTodos.checked;
     }
 }
 
 function abrirReasignacionSeleccionados() {
-    const seleccionados = document.querySelectorAll('.checkbox-asignacion-plan:checked');
+    const seleccionados = [...seleccionAsignacionIds];
     const modal = document.getElementById('modalReasignarSeleccionados');
     const selector = document.getElementById('planReasignacionSeleccionados');
     const resumen = document.getElementById('resumenReasignarSeleccionados');
@@ -5482,7 +5631,7 @@ function cerrarModalReasignarSeleccionados() {
 
 function confirmarReasignacionSeleccionados() {
     const planId = document.getElementById('planReasignacionSeleccionados')?.value || '';
-    const aseguradosIds = [...document.querySelectorAll('.checkbox-asignacion-plan:checked')].map(casilla => casilla.value);
+    const aseguradosIds = [...seleccionAsignacionIds];
     if (aseguradosIds.length === 0) {
         cerrarModalReasignarSeleccionados();
         return;
@@ -5499,6 +5648,7 @@ function confirmarReasignacionSeleccionados() {
         else noElegibles++;
     });
     retirarPlanesDerivadosSinAsegurados();
+    seleccionAsignacionIds.clear();
     guardarEstado();
     cerrarModalReasignarSeleccionados();
     renderizarAsignacionPlanes();

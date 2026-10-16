@@ -485,6 +485,20 @@
                         </thead>
                         <tbody id="tbody-asegurados"></tbody>
                     </table>
+                    <div class="paginacion-asegurados" id="paginacionAsegurados" hidden>
+                        <div class="paginacion-info" id="infoPaginacionAsegurados" aria-live="polite"></div>
+                        <div class="paginacion-opciones">
+                            <label for="registrosPorPaginaAsegurados">Registros por p&aacute;gina (20-100)</label>
+                            <input type="number" id="registrosPorPaginaAsegurados" min="20" max="100" step="1" value="20">
+                        </div>
+                        <div class="paginacion-controles">
+                            <button class="btn btn-secondary btn-small" type="button" id="btnPrimeraPaginaAsegurados" aria-label="Primera p&aacute;gina">&laquo;</button>
+                            <button class="btn btn-secondary btn-small" type="button" id="btnAnteriorPaginaAsegurados">&lsaquo; Anterior</button>
+                            <span class="paginacion-pagina" id="paginaActualAsegurados"></span>
+                            <button class="btn btn-secondary btn-small" type="button" id="btnSiguientePaginaAsegurados">Siguiente &rsaquo;</button>
+                            <button class="btn btn-secondary btn-small" type="button" id="btnUltimaPaginaAsegurados" aria-label="&Uacute;ltima p&aacute;gina">&raquo;</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="button-group">
@@ -525,11 +539,25 @@
                     </div>
                     <table class="table-editable tabla-asignacion-planes">
                         <thead>
-                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados visibles"></th><th>Documento</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
+                            <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados filtrados"></th><th>Documento</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
                             <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><select id="filtroAsignacionGrupo" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo"><option value="">Filtrar</option><option value="Grupo 1">Grupo 1</option><option value="Grupo 2">Grupo 2</option><option value="Grupo 3">Grupo 3</option><option value="Grupo 4">Grupo 4</option><option value="Grupo 5">Grupo 5</option></select></th><th><input id="filtroAsignacionValor" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">Filtrar</option></select></th></tr>
                         </thead>
                         <tbody id="tbody-asignacion-planes"></tbody>
                     </table>
+                    <div class="paginacion-asegurados" id="paginacionAsignacion" hidden>
+                        <div class="paginacion-info" id="infoPaginacionAsignacion" aria-live="polite"></div>
+                        <div class="paginacion-opciones">
+                            <label for="registrosPorPaginaAsignacion">Registros por p&aacute;gina (20-100)</label>
+                            <input type="number" id="registrosPorPaginaAsignacion" min="20" max="100" step="1" value="20">
+                        </div>
+                        <div class="paginacion-controles">
+                            <button class="btn btn-secondary btn-small" type="button" id="btnPrimeraPaginaAsignacion" aria-label="Primera p&aacute;gina">&laquo;</button>
+                            <button class="btn btn-secondary btn-small" type="button" id="btnAnteriorPaginaAsignacion">&lsaquo; Anterior</button>
+                            <span class="paginacion-pagina" id="paginaActualAsignacion"></span>
+                            <button class="btn btn-secondary btn-small" type="button" id="btnSiguientePaginaAsignacion">Siguiente &rsaquo;</button>
+                            <button class="btn btn-secondary btn-small" type="button" id="btnUltimaPaginaAsignacion" aria-label="&Uacute;ltima p&aacute;gina">&raquo;</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="button-group">
                     <button class="btn btn-primary" id="btnSiguiente4">Ver cálculos →</button>
