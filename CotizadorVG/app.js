@@ -81,7 +81,6 @@ const DEDUCIBLES_RENTA_INCAPACIDAD = ['7-30', '3-30', '15-60', '14-90'];
 const DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO = '7-30';
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/28/workflows/a8b0296c9f99415d97cdcf35b7c687a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=yrpT0ViTVfP0CyV-rvuzActJpjpMjKBnXmyY4CG7-ZI';
-const API_OFICINAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com/powerautomate/automations/direct/cu/28/workflows/b6994d575dae4b06bd596582b87c72bc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0Yi9rk7-G5vyOSRuaGj-cl2TyKHU6DjQhi40iQX3NyI';
 const API_ASESORES = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/10e4ac573ce149bd97fc24395250e74d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=e2rhuYqdrphOVntoVnBjtrNqFTXYrIhAhEaNyfk_onc';
 const coberturaVidaPredeterminada = {
     codigo: 'WET',
@@ -93,7 +92,6 @@ const coberturaVidaPredeterminada = {
 let coberturasDisponibles = [coberturaVidaPredeterminada];
 let catalogoCoberturasCompleto = [...coberturasDisponibles];
 let actividadesEconomicas = [];
-let oficinas = [];
 let ultimoCodigoAsesorConsultado = '';
 let consultaAsesorEnCurso = 0;
 const CAMPOS_ACTIVIDAD_POR_COBERTURA = { WET: 'field_3', WEZ: 'field_4', WE1: 'field_5', WEY: 'field_6' };
@@ -1085,83 +1083,6 @@ async function consultarAsesorPorCodigo() {
     }
 }
 
-function obtenerNombreOficina(oficina) {
-    const codigo = String(oficina?.Title || '').trim();
-    const nombre = String(oficina?.field_1 || '').trim();
-    return codigo && nombre ? `${codigo} - ${nombre}` : (codigo || nombre);
-}
-
-async function cargarOficinas() {
-    const buscador = document.getElementById('oficina');
-    const ayuda = document.getElementById('ayudaOficina');
-    if (!buscador) return;
-
-    buscador.disabled = true;
-    buscador.value = estado.poliza.oficina || '';
-    buscador.placeholder = 'Cargando oficinas...';
-    if (ayuda) ayuda.hidden = false;
-
-    try {
-        const respuesta = await fetch(API_OFICINAS, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ usuario: 'CotizadorVG', contrasena: 'Sura2025*' })
-        });
-        if (!respuesta.ok) throw new Error(`La API respondió HTTP ${respuesta.status}.`);
-
-        const datos = await respuesta.json();
-        oficinas = Array.isArray(datos) ? datos : (datos.value || datos.Table1 || []);
-        if (!oficinas.length) throw new Error('La API no devolvió oficinas.');
-
-        buscador.placeholder = 'Busca una oficina...';
-        buscador.disabled = false;
-    } catch (error) {
-        console.error('No fue posible cargar las oficinas:', error);
-        buscador.placeholder = 'No fue posible cargar las oficinas';
-        mostrarToast('No fue posible cargar las oficinas.', 'warning');
-    } finally {
-        if (ayuda) ayuda.hidden = true;
-    }
-}
-
-function renderizarOficinas() {
-    const buscador = document.getElementById('oficina');
-    const lista = document.getElementById('listaOficinas');
-    if (!buscador || !lista || buscador.disabled) return;
-
-    const texto = normalizarTexto(buscador.value);
-    const coincidencias = oficinas
-        .map((oficina, indice) => ({ oficina, indice, nombre: obtenerNombreOficina(oficina) }))
-        .filter(({ nombre }) => normalizarTexto(nombre).includes(texto))
-        .slice(0, 50);
-
-    lista.innerHTML = coincidencias.length
-        ? coincidencias.map(({ indice, nombre }) => `<button class="actividad-opcion" type="button" role="option" data-oficina-indice="${indice}">${nombre || 'Oficina sin nombre'}</button>`).join('')
-        : '<div class="actividad-sin-resultados">No se encontraron oficinas.</div>';
-    lista.hidden = false;
-    buscador.setAttribute('aria-expanded', 'true');
-}
-
-function ocultarListaOficinas() {
-    const buscador = document.getElementById('oficina');
-    const lista = document.getElementById('listaOficinas');
-    if (lista) lista.hidden = true;
-    buscador?.setAttribute('aria-expanded', 'false');
-}
-
-function actualizarOficina(indice) {
-    const oficina = oficinas[Number(indice)] || null;
-    const buscador = document.getElementById('oficina');
-    if (!oficina) return;
-
-    const nombre = obtenerNombreOficina(oficina);
-    if (buscador) buscador.value = nombre;
-    estado.poliza.oficina = nombre;
-    estado.poliza.oficinaDetalle = oficina;
-    guardarEstado();
-    ocultarListaOficinas();
-}
-
 function renderizarActividadesEconomicas() {
     const buscador = document.getElementById('actividad');
     const lista = document.getElementById('listaActividades');
@@ -1526,19 +1447,44 @@ function obtenerFactorRecargoActividadCredibilidad(planes) {
     };
 }
 
+let cacheCredibilidad = null;
+
+// Mientras dura una operación de recálculo, el resultado de la credibilidad
+// se calcula una sola vez en lugar de repetirlo por cada asegurado.
+function conCacheCredibilidad(funcion) {
+    if (cacheCredibilidad) return funcion();
+    cacheCredibilidad = { calculado: false, valor: null };
+    try {
+        return funcion();
+    } finally {
+        cacheCredibilidad = null;
+    }
+}
+
 function obtenerAjustesCredibilidad() {
+    if (cacheCredibilidad?.calculado) return cacheCredibilidad.valor;
+    const valor = calcularAjustesCredibilidad();
+    if (cacheCredibilidad) {
+        cacheCredibilidad.calculado = true;
+        cacheCredibilidad.valor = valor;
+    }
+    return valor;
+}
+
+function calcularAjustesCredibilidad() {
     const calculo = obtenerCalculoCredibilidad();
     if (!calculo) return null;
 
     const planes = estado.planes.filter(plan => plan.asegurados?.length);
     if (!planes.length) return null;
 
+    const aseguradosPorId = new Map(estado.asegurados.map(item => [item.id, item]));
     const resultado = { ...calculo, primaComercial: 0, primaCredibilidad: 0, saldo: 0, planes: new Map() };
     planes.forEach(plan => {
         const totales = new Map();
         const coberturas = obtenerCoberturasPlan(plan);
         plan.asegurados.forEach(aseguradoId => {
-            const asegurado = estado.asegurados.find(item => item.id === aseguradoId);
+            const asegurado = aseguradosPorId.get(aseguradoId);
             if (!asegurado) return;
             coberturas.forEach(cobertura => {
                 const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
@@ -1745,12 +1691,15 @@ function identificarPlanes() {
     estado.planes = Array.from(planesMap.values());
 
     // Calcular prima total por plan
-    estado.planes.forEach(plan => {
-        plan.primaTotal = plan.asegurados
-            .reduce((sum, id) => {
-                const asegurado = estado.asegurados.find(a => a.id === id);
-                return sum + (asegurado ? calcularPrimaIndividual(asegurado) : 0);
-            }, 0);
+    const aseguradosPorId = new Map(estado.asegurados.map(a => [a.id, a]));
+    conCacheCredibilidad(() => {
+        estado.planes.forEach(plan => {
+            plan.primaTotal = plan.asegurados
+                .reduce((sum, id) => {
+                    const asegurado = aseguradosPorId.get(id);
+                    return sum + (asegurado ? calcularPrimaIndividual(asegurado) : 0);
+                }, 0);
+        });
     });
 }
 
@@ -3460,30 +3409,6 @@ function setupEventListeners() {
     document.addEventListener('click', evento => {
         if (!evento.target.closest('.actividad-selector')) ocultarListaActividades();
     });
-    const buscadorOficina = document.getElementById('oficina');
-    buscadorOficina?.addEventListener('input', () => {
-        estado.poliza.oficina = '';
-        estado.poliza.oficinaDetalle = null;
-        renderizarOficinas();
-    });
-    buscadorOficina?.addEventListener('focus', renderizarOficinas);
-    buscadorOficina?.addEventListener('keydown', evento => {
-        if (evento.key === 'Escape') ocultarListaOficinas();
-        if (evento.key === 'Enter') {
-            const primeraOpcion = document.querySelector('#listaOficinas [data-oficina-indice]');
-            if (primeraOpcion) {
-                evento.preventDefault();
-                actualizarOficina(primeraOpcion.dataset.oficinaIndice);
-            }
-        }
-    });
-    document.getElementById('listaOficinas')?.addEventListener('click', evento => {
-        const opcion = evento.target.closest('[data-oficina-indice]');
-        if (opcion) actualizarOficina(opcion.dataset.oficinaIndice);
-    });
-    document.addEventListener('click', evento => {
-        if (!evento.target.closest('.actividad-selector')) ocultarListaOficinas();
-    });
     ['comision', 'honorarioPromotora'].forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
             const maximo = campo === 'comision' ? 30 : 10;
@@ -3644,7 +3569,6 @@ function seleccionarSubtipo(subtipo) {
     actualizarSiniestralidad(true);
     mostrarWizard();
     cargarActividadesEconomicas();
-    cargarOficinas();
 }
 
 function volverAlLanding() {
@@ -4591,9 +4515,16 @@ function importarExcel(evento) {
         } catch (err) {
             mostrarToast('Error al leer el archivo Excel: ' + err.message, 'error');
             if (statusDiv) { statusDiv.textContent = 'Error: ' + err.message; statusDiv.className = 'excel-status error'; }
+        } finally {
+            ocultarCargando();
         }
     };
+    lector.onerror = () => {
+        ocultarCargando();
+        mostrarToast('No fue posible leer el archivo.', 'error');
+    };
 
+    mostrarCargando('Leyendo y validando el archivo...');
     lector.readAsArrayBuffer(archivo);
 }
 
@@ -5187,10 +5118,14 @@ function recalcularPrimaPlan(plan) {
     const subgrupo = estado.subgrupos.find(sg => sg.id === plan.subgrupoId);
     if (!subgrupo) return;
 
-    // Prima = suma de (valorAsegurado * tasa * factorEdad / 100) por cada asegurado del plan
-    let primaTotal = 0;
+    const aseguradosPorId = new Map(estado.asegurados.map(item => [item.id, item]));
+    sincronizarCoberturasPlan(plan, subgrupo, aseguradosPorId);
+    conCacheCredibilidad(() => calcularPrimaPlanSincronizado(plan, aseguradosPorId));
+}
+
+function sincronizarCoberturasPlan(plan, subgrupo, aseguradosPorId) {
     plan.asegurados.forEach(asegId => {
-        const asegurado = estado.asegurados.find(a => a.id === asegId);
+        const asegurado = aseguradosPorId.get(asegId);
         if (!asegurado) return;
 
         // Actualizar coberturas del asegurado con los valores del plan
@@ -5204,6 +5139,15 @@ function recalcularPrimaPlan(plan) {
                 cob.activa = true;
             }
         });
+    });
+}
+
+function calcularPrimaPlanSincronizado(plan, aseguradosPorId) {
+    // Prima = suma de (valorAsegurado * tasa * factorEdad / 100) por cada asegurado del plan
+    let primaTotal = 0;
+    plan.asegurados.forEach(asegId => {
+        const asegurado = aseguradosPorId.get(asegId);
+        if (!asegurado) return;
 
         const primaInd = calcularPrimaIndividual(asegurado);
         asegurado.primaIndividual = primaInd;
@@ -5989,8 +5933,27 @@ function actualizarSiniestralidad(restaurarValoresGuardados = false) {
     estado.poliza.siniestrosInformados = informado;
     estado.poliza.anosExposicion = anos;
     estado.poliza.siniestrosPromedio = promedio;
-    guardarEstado();
-    recalcularTodo();
+    if (restaurarValoresGuardados) {
+        guardarEstado();
+        recalcularTodo();
+    } else {
+        programarRecalculoSiniestralidad();
+    }
+}
+
+let temporizadorRecalculoSiniestralidad = null;
+
+// El recálculo completo es costoso con muchos asegurados; se agrupa mientras
+// el usuario sigue escribiendo para no ejecutarlo en cada tecla.
+function programarRecalculoSiniestralidad() {
+    clearTimeout(temporizadorRecalculoSiniestralidad);
+    temporizadorRecalculoSiniestralidad = setTimeout(() => {
+        temporizadorRecalculoSiniestralidad = null;
+        ejecutarConCarga('Recalculando la cotización con la siniestralidad...', () => {
+            guardarEstado();
+            recalcularTodo();
+        });
+    }, 400);
 }
 
 function revisarRangosEnFormulario(campoActivo = null) {
@@ -6392,6 +6355,10 @@ function asignarPlanesPorRango() {
         return;
     }
 
+    ejecutarConCarga('Asignando asegurados a los planes...', asignarPlanesPorRangoValidado);
+}
+
+function asignarPlanesPorRangoValidado() {
     // La asignación automática siempre se calcula desde los planes base. Si
     // existe una ejecución anterior, se limpia en silencio para no conservar
     // planes espejo ni asignaciones desactualizadas entre ejecuciones.
@@ -6485,37 +6452,57 @@ function irAlPaso(numero) {
     pasosNavegacion();
 
     // Renderizado específico por paso
-    if (numero === 2) {
-        renderizarTablaAsegurados();
-        // Para póliza nueva: ocultar tabla hasta que se carguen asegurados
-        if (flujo.tipo === 'nuevo' && estado.asegurados.length === 0) {
-            ocultarSeccionAsegurados();
-        } else {
-            mostrarSeccionAsegurados();
+    const renderizarPaso = () => {
+        if (numero === 2) {
+            renderizarTablaAsegurados();
+            // Para póliza nueva: ocultar tabla hasta que se carguen asegurados
+            if (flujo.tipo === 'nuevo' && estado.asegurados.length === 0) {
+                ocultarSeccionAsegurados();
+            } else {
+                mostrarSeccionAsegurados();
+            }
+        } else if (numero === 4) {
+            renderizarAsignacionPlanes();
+        } else if (numero === 5) {
+            renderizarTablaCalculos();
+        } else if (numero === 6) {
+            renderizarPlanesSubgrupoTabs();
+        } else if (numero === 7) {
+            renderizarDashboard();
         }
-    } else if (numero === 4) {
-        renderizarAsignacionPlanes();
-    } else if (numero === 5) {
-        renderizarTablaCalculos();
-    } else if (numero === 6) {
-        renderizarPlanesSubgrupoTabs();
-    } else if (numero === 7) {
-        renderizarDashboard();
-    }
 
-    guardarEstado();
+        guardarEstado();
+    };
+
+    if (numero >= 4) {
+        ejecutarConCarga('Calculando, por favor espera...', renderizarPaso);
+    } else {
+        renderizarPaso();
+    }
 }
 
 function recalcularTodo() {
-    // Recalcular primas de todos los planes activos
-    estado.planes.forEach(plan => recalcularPrimaPlan(plan));
+    // Los valores de los planes se aplican primero a todos los asegurados para
+    // que la credibilidad se calcule una sola vez con datos consistentes.
+    const aseguradosPorId = new Map(estado.asegurados.map(item => [item.id, item]));
+    estado.planes.forEach(plan => {
+        const subgrupo = estado.subgrupos.find(sg => sg.id === plan.subgrupoId);
+        if (subgrupo) sincronizarCoberturasPlan(plan, subgrupo, aseguradosPorId);
+    });
 
-    // Re-renderizar vistas activas
-    renderizarTablaCoberturas();
-    renderizarTablaAsegurados();
-    renderizarTablaCalculos();
-    if (subgrupoActivoEnPlanes) renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
-    renderizarDashboard();
+    conCacheCredibilidad(() => {
+        // Recalcular primas de todos los planes activos
+        estado.planes.forEach(plan => {
+            if (estado.subgrupos.some(sg => sg.id === plan.subgrupoId)) calcularPrimaPlanSincronizado(plan, aseguradosPorId);
+        });
+
+        // Re-renderizar vistas activas
+        renderizarTablaCoberturas();
+        renderizarTablaAsegurados();
+        renderizarTablaCalculos();
+        if (subgrupoActivoEnPlanes) renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
+        renderizarDashboard();
+    });
     guardarEstado();
 }
 
@@ -6548,6 +6535,45 @@ function obtenerValorAseguradoBase(asegurado) {
         cobertura.codigo === 'WET' || cobertura.codigo === 'VID' || cobertura.codigo === 'VIDA'
     );
     return coberturaVida?.valorAsegurado || 0;
+}
+
+const UMBRAL_ASEGURADOS_CARGA = 200;
+let cargasActivas = 0;
+
+function mostrarCargando(mensaje = 'Calculando, por favor espera...') {
+    cargasActivas++;
+    const overlay = document.getElementById('cargandoOverlay');
+    const texto = document.getElementById('cargandoMensaje');
+    if (texto) texto.textContent = mensaje;
+    if (overlay) overlay.hidden = false;
+}
+
+function ocultarCargando() {
+    cargasActivas = Math.max(0, cargasActivas - 1);
+    if (cargasActivas === 0) {
+        const overlay = document.getElementById('cargandoOverlay');
+        if (overlay) overlay.hidden = true;
+    }
+}
+
+// Con pocos asegurados el cálculo es inmediato y se ejecuta sin indicador. Con
+// muchos, se muestra el indicador y se cede el control al navegador para que
+// lo pinte antes de iniciar el cálculo.
+function ejecutarConCarga(mensaje, funcion, { forzar = false } = {}) {
+    if (!forzar && estado.asegurados.length < UMBRAL_ASEGURADOS_CARGA) return funcion();
+
+    mostrarCargando(mensaje);
+    return new Promise((resolver, rechazar) => {
+        requestAnimationFrame(() => setTimeout(() => {
+            try {
+                resolver(funcion());
+            } catch (error) {
+                rechazar(error);
+            } finally {
+                ocultarCargando();
+            }
+        }, 0));
+    });
 }
 
 function mostrarToast(mensaje, tipo = 'info') {

@@ -207,12 +207,13 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="oficina">Oficina</label>
-                        <div class="actividad-selector">
-                            <input type="search" id="oficina" placeholder="Busca una oficina..." autocomplete="off" disabled aria-autocomplete="list" aria-controls="listaOficinas" aria-expanded="false" aria-describedby="ayudaOficina">
-                            <div id="listaOficinas" class="actividad-lista" role="listbox" hidden></div>
-                        </div>
-                        <small id="ayudaOficina"><span class="spinner spinner-inline" aria-hidden="true"></span>Cargando oficinas...</small>
+                        <label for="formaPago">Forma de Pago</label>
+                        <select id="formaPago">
+                            <option value="Mensual">Mensual</option>
+                            <option value="Trimestral">Trimestral</option>
+                            <option value="Semestral">Semestral</option>
+                            <option value="Anual">Anual</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="vigenciaDesde">Vigencia Desde *</label>
@@ -223,24 +224,15 @@
                         <input type="date" id="vigenciaHasta" required>
                     </div>
                     <div class="form-group">
-                        <label for="formaPago">Forma de Pago</label>
-                        <select id="formaPago">
-                            <option value="Mensual">Mensual</option>
-                            <option value="Trimestral">Trimestral</option>
-                            <option value="Semestral">Semestral</option>
-                            <option value="Anual">Anual</option>
-                        </select>
-                        <div id="grupoTipoPagoMensual" hidden>
-                            <label for="tipoPagoMensual">Modalidad de pago mensual</label>
-                            <select id="tipoPagoMensual">
-                                <option value="Anticipada">Anticipada</option>
-                                <option value="Vencida">Vencida</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
                         <label for="fechaCobro">Fecha de Facturación</label>
                         <input type="date" id="fechaCobro">
+                    </div>
+                    <div class="form-group" id="grupoTipoPagoMensual" hidden>
+                        <label for="tipoPagoMensual">Modalidad de pago mensual</label>
+                        <select id="tipoPagoMensual">
+                            <option value="Anticipada">Anticipada</option>
+                            <option value="Vencida">Vencida</option>
+                        </select>
                     </div>
 
                     <span class="form-section-title">Comercial y Comisiones</span>
@@ -747,6 +739,12 @@
 
     <!-- Toast notifications -->
     <div id="toast" class="toast"></div>
+    <div id="cargandoOverlay" class="cargando-overlay" role="status" aria-live="polite" hidden>
+        <div class="cargando-contenido">
+            <div class="cargando-spinner" aria-hidden="true"></div>
+            <p id="cargandoMensaje" class="cargando-mensaje">Calculando, por favor espera...</p>
+        </div>
+    </div>
 
     <!-- Modal para crear o editar asegurados -->
     <div id="modalAsegurado" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloModalAsegurado">

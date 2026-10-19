@@ -2157,6 +2157,54 @@ textarea {
 }
 
 /* ============================================================
+   INDICADOR DE CARGA CENTRAL
+   ============================================================ */
+
+.cargando-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 51, 160, 0.35);
+    z-index: 3000;
+}
+
+.cargando-overlay[hidden] {
+    display: none;
+}
+
+.cargando-contenido {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    min-width: 240px;
+    max-width: 340px;
+    padding: 28px 32px;
+    background: var(--color-white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+}
+
+.cargando-spinner {
+    width: 52px;
+    height: 52px;
+    border: 5px solid var(--color-blue-light);
+    border-top-color: var(--color-primary);
+    border-right-color: var(--color-secondary);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+.cargando-mensaje {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-primary-dark);
+}
+
+/* ============================================================
    PANELES DE MODO EN PASO 3
    ============================================================ */
 
