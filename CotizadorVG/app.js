@@ -3707,393 +3707,183 @@ async function cargarCatalogoCoberturas() {
     }
 }
 
-/* ---- Mock API de renovación ---- */
+/* ---- Búsqueda de pólizas de renovación ---- */
+
+const API_POLIZAS_TOMADOR = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/01/workflows/69988fd0736244bd95c857c2df907d58/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Fa49HIuVHllcttrTgRX6Y4Yz-MVgKLLLn07KOuBRt98';
+const CLAVE_POLIZA_RENOVACION = 'polizaRenovacionSeleccionada';
+const TIPO_IDENTIFICACION_POR_PREFIJO = { C: 'CC', E: 'CE', A: 'NIT' };
+let polizasRenovacionActuales = [];
+
+function sumarUnAnioISO(fechaISO) {
+    const [anio, mes, dia] = String(fechaISO || '').slice(0, 10).split('-').map(Number);
+    if (!anio || !mes || !dia) return '';
+    const fecha = new Date(anio + 1, mes - 1, dia);
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
+
+function formatearFechaISO(fechaISO) {
+    const [anio, mes, dia] = String(fechaISO || '').slice(0, 10).split('-');
+    return anio && mes && dia ? `${dia}/${mes}/${anio}` : '—';
+}
+
+function normalizarPolizaRenovacion(fila) {
+    const texto = valor => String(valor ?? '').trim();
+    const vigenciaIni = texto(fila.FECHA_INICIO_PRIMERA_VIGENCIA).slice(0, 10);
+    return {
+        documento: texto(fila.DNI_TOMADOR),
+        nombreTomador: texto(fila.NOMBRE_TOMADOR),
+        numero: texto(fila.NUMERO_POLIZA),
+        polizaId: fila.POLIZA_ID ?? null,
+        grupoProducto: texto(fila.GRUPO_PRODUCTO),
+        canalComercial: texto(fila.NOMBRE_CANAL_COMERCIAL),
+        grupoCanalComercial: texto(fila.NOMBRE_GRUPO_CANAL_COMERCIAL),
+        codigoOficina: texto(fila.CODIGO_OFICINA),
+        sucursal: texto(fila.NOMBRE_SUCURSAL),
+        codigoAsesor: texto(fila.CODIGO_ASESOR),
+        nombreAsesor: texto(fila.NOMBRE_ASESOR),
+        vigenciaIni,
+        vigenciaFin: sumarUnAnioISO(vigenciaIni)
+    };
+}
 
 async function buscarPolizasRenovacion() {
     const tipoDoc = document.getElementById('tipoDocBusqueda').value;
-    const numDoc = (document.getElementById('numDocBusqueda').value || '').trim();
+    const numDoc = (document.getElementById('numDocBusqueda').value || '').trim().toUpperCase();
     const errorDiv = document.getElementById('errorBusqueda');
     const textoError = document.getElementById('textoError');
+    const loading = document.getElementById('loadingBusqueda');
+    const resultados = document.getElementById('resultadosBusqueda');
+    const boton = document.getElementById('btnBuscarPolizas');
 
-    console.log('🔍 Iniciando búsqueda de pólizas');
-
-    // Validar campos
     if (!tipoDoc) {
-        console.warn('⚠️ Tipo de documento no seleccionado');
         mostrarToast('Selecciona el tipo de documento', 'warning');
         return;
     }
     if (!numDoc) {
-        console.warn('⚠️ Número de documento vacío');
         mostrarToast('Ingresa el número de documento', 'warning');
         return;
     }
 
-    // Limpiar errores previos
+    // La API recibe un solo campo: prefijo del tipo de documento + número
+    // (C = Cédula, E = Cédula de extranjería, A = NIT).
+    const documentoTomador = `${tipoDoc}${numDoc}`;
+
     errorDiv.style.display = 'none';
-
-    // Concatenar tipo + número (ej: C1020455161)
-    const personaId = tipoDoc + numDoc;
-    console.log('📋 Documento:', personaId);
-
-    const loading = document.getElementById('loadingBusqueda');
-    const resultados = document.getElementById('resultadosBusqueda');
     loading.style.display = 'block';
     resultados.style.display = 'none';
+    if (boton) boton.disabled = true;
 
     try {
-        // Llamar a la API
-        console.log('📡 Consultando pólizas...');
-        const htmlResponse = await consultarAPISura(personaId);
+        const respuesta = await fetch(API_POLIZAS_TOMADOR, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ DNI_TOMADOR: documentoTomador })
+        });
+        if (!respuesta.ok) throw new Error(`La API respondió HTTP ${respuesta.status}.`);
 
-        // Procesar el HTML para extraer tabla de pólizas
-        console.log('📊 Extrayendo datos de pólizas...');
-        const polizas = extraerPolizasDelHTML(htmlResponse, personaId);
-        console.log(`✅ ${polizas.length} póliza(s) encontrada(s)`, polizas);
+        const datos = await respuesta.json();
+        const filas = Array.isArray(datos) ? datos : (datos?.value || datos?.Table1 || datos?.body || []);
+        const polizas = filas.filter(fila => fila?.NUMERO_POLIZA).map(normalizarPolizaRenovacion);
 
         if (polizas.length === 0) {
-            console.warn('❌ No hay pólizas para este documento');
-            textoError.textContent = `No se encontraron pólizas para el documento ${personaId}`;
+            textoError.textContent = `No se encontraron pólizas para el documento ${documentoTomador}`;
             errorDiv.style.display = 'block';
-            loading.style.display = 'none';
             return;
         }
 
-        // Guardar en localStorage
-        try {
-            const datosGuardar = {
-                documento: personaId,
-                fecha: new Date().toISOString(),
-                polizas: polizas
-            };
-            localStorage.setItem('polizas_' + personaId, JSON.stringify(datosGuardar));
-            console.log('💾 Datos guardados en localStorage:', datosGuardar);
-        } catch (e) {
-            console.warn('⚠️ No se pudo guardar en localStorage:', e);
-        }
-
-        loading.style.display = 'none';
-        renderizarPolizasRenovacion(polizas, personaId);
-
+        const nombreTomador = polizas.find(poliza => poliza.nombreTomador)?.nombreTomador || documentoTomador;
+        renderizarPolizasRenovacion(polizas, nombreTomador);
     } catch (error) {
-        console.error('❌ Error en búsqueda de pólizas:', error);
+        console.error('Error en búsqueda de pólizas:', error);
         textoError.textContent = `Error al consultar pólizas: ${error.message}`;
         errorDiv.style.display = 'block';
+    } finally {
         loading.style.display = 'none';
+        if (boton) boton.disabled = false;
     }
 }
 
-/**
- * Consulta pólizas del documento desde backend local
- * El backend hace servidor-a-servidor sin problemas CORS
- * @param {string} personaId - Documento concatenado (ej: C1020455161)
- * @returns {string} - HTML con pólizas
- */
-async function consultarAPISura(personaId) {
-    console.log('🔗 Consultando backend local (localhost:3001) para documento:', personaId);
-    
-    try {
-        const response = await fetch('http://localhost:3001/api/buscar-polizas', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ persona: personaId })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Backend error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('✅ Respuesta recibida del backend (', data.html.length, 'caracteres)');
-        
-        return data.html;
-        
-    } catch (error) {
-        console.warn('❌ No se pudo conectar al backend:', error.message);
-        console.log('📦 Usando datos mock como fallback...');
-        
-        // Fallback a mock si falla
-        return generarHTMLMockPolizas(personaId);
-    }
-}
-
-/**
- * Genera datos mock que simulan la respuesta de la API
- * En producción, esto vendría del backend que consume la API real
- */
-function generarHTMLMockPolizas(personaId) {
-    console.log('📝 Generando datos mock para:', personaId);
-    // Simulación de datos reales de la API
-    const polizasMock = [
-        {
-            ramo: '083',
-            subramo: '101',
-            producto: 'PLAN VIDA INTEGRAL CONTRIBUTIVO BANCOLOMBIA',
-            poliza: '5073085',
-            vigenciaDesde: '2024/10/11',
-            vigenciaHasta: '2024/11/01',
-            fechaCancelacion: '2024/11/01',
-            riesgo: personaId,
-            tipoVinculacion: 'ASEGURADO',
-            numeroRiesgo: '164934'
-        },
-        {
-            ramo: '083',
-            subramo: '025',
-            producto: 'PLAN VIDA CLÁSICO NO CONTRIBUTIVO',
-            poliza: '4575091',
-            vigenciaDesde: '2025/11/10',
-            vigenciaHasta: '2026/11/10',
-            fechaCancelacion: '--',
-            riesgo: personaId,
-            tipoVinculacion: 'ASEGURADO',
-            numeroRiesgo: '619'
-        },
-        {
-            ramo: '028',
-            subramo: 'H20',
-            producto: 'SEGURO DE HOGAR MENSUAL MULTIPLAN',
-            poliza: '8356168',
-            vigenciaDesde: '2026/02/01',
-            vigenciaHasta: '2027/02/01',
-            fechaCancelacion: '--',
-            riesgo: 'CL056**A*046****0072******',
-            tipoVinculacion: 'ASEGURADO',
-            numeroRiesgo: '2855'
-        },
-        {
-            ramo: '091',
-            subramo: '074',
-            producto: 'PLAN SALUD CLÁSICO COLECTIVO',
-            poliza: '809326',
-            vigenciaDesde: '2026/02/01',
-            vigenciaHasta: '2027/02/01',
-            fechaCancelacion: '--',
-            riesgo: personaId,
-            tipoVinculacion: 'ASEGURADO',
-            numeroRiesgo: '332'
-        }
-    ];
-
-    // Retornar estructura JSON que luego parseamos
-    const respuesta = JSON.stringify({
-        persona: personaId,
-        nombre: 'ARROYAVE*ANAYA**FREDY ANDRES',
-        polizas: polizasMock
-    });
-    console.log('📄 JSON Mock generado:', respuesta);
-    return respuesta;
-}
-
-/**
- * Extrae pólizas del HTML retornado por la API
- * @param {string} htmlResponse - HTML o JSON con información de pólizas
- * @param {string} personaId - Documento consultado
- * @returns {Array} - Array de objetos con información de pólizas
- */
-function extraerPolizasDelHTML(htmlResponse, personaId) {
-    console.log('🔄 Iniciando extracción de pólizas');
-    try {
-        // Intentar parsear como JSON primero (formato mock)
-        const datos = JSON.parse(htmlResponse);
-        console.log('✅ JSON parseado correctamente');
-        if (datos.polizas && Array.isArray(datos.polizas)) {
-            console.log(`📌 Encontradas ${datos.polizas.length} pólizas en JSON`);
-            return datos.polizas.map(p => ({
-                numero: p.poliza,
-                tomador: personaId,
-                vigenciaIni: p.vigenciaDesde,
-                vigenciaFin: p.vigenciaHasta,
-                asegurados: 1,
-                producto: p.producto,
-                ramo: p.ramo,
-                subramo: p.subramo,
-                tipoVinculacion: p.tipoVinculacion,
-                numeroRiesgo: p.numeroRiesgo,
-                estado: esPoliciaVigente(p.vigenciaHasta) ? 'Vigente' : 'Vencida'
-            }));
-        }
-    } catch (e) {
-        // Si no es JSON, intentar parsear como HTML
-        console.log('Parseando como HTML...');
-    }
-
-    // Si es HTML, parsear tablas
-    const polizas = [];
-    try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlResponse, 'text/html');
-        
-        // Buscar la tabla principal de pólizas
-        const rows = doc.querySelectorAll('table tr');
-        let enTablaPolizas = false;
-
-        rows.forEach((row, idx) => {
-            const cells = row.querySelectorAll('td');
-            
-            // Detectar encabezado de tabla de pólizas
-            if (row.textContent.includes('Ramo') && row.textContent.includes('Subramo')) {
-                enTablaPolizas = true;
-                return;
-            }
-
-            // Procesar filas de datos (saltar encabezados)
-            if (enTablaPolizas && cells.length >= 8) {
-                const ramo = cells[0]?.textContent?.trim() || '';
-                const subramo = cells[1]?.textContent?.trim() || '';
-                const producto = cells[2]?.textContent?.trim() || '';
-                const poliza = cells[3]?.textContent?.trim() || '';
-                const vigDesde = cells[4]?.textContent?.trim() || '';
-                const vigHasta = cells[5]?.textContent?.trim() || '';
-
-                if (poliza && poliza !== 'Póliza' && ramo) {
-                    polizas.push({
-                        numero: poliza,
-                        tomador: personaId,
-                        vigenciaIni: vigDesde,
-                        vigenciaFin: vigHasta,
-                        asegurados: 1,
-                        producto: producto,
-                        ramo: ramo,
-                        subramo: subramo,
-                        estado: esPoliciaVigente(vigHasta) ? 'Vigente' : 'Vencida'
-                    });
-                }
-            }
-        });
-    } catch (e) {
-        console.error('❌ Error parseando HTML:', e);
-    }
-
-    console.log(`📊 Total de pólizas extraídas: ${polizas.length}`);
-    console.table(polizas);
-    return polizas;
-}
-
-/**
- * Determina si una póliza está vigente
- */
-function esPoliciaVigente(fechaHasta) {
-    try {
-        const fecha = new Date(fechaHasta.replace(/\//g, '-'));
-        return fecha > new Date();
-    } catch {
-        return false;
-    }
-}
-
-function renderizarPolizasRenovacion(polizas, personaId) {
+function renderizarPolizasRenovacion(polizas, nombreTomador) {
     const resultados = document.getElementById('resultadosBusqueda');
     const titulo = document.getElementById('tituloResultados');
     const lista = document.getElementById('listaPolizas');
+    const valor = texto => (texto ? escaparHTML(texto) : '—');
 
-    titulo.textContent = `${polizas.length} póliza(s) encontrada(s) para "${personaId}"`;
-    lista.innerHTML = '';
+    polizasRenovacionActuales = polizas;
+    titulo.textContent = `${polizas.length} póliza(s) encontrada(s) para "${nombreTomador}"`;
 
-    // Crear tabla con información relevante
-    const tabla = document.createElement('table');
-    tabla.className = 'tabla-polizas-resultados';
-    tabla.style.cssText = `
-        width: 100%;
-        border-collapse: collapse;
-        margin: 15px 0;
-        background: white;
-    `;
-
-    // Encabezado
-    const thead = document.createElement('thead');
-    thead.innerHTML = `
-        <tr style="background: var(--color-primary-dark); color: white;">
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Ramo</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Producto</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Nº Póliza</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Vigencia Desde</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Vigencia Hasta</th>
-            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Estado</th>
-            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Acción</th>
+    const filas = polizas.map((poliza, indice) => `
+        <tr>
+            <td class="col-numero">${valor(poliza.numero)}</td>
+            <td>${valor(poliza.grupoProducto)}</td>
+            <td>${valor(poliza.canalComercial)}</td>
+            <td>${valor(poliza.nombreAsesor)}</td>
+            <td>${valor(poliza.sucursal)}</td>
+            <td>${formatearFechaISO(poliza.vigenciaIni)}</td>
+            <td>${formatearFechaISO(poliza.vigenciaFin)}</td>
+            <td class="col-accion">
+                <button type="button" class="btn btn-primary btn-small" onclick="seleccionarPolizaRenovacion(${indice})">Seleccionar</button>
+            </td>
         </tr>
-    `;
-    tabla.appendChild(thead);
+    `).join('');
 
-    // Cuerpo
-    const tbody = document.createElement('tbody');
-    polizas.forEach((p, idx) => {
-        const badgeClase = p.estado === 'Vigente' ? 'background: var(--color-success); color: white;' : 'background: var(--color-danger); color: white;';
-        const row = document.createElement('tr');
-        row.style.cssText = `border-bottom: 1px solid #ddd; ${idx % 2 === 0 ? 'background: var(--color-light);' : ''}`;
-        row.innerHTML = `
-            <td style="padding: 12px; border: 1px solid #ddd;">${p.ramo || '--'}</td>
-            <td style="padding: 12px; border: 1px solid #ddd;">
-                <div style="font-weight: 600; font-size: 13px;">${p.producto || '--'}</div>
-                <div style="font-size: 11px; color: #666;">Vinculación: ${p.tipoVinculacion || '--'}</div>
-            </td>
-            <td style="padding: 12px; border: 1px solid #ddd; font-weight: 600;">${p.numero || '--'}</td>
-            <td style="padding: 12px; border: 1px solid #ddd;">${p.vigenciaIni || '--'}</td>
-            <td style="padding: 12px; border: 1px solid #ddd;">${p.vigenciaFin || '--'}</td>
-            <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
-                <span style="display: inline-block; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: 600; ${badgeClase}">
-                    ${p.estado}
-                </span>
-            </td>
-            <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
-                <button class="btn btn-primary" onclick="seleccionarPolizaRenovacion(${JSON.stringify(p).replace(/"/g, '&quot;')})" 
-                    style="padding: 6px 12px; font-size: 12px;">
-                    Seleccionar
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-    tabla.appendChild(tbody);
-    lista.appendChild(tabla);
+    lista.innerHTML = `
+        <div class="tabla-polizas-contenedor">
+            <table class="tabla-polizas-resultados">
+                <thead>
+                    <tr>
+                        <th>Nº Póliza</th>
+                        <th>Producto</th>
+                        <th>Canal comercial</th>
+                        <th>Asesor</th>
+                        <th>Oficina</th>
+                        <th>Vigencia desde</th>
+                        <th>Vigencia hasta</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>
+    `;
 
     resultados.style.display = 'block';
 }
 
-function seleccionarPolizaRenovacion(poliza) {
+function seleccionarPolizaRenovacion(indice) {
+    const poliza = polizasRenovacionActuales[indice];
+    if (!poliza) return;
+
+    try {
+        localStorage.setItem(CLAVE_POLIZA_RENOVACION, JSON.stringify(poliza));
+    } catch (error) {
+        console.warn('No se pudo guardar la póliza seleccionada:', error);
+    }
+
     flujo.polizaSeleccionada = poliza;
     flujo.subtipo = 'cotizacion'; // renovación usa cotización con datos
-
-    /* ---- Pre-llenar datos de la póliza con información mock realista ---- */
-    const empresas = [
-        'Industrias Andinas S.A.S.', 'Comercializadora del Pacífico Ltda.',
-        'Servicios Técnicos Integrados S.A.', 'Grupo Empresarial Nacional S.A.S.',
-        'Distribuidora Continental Ltda.', 'Inversiones y Proyectos S.A.'
-    ];
-    const actividades = [
-        'Manufactura Industrial', 'Comercio al por Mayor', 'Servicios Financieros',
-        'Construcción e Infraestructura', 'Tecnología y Software', 'Salud y Farmacia'
-    ];
-    const oficinas = ['Medellín Centro', 'Bogotá Norte', 'Cali Principal', 'Barranquilla', 'Bucaramanga'];
-    const asesores = ['Juan Pérez Restrepo', 'María García López', 'Carlos Martínez Ruiz', 'Ana Rodríguez Cruz'];
-    const formasPago = ['Mensual', 'Trimestral', 'Semestral', 'Anual'];
-    const canales = CONFIG.CANAL_COMERCIAL;
 
     const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
     // Fechas: la renovación extiende 1 año desde el fin de la póliza anterior
     const vigNuevaDesde = poliza.vigenciaFin;
-    const vigNuevaHasta = new Date(poliza.vigenciaFin);
-    vigNuevaHasta.setFullYear(vigNuevaHasta.getFullYear() + 1);
-    const fechaCobroDate = new Date(poliza.vigenciaFin);
-    fechaCobroDate.setDate(1);
+    const vigNuevaHasta = sumarUnAnioISO(poliza.vigenciaFin);
+    const fechaCobro = poliza.vigenciaFin ? `${poliza.vigenciaFin.slice(0, 8)}01` : '';
 
-    estado.poliza.tomador             = rand(empresas);
-    estado.poliza.tipoIdentificacion  = 'NIT';
-    estado.poliza.numeroIdentificacion = poliza.tomador;
-    estado.poliza.modalidadPlan       = 'Voluntaria (Contributiva)';
-    estado.poliza.actividad           = rand(actividades);
-    estado.poliza.vigenciaDesde       = vigNuevaDesde;
-    estado.poliza.vigenciaHasta       = vigNuevaHasta.toISOString().split('T')[0];
-    estado.poliza.oficina             = rand(oficinas);
-    estado.poliza.formaPago           = rand(formasPago);
-    estado.poliza.fechaCobro          = fechaCobroDate.toISOString().split('T')[0];
-    estado.poliza.comision            = 20;
-    estado.poliza.honorarioPromotora  = 10;
-    estado.poliza.asesor              = rand(asesores);
-    estado.poliza.canalComercial      = rand(canales);
+    limpiarDatosAsesor(true);
+    estado.poliza.tomador              = poliza.nombreTomador;
+    estado.poliza.tipoIdentificacion   = TIPO_IDENTIFICACION_POR_PREFIJO[poliza.documento.charAt(0)] || 'CC';
+    estado.poliza.numeroIdentificacion = poliza.documento.slice(1);
+    estado.poliza.modalidadPlan        = 'Voluntaria (Contributiva)';
+    estado.poliza.actividad            = '';
+    estado.poliza.actividadDetalle     = null;
+    estado.poliza.vigenciaDesde        = vigNuevaDesde;
+    estado.poliza.vigenciaHasta        = vigNuevaHasta;
+    estado.poliza.fechaCobro           = fechaCobro;
+    estado.poliza.comision             = 20;
+    estado.poliza.honorarioPromotora   = 10;
+    estado.poliza.codigoAsesor         = poliza.codigoAsesor;
+    estado.poliza.canalComercial       = normalizarCanalComercial(poliza.canalComercial);
 
     /* ---- Generar asegurados aleatorios (cantidad igual a la póliza seleccionada) ---- */
     const cantidad = poliza.asegurados || (50 + Math.floor(Math.random() * 151));
@@ -4129,32 +3919,38 @@ function seleccionarPolizaRenovacion(poliza) {
     }
 
     mostrarWizard();
+    cargarActividadesEconomicas();
     mostrarToast(`Póliza ${poliza.numero} cargada · ${cantidad} asegurados generados`, 'success');
 
-    // Poblar todos los campos del formulario DOM
+    // Poblar los campos del formulario DOM con los datos de la póliza seleccionada
     setTimeout(() => {
         const campos = {
             tomador:              estado.poliza.tomador,
             tipoIdentificacion:   estado.poliza.tipoIdentificacion,
             numeroIdentificacion: estado.poliza.numeroIdentificacion,
-            modalidadPlan:         estado.poliza.modalidadPlan,
-            actividad:            estado.poliza.actividad,
+            modalidadPlan:        estado.poliza.modalidadPlan,
             vigenciaDesde:        estado.poliza.vigenciaDesde,
             vigenciaHasta:        estado.poliza.vigenciaHasta,
-            oficina:              estado.poliza.oficina,
             formaPago:            estado.poliza.formaPago,
-            tipoPagoMensual:       estado.poliza.tipoPagoMensual || 'Vencida',
+            tipoPagoMensual:      estado.poliza.tipoPagoMensual || 'Vencida',
             fechaCobro:           estado.poliza.fechaCobro,
             comision:             estado.poliza.comision,
-            honorarioPromotora:   estado.poliza.honorarioPromotora,
-            asesor:               estado.poliza.asesor,
-            canalComercial:       estado.poliza.canalComercial
+            honorarioPromotora:   estado.poliza.honorarioPromotora
         };
         for (const [id, valor] of Object.entries(campos)) {
             const el = document.getElementById(id);
             if (el) el.value = valor;
         }
         actualizarCamposComerciales();
+
+        // El asesor, su oficina y su canal se resuelven con la API de asesores
+        const campoCodigo = document.getElementById('codigoAsesor');
+        if (poliza.codigoAsesor && campoCodigo) {
+            campoCodigo.value = poliza.codigoAsesor;
+            ultimoCodigoAsesorConsultado = '';
+            consultarAsesorPorCodigo();
+        }
+        guardarEstado();
     }, 150);
 }
 
