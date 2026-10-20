@@ -592,12 +592,12 @@ textarea {
 }
 
 .info-box {
-    background: #fff3cd;
-    border-left: 4px solid var(--color-warning);
+    background: var(--color-blue-light);
+    border-left: 4px solid var(--color-primary);
     padding: 12px 16px;
     border-radius: var(--radius);
     margin: 20px 0;
-    color: #856404;
+    color: var(--color-primary-dark);
     font-size: 14px;
 }
 
@@ -1587,7 +1587,7 @@ textarea {
 }
 
 .toast.success {
-    background: var(--color-success);
+    background: var(--color-primary-dark);
 }
 
 .toast.error {
