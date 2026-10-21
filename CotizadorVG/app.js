@@ -146,6 +146,15 @@ const AMPAROS_RESUMIDOS_DEFINITIVOS = [
     { nombre: 'Invalidez, Pérdida O Inutilización Por Enfermedad', codigo: 'WE0' }
 ];
 
+// Agrupaciones para ingresar la siniestralidad por cobertura.
+const AGRUPACIONES_SINIESTROS = [
+    { codigo: 'VIDA', nombre: 'VIDA', coberturas: ['VIDA'] },
+    { codigo: 'ITP', nombre: 'ITP', coberturas: ['Invalidez o pérdida por un accidente o enfermedad', 'Invalidez Por Accidente', 'Invalidez, Pérdida O Inutilización Por Enfermedad'] },
+    { codigo: 'ENFERMEDADES_GRAVES', nombre: 'ENFERMEDADES GRAVES', coberturas: ['Enfermedades graves Independientes', 'Enfermedades graves'] },
+    { codigo: 'RENTAS_HOSPITALIZACION', nombre: 'RENTAS POR HOSPITALIZACIÓN', coberturas: ['Renta por hospitalización', 'Renta por hospitalización en UCI'] },
+    { codigo: 'RENTAS_INCAPACIDAD', nombre: 'RENTAS POR INCAPACIDAD', coberturas: ['Renta Por Incapacidad Por Accidente', 'Renta por incapacidad por accidente y enfermedad'] }
+];
+
 const GRUPOS_COBERTURAS_EXCLUYENTES = [
     ['WE9', 'WFA'],
     ['WEZ', 'WEY', 'WE0'],
@@ -237,6 +246,7 @@ let estado = {
         siniestrosPromedio: 0,
         siniestrosInformados: false,
         detalleSiniestrosCobertura: false,
+        gruposSiniestrosPoliza: [],
         siniestrosPorCobertura: [],
         codigoAsesor: '',
         asesor: '',
@@ -324,11 +334,15 @@ function cargarEstado() {
             estado.poliza.anosExposicion = Math.min(4, Math.max(0, Math.round(Number(estado.poliza.anosExposicion) || 0)));
             estado.poliza.siniestrosPromedio = Number(estado.poliza.siniestrosPromedio) || 0;
             estado.poliza.detalleSiniestrosCobertura = estado.poliza.detalleSiniestrosCobertura === true;
+            estado.poliza.gruposSiniestrosPoliza = AGRUPACIONES_SINIESTROS
+                .map(grupo => grupo.codigo)
+                .filter(codigo => (Array.isArray(estado.poliza.gruposSiniestrosPoliza) ? estado.poliza.gruposSiniestrosPoliza : []).includes(codigo)
+                    || (Array.isArray(estado.poliza.siniestrosPorCobertura) ? estado.poliza.siniestrosPorCobertura : []).some(item => item && item.codigo === codigo));
             estado.poliza.siniestrosPorCobertura = (Array.isArray(estado.poliza.siniestrosPorCobertura) ? estado.poliza.siniestrosPorCobertura : [])
-                .filter(item => item && item.codigo)
+                .filter(item => item && AGRUPACIONES_SINIESTROS.some(grupo => grupo.codigo === item.codigo))
                 .map(item => ({
                     codigo: String(item.codigo),
-                    nombre: String(item.nombre || item.codigo),
+                    nombre: AGRUPACIONES_SINIESTROS.find(grupo => grupo.codigo === item.codigo).nombre,
                     valor: item.valor === null || item.valor === undefined || item.valor === '' ? null : Number(item.valor) || 0
                 }));
             estado.poliza.siniestrosInformados = estado.poliza.aplicaCredibilidad
@@ -373,6 +387,7 @@ function limpiarEstado() {
                 siniestrosPromedio: 0,
                 siniestrosInformados: false,
                 detalleSiniestrosCobertura: false,
+                gruposSiniestrosPoliza: [],
                 siniestrosPorCobertura: [],
                 codigoAsesor: '',
                 asesor: '',
@@ -1199,12 +1214,12 @@ function validarSiniestralidadRequerida() {
         let campoInvalido = campoTotal;
         let mensaje = 'Diligencia el valor de siniestros totales antes de continuar. Si no hubo siniestros, ingresa $ 0.';
         if (usaDetalle) {
-            const filaVacia = Array.from(document.querySelectorAll('#listaSiniestrosCobertura input[data-codigo]'))
+            const filaVacia = Array.from(document.querySelectorAll('#listaSiniestrosCobertura input[data-codigo]:not(:disabled)'))
                 .find(campo => obtenerValorMonetario(campo.value) === null);
-            campoInvalido = filaVacia || document.getElementById('buscadorCoberturaSiniestro');
+            campoInvalido = filaVacia || document.querySelector('#listaSiniestrosCobertura input[data-codigo-check]');
             mensaje = lista.length === 0
-                ? 'Agrega al menos una cobertura con su valor de siniestros antes de continuar.'
-                : 'Diligencia el valor de siniestros de cada cobertura agregada. Si no hubo siniestros, ingresa $ 0.';
+                ? 'Marca al menos una agrupación con información siniestral y diligencia su valor antes de continuar.'
+                : 'Diligencia el valor de siniestros de cada agrupación marcada. Si no hubo siniestros, ingresa $ 0.';
         }
         campoTotal?.classList.add('campo-invalido');
         mostrarAlertaRango(mensaje, campoInvalido, 'Información de siniestralidad requerida');
@@ -3429,37 +3444,14 @@ function setupEventListeners() {
     document.getElementById('aplicaCredibilidad')?.addEventListener('change', () => actualizarAplicacionCredibilidad());
     document.getElementById('valorSiniestrosTotales')?.addEventListener('input', () => actualizarSiniestralidad());
     document.getElementById('detalleSiniestrosCobertura')?.addEventListener('change', cambiarDetalleSiniestros);
-    document.getElementById('btnAgregarCoberturaSiniestro')?.addEventListener('click', agregarCoberturaSiniestro);
-    const buscadorCoberturaSiniestro = document.getElementById('buscadorCoberturaSiniestro');
-    buscadorCoberturaSiniestro?.addEventListener('focus', renderizarListaCoberturasSiniestro);
-    buscadorCoberturaSiniestro?.addEventListener('click', renderizarListaCoberturasSiniestro);
-    buscadorCoberturaSiniestro?.addEventListener('input', () => {
-        coberturaSiniestroSeleccionada = '';
-        renderizarListaCoberturasSiniestro();
-    });
-    buscadorCoberturaSiniestro?.addEventListener('keydown', evento => {
-        if (evento.key === 'Escape') ocultarListaCoberturasSiniestro();
-        if (evento.key === 'Enter') {
-            evento.preventDefault();
-            const primera = document.querySelector('#listaCoberturasSiniestro [data-codigo-siniestro]');
-            if (primera && !coberturaSiniestroSeleccionada) seleccionarCoberturaSiniestro(primera.dataset.codigoSiniestro);
-            else if (coberturaSiniestroSeleccionada) agregarCoberturaSiniestro();
-        }
-    });
-    document.getElementById('listaCoberturasSiniestro')?.addEventListener('click', evento => {
-        const opcion = evento.target.closest('[data-codigo-siniestro]');
-        if (opcion) seleccionarCoberturaSiniestro(opcion.dataset.codigoSiniestro);
-    });
-    document.addEventListener('click', evento => {
-        if (!evento.target.closest('.actividad-selector')) ocultarListaCoberturasSiniestro();
-    });
     const listaSiniestrosCobertura = document.getElementById('listaSiniestrosCobertura');
     listaSiniestrosCobertura?.addEventListener('input', evento => {
         if (evento.target.matches('input[data-codigo]')) actualizarValorSiniestroCobertura(evento.target);
     });
-    listaSiniestrosCobertura?.addEventListener('click', evento => {
-        const boton = evento.target.closest('button[data-accion="quitar-siniestro"]');
-        if (boton) quitarCoberturaSiniestro(boton.dataset.codigo);
+    listaSiniestrosCobertura?.addEventListener('change', evento => {
+        if (evento.target.matches('input[data-codigo-check]')) {
+            alternarAgrupacionSiniestro(evento.target.dataset.codigoCheck, evento.target.checked);
+        }
     });
     document.getElementById('anosExposicion')?.addEventListener('change', evento => {
         const valorIngresado = Number(evento.target.value);
@@ -3560,7 +3552,7 @@ function seleccionarSubtipo(subtipo) {
         comision: 20, honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
-        siniestrosInformados: false, detalleSiniestrosCobertura: false, siniestrosPorCobertura: [],
+        siniestrosInformados: false, detalleSiniestrosCobertura: false, gruposSiniestrosPoliza: [], siniestrosPorCobertura: [],
         codigoAsesor: '', asesor: '', regional: '', oficinasAsesor: [], oficinaAsesor: '', codigoOficinaAsesor: '',
         canalComercial: '', observaciones: ''
     };
@@ -5541,6 +5533,7 @@ function actualizarAplicacionCredibilidad(restaurarValorGuardado = false) {
         estado.poliza.siniestrosPromedio = 0;
         estado.poliza.siniestrosInformados = false;
         estado.poliza.detalleSiniestrosCobertura = false;
+        estado.poliza.gruposSiniestrosPoliza = [];
         estado.poliza.siniestrosPorCobertura = [];
     }
 
@@ -5561,7 +5554,6 @@ function sincronizarDetalleSiniestrosUI() {
         campoTotal.setAttribute('aria-readonly', String(usaDetalle));
     }
     if (usaDetalle) {
-        renderizarSelectorCoberturasSiniestro();
         renderizarListaSiniestrosCobertura();
     } else {
         const lista = document.getElementById('listaSiniestrosCobertura');
@@ -5569,104 +5561,62 @@ function sincronizarDetalleSiniestrosUI() {
     }
 }
 
-let coberturaSiniestroSeleccionada = '';
-
-function obtenerCoberturasSiniestroDisponibles() {
-    const usados = new Set((estado.poliza.siniestrosPorCobertura || []).map(item => item.codigo));
-    return AMPAROS_RESUMIDOS_DEFINITIVOS.filter(amparo => !usados.has(amparo.codigo));
-}
-
-function renderizarSelectorCoberturasSiniestro() {
-    const buscador = document.getElementById('buscadorCoberturaSiniestro');
-    if (!buscador) return;
-
-    const hayDisponibles = obtenerCoberturasSiniestroDisponibles().length > 0;
-    coberturaSiniestroSeleccionada = '';
-    buscador.value = '';
-    buscador.disabled = !hayDisponibles;
-    buscador.placeholder = hayDisponibles ? 'Busca o selecciona una cobertura...' : 'Ya agregaste todas las coberturas';
-    ocultarListaCoberturasSiniestro();
-    const boton = document.getElementById('btnAgregarCoberturaSiniestro');
-    if (boton) boton.disabled = !hayDisponibles;
-}
-
-function renderizarListaCoberturasSiniestro() {
-    const buscador = document.getElementById('buscadorCoberturaSiniestro');
-    const lista = document.getElementById('listaCoberturasSiniestro');
-    if (!buscador || !lista || buscador.disabled) return;
-
-    const texto = coberturaSiniestroSeleccionada ? '' : normalizarTexto(buscador.value);
-    const coincidencias = obtenerCoberturasSiniestroDisponibles()
-        .filter(amparo => normalizarTexto(amparo.nombre).includes(texto));
-    lista.innerHTML = coincidencias.length
-        ? coincidencias.map(amparo => `<button class="actividad-opcion" type="button" role="option" data-codigo-siniestro="${escaparHTML(amparo.codigo)}">${escaparHTML(amparo.nombre)}</button>`).join('')
-        : '<div class="actividad-sin-resultados">No se encontraron coberturas.</div>';
-    lista.hidden = false;
-    buscador.setAttribute('aria-expanded', 'true');
-}
-
-function ocultarListaCoberturasSiniestro() {
-    const lista = document.getElementById('listaCoberturasSiniestro');
-    if (lista) lista.hidden = true;
-    document.getElementById('buscadorCoberturaSiniestro')?.setAttribute('aria-expanded', 'false');
-}
-
-function seleccionarCoberturaSiniestro(codigo) {
-    const amparo = AMPAROS_RESUMIDOS_DEFINITIVOS.find(item => item.codigo === codigo);
-    if (!amparo) return;
-    coberturaSiniestroSeleccionada = amparo.codigo;
-    const buscador = document.getElementById('buscadorCoberturaSiniestro');
-    if (buscador) buscador.value = amparo.nombre;
-    ocultarListaCoberturasSiniestro();
-}
-
 function renderizarListaSiniestrosCobertura() {
     const contenedor = document.getElementById('listaSiniestrosCobertura');
     if (!contenedor) return;
 
     const lista = estado.poliza.siniestrosPorCobertura || [];
-    if (!lista.length) {
-        contenedor.innerHTML = '<p class="siniestros-vacio">A\u00fan no has agregado coberturas.</p>';
-        return;
-    }
-    contenedor.innerHTML = lista.map(item => {
-        const codigo = escaparHTML(item.codigo);
-        const nombre = escaparHTML(item.nombre);
-        const vacio = item.valor === null || item.valor === undefined;
+    const gruposPoliza = estado.poliza.gruposSiniestrosPoliza || [];
+    const filas = AGRUPACIONES_SINIESTROS.filter(grupo => gruposPoliza.includes(grupo.codigo)).map(grupo => {
+        const item = lista.find(elemento => elemento.codigo === grupo.codigo);
+        const activa = Boolean(item);
+        const vacio = !item || item.valor === null || item.valor === undefined;
+        const codigo = escaparHTML(grupo.codigo);
+        const nombre = escaparHTML(grupo.nombre);
         return `
-            <div class="siniestro-cobertura-fila">
-                <span>${nombre}</span>
-                <input type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0"
-                    data-codigo="${codigo}" value="${vacio ? '' : escaparHTML(formatearValorMonetario(item.valor))}"
-                    class="${vacio ? 'campo-invalido' : ''}" aria-label="Siniestros de ${nombre}">
-                <button type="button" class="btn btn-danger" data-accion="quitar-siniestro" data-codigo="${codigo}" aria-label="Quitar ${nombre}">Quitar</button>
+            <div class="siniestro-agrupacion-fila${activa ? ' activa' : ''}">
+                <div class="siniestro-agrupacion-nombre">
+                    <strong>${nombre}</strong>
+                    <ul>${grupo.coberturas.map(cobertura => `<li>${escaparHTML(cobertura)}</li>`).join('')}</ul>
+                </div>
+                <label class="siniestro-agrupacion-check">
+                    <input type="checkbox" data-codigo-check="${codigo}" ${activa ? 'checked' : ''} aria-label="Hay información siniestral de ${nombre}">
+                    Sí
+                </label>
+                <div class="siniestro-agrupacion-valor">
+                    <input type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0"
+                        data-codigo="${codigo}" value="${vacio ? '' : escaparHTML(formatearValorMonetario(item.valor))}"
+                        class="${activa && vacio ? 'campo-invalido' : ''}" ${activa ? '' : 'disabled'}
+                        aria-label="Siniestros de ${nombre}">
+                </div>
             </div>`;
     }).join('');
+    contenedor.innerHTML = `
+        <div class="siniestro-agrupacion-encabezado">
+            <span>Agrupación</span>
+            <span style="text-align:center">¿Tiene información siniestral?</span>
+            <span>Valor de siniestros</span>
+        </div>${filas}`;
 }
 
-function agregarCoberturaSiniestro() {
-    const amparo = AMPAROS_RESUMIDOS_DEFINITIVOS.find(item => item.codigo === coberturaSiniestroSeleccionada);
-    if (!amparo) {
-        mostrarToast('Selecciona una cobertura para agregar.', 'warning');
-        return;
-    }
+function alternarAgrupacionSiniestro(codigo, activa) {
+    const grupo = AGRUPACIONES_SINIESTROS.find(item => item.codigo === codigo);
+    if (!grupo) return;
     if (!Array.isArray(estado.poliza.siniestrosPorCobertura)) estado.poliza.siniestrosPorCobertura = [];
-    if (estado.poliza.siniestrosPorCobertura.some(item => item.codigo === amparo.codigo)) return;
 
-    estado.poliza.siniestrosPorCobertura.push({ codigo: amparo.codigo, nombre: amparo.nombre, valor: null });
-    renderizarSelectorCoberturasSiniestro();
+    if (activa) {
+        if (!estado.poliza.siniestrosPorCobertura.some(item => item.codigo === codigo)) {
+            estado.poliza.siniestrosPorCobertura.push({ codigo, nombre: grupo.nombre, valor: null });
+        }
+    } else {
+        estado.poliza.siniestrosPorCobertura = estado.poliza.siniestrosPorCobertura.filter(item => item.codigo !== codigo);
+    }
     renderizarListaSiniestrosCobertura();
     actualizarSiniestralidad();
-    Array.from(document.querySelectorAll('#listaSiniestrosCobertura input[data-codigo]'))
-        .find(campo => campo.dataset.codigo === amparo.codigo)?.focus();
-}
-
-function quitarCoberturaSiniestro(codigo) {
-    estado.poliza.siniestrosPorCobertura = (estado.poliza.siniestrosPorCobertura || [])
-        .filter(item => item.codigo !== codigo);
-    renderizarSelectorCoberturasSiniestro();
-    renderizarListaSiniestrosCobertura();
-    actualizarSiniestralidad();
+    if (activa) {
+        Array.from(document.querySelectorAll('#listaSiniestrosCobertura input[data-codigo]'))
+            .find(campo => campo.dataset.codigo === codigo)?.focus();
+    }
 }
 
 function actualizarValorSiniestroCobertura(campo) {
@@ -5685,6 +5635,55 @@ function cambiarDetalleSiniestros() {
     estado.poliza.detalleSiniestrosCobertura = select?.value === 'si';
     sincronizarDetalleSiniestrosUI();
     actualizarSiniestralidad();
+    if (estado.poliza.detalleSiniestrosCobertura && !(estado.poliza.gruposSiniestrosPoliza || []).length) {
+        abrirModalGruposSiniestros();
+    }
+}
+
+function abrirModalGruposSiniestros() {
+    const modal = document.getElementById('modalGruposSiniestros');
+    const contenedor = document.getElementById('opcionesGruposSiniestros');
+    if (!modal || !contenedor) return;
+
+    const seleccionados = estado.poliza.gruposSiniestrosPoliza || [];
+    contenedor.innerHTML = AGRUPACIONES_SINIESTROS.map(grupo => `
+        <label class="grupo-siniestro-opcion">
+            <input type="checkbox" value="${escaparHTML(grupo.codigo)}" ${seleccionados.includes(grupo.codigo) ? 'checked' : ''}>
+            <span>
+                <strong>${escaparHTML(grupo.nombre)}</strong>
+                <small>${grupo.coberturas.map(escaparHTML).join(' · ')}</small>
+            </span>
+        </label>`).join('');
+    modal.style.display = 'flex';
+}
+
+function cerrarModalGruposSiniestros() {
+    const modal = document.getElementById('modalGruposSiniestros');
+    if (modal) modal.style.display = 'none';
+    if (estado.poliza.detalleSiniestrosCobertura && !(estado.poliza.gruposSiniestrosPoliza || []).length) {
+        estado.poliza.detalleSiniestrosCobertura = false;
+        sincronizarDetalleSiniestrosUI();
+        actualizarSiniestralidad();
+    }
+}
+
+function confirmarGruposSiniestros() {
+    const codigos = Array.from(document.querySelectorAll('#opcionesGruposSiniestros input:checked')).map(campo => campo.value);
+    if (!codigos.length) {
+        mostrarToast('Selecciona al menos una agrupación que tuviera la póliza anterior.', 'warning');
+        return;
+    }
+
+    const previos = estado.poliza.siniestrosPorCobertura || [];
+    estado.poliza.gruposSiniestrosPoliza = AGRUPACIONES_SINIESTROS.map(grupo => grupo.codigo).filter(codigo => codigos.includes(codigo));
+    estado.poliza.siniestrosPorCobertura = AGRUPACIONES_SINIESTROS
+        .filter(grupo => codigos.includes(grupo.codigo))
+        .map(grupo => previos.find(item => item.codigo === grupo.codigo) || { codigo: grupo.codigo, nombre: grupo.nombre, valor: null });
+
+    document.getElementById('modalGruposSiniestros').style.display = 'none';
+    renderizarListaSiniestrosCobertura();
+    actualizarSiniestralidad();
+    guardarEstado();
 }
 
 function actualizarSiniestralidad(restaurarValoresGuardados = false) {

@@ -294,18 +294,11 @@
                             </select>
                         </div>
                         <div class="siniestros-detalle siniestros-full" id="bloqueSiniestrosCobertura" hidden>
-                            <div class="siniestros-detalle-agregar">
-                                <div class="form-group">
-                                    <label for="buscadorCoberturaSiniestro">Agregar cobertura</label>
-                                    <div class="actividad-selector">
-                                        <input type="search" id="buscadorCoberturaSiniestro" placeholder="Busca o selecciona una cobertura..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="listaCoberturasSiniestro" aria-expanded="false">
-                                        <div id="listaCoberturasSiniestro" class="actividad-lista lista-compacta" role="listbox" hidden></div>
-                                    </div>
-                                </div>
-                                <button class="btn btn-accent btn-small" type="button" id="btnAgregarCoberturaSiniestro">+ Agregar</button>
+                            <div class="siniestros-agrupaciones-acciones">
+                                <small>Marca "Sí" en las agrupaciones con información siniestral e ingresa su valor. Puedes ingresar $ 0 si no hubo siniestros.</small>
+                                <button class="btn btn-outline btn-small" type="button" onclick="abrirModalGruposSiniestros()">Modificar agrupaciones de la póliza anterior</button>
                             </div>
-                            <small>Puedes ingresar $ 0 en una cobertura sin siniestros.</small>
-                            <div class="siniestros-detalle-lista" id="listaSiniestrosCobertura" aria-live="polite"></div>
+                            <div class="siniestros-agrupaciones" id="listaSiniestrosCobertura" aria-live="polite"></div>
                         </div>
                         <div class="form-group">
                             <label for="valorSiniestrosTotales">Valor de siniestros totales</label>
@@ -779,6 +772,24 @@
             <div class="modal-footer">
                 <button class="btn btn-primary" type="button" onclick="guardarAseguradoDesdeModal()">Guardar</button>
                 <button class="btn btn-secondary" type="button" onclick="cerrarModalAsegurado()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agrupaciones que traía la póliza anterior -->
+    <div id="modalGruposSiniestros" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloModalGruposSiniestros">
+        <div class="modal-content" style="max-width:560px;">
+            <div class="modal-header">
+                <h3 id="tituloModalGruposSiniestros">Agrupaciones de la póliza anterior</h3>
+                <button class="btn-close" type="button" onclick="cerrarModalGruposSiniestros()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="info-box" style="margin-top:0;">Selecciona las agrupaciones de coberturas que traía la póliza anterior. Solo estas se mostrarán para ingresar la siniestralidad.</p>
+                <div id="opcionesGruposSiniestros" class="grupos-siniestros-opciones"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="confirmarGruposSiniestros()">Aceptar</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalGruposSiniestros()">Cancelar</button>
             </div>
         </div>
     </div>
