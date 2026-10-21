@@ -3352,6 +3352,8 @@ function setupEventListeners() {
     document.getElementById('tipoPagoMensual')?.addEventListener('change', evento => {
         actualizarTipoPagoMensual(evento.target.value);
     });
+    document.getElementById('vigenciaDesde')?.addEventListener('change', evento => sincronizarVigencia('vigenciaDesde', evento.target.value));
+    document.getElementById('vigenciaHasta')?.addEventListener('change', evento => sincronizarVigencia('vigenciaHasta', evento.target.value));
     document.addEventListener('click', evento => {
         const opcionFormaPago = evento.target.closest('[data-forma-pago]');
         if (opcionFormaPago && !evento.target.closest('[data-tipo-pago-mensual]')) {
@@ -5146,11 +5148,33 @@ function inicializar() {
     mostrarSoloPantalla('pantalla-landing');
 }
 
+function desplazarAnioFecha(fechaISO, anios) {
+    const coincidencia = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fechaISO || '');
+    if (!coincidencia) return '';
+    const anio = Number(coincidencia[1]) + anios;
+    const mes = Number(coincidencia[2]);
+    const diasDelMes = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+    const dia = Math.min(Number(coincidencia[3]), diasDelMes);
+    return `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
+function sincronizarVigencia(campoModificado, valor) {
+    if (!valor) return;
+    const esDesde = campoModificado === 'vigenciaDesde';
+    const campoOpuesto = esDesde ? 'vigenciaHasta' : 'vigenciaDesde';
+    const fechaOpuesta = desplazarAnioFecha(valor, esDesde ? 1 : -1);
+    if (!fechaOpuesta) return;
+
+    const input = document.getElementById(campoOpuesto);
+    if (input) input.value = fechaOpuesta;
+    estado.poliza[campoModificado] = valor;
+    estado.poliza[campoOpuesto] = fechaOpuesta;
+    guardarEstado();
+}
+
 function establecerFechasDefault() {
     const hoje = new Date().toISOString().split('T')[0];
-    const proxAnio = new Date();
-    proxAnio.setFullYear(proxAnio.getFullYear() + 1);
-    const proxAnioStr = proxAnio.toISOString().split('T')[0];
+    const proxAnioStr = desplazarAnioFecha(hoje, 1);
 
     const inputDesde = document.getElementById('vigenciaDesde');
     const inputHasta = document.getElementById('vigenciaHasta');
