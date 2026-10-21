@@ -522,7 +522,7 @@
                     <table class="table-editable tabla-asignacion-planes">
                         <thead>
                             <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" onchange="seleccionarTodosAsignacionPlanes(this.checked)" aria-label="Seleccionar todos los asegurados filtrados"></th><th>Documento</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
-                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionEdad" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por edad"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><select id="filtroAsignacionGrupo" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo"><option value="">Filtrar</option><option value="Grupo 1">Grupo 1</option><option value="Grupo 2">Grupo 2</option><option value="Grupo 3">Grupo 3</option><option value="Grupo 4">Grupo 4</option><option value="Grupo 5">Grupo 5</option></select></th><th><input id="filtroAsignacionValor" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">Filtrar</option></select></th></tr>
+                            <tr class="fila-filtros-asignacion"><th></th><th><input id="filtroAsignacionDocumento" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th><th><input id="filtroAsignacionEdad" type="text" readonly placeholder="Filtrar" onclick="abrirModalFiltroEdad()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirModalFiltroEdad();}" aria-label="Filtrar por rango de edad" style="cursor:pointer"></th><th><input id="filtroAsignacionParentesco" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco"></th><th><select id="filtroAsignacionGrupo" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo"><option value="">Filtrar</option><option value="Grupo 1">Grupo 1</option><option value="Grupo 2">Grupo 2</option><option value="Grupo 3">Grupo 3</option><option value="Grupo 4">Grupo 4</option><option value="Grupo 5">Grupo 5</option></select></th><th><input id="filtroAsignacionValor" type="search" placeholder="Filtrar" oninput="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th><th><select id="filtroAsignacionPlan" onchange="aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan"><option value="">Filtrar</option></select></th></tr>
                         </thead>
                         <tbody id="tbody-asignacion-planes"></tbody>
                     </table>
@@ -941,10 +941,10 @@
                 <div class="form-group">
                     <label for="deducibleRentaIncapacidad">Deducible *</label>
                     <select id="deducibleRentaIncapacidad" required>
-                        <option value="7-30" selected>Mín. 7 días - Máx. 30 días</option>
-                        <option value="3-30">Mín. 3 días - Máx. 30 días</option>
-                        <option value="15-60">Mín. 15 días - Máx. 60 días</option>
-                        <option value="14-90">Mín. 14 días - Máx. 90 días</option>
+                        <option value="7-30" selected>Deducible 7 días - Máx. 30 días</option>
+                        <option value="3-30">Deducible 3 días - Máx. 30 días</option>
+                        <option value="15-60">Deducible 15 días - Máx. 60 días</option>
+                        <option value="14-90">Deducible 14 días - Máx. 90 días</option>
                     </select>
                 </div>
             </div>
@@ -1022,6 +1022,39 @@
             <div class="modal-footer">
                 <button class="btn btn-accent" type="button" onclick="confirmarReasignacionSeleccionados()">Reasignar</button>
                 <button class="btn btn-secondary" type="button" onclick="cerrarModalReasignarSeleccionados()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalFiltroEdad" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloFiltroEdad">
+        <div class="modal-content" style="max-width:460px;">
+            <div class="modal-header">
+                <h3 id="tituloFiltroEdad">Filtrar por edad</h3>
+                <button class="btn-close" type="button" onclick="cerrarModalFiltroEdad()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label for="edadFiltroExacta">Edad específica</label>
+                    <input type="number" id="edadFiltroExacta" min="0" max="100" step="1" placeholder="Ej: 35" onkeydown="if(event.key==='Enter'){event.preventDefault();aplicarFiltroEdad();}">
+                </div>
+                <label class="filtro-edad-usar-rango">
+                    <input type="checkbox" id="edadFiltroUsarRango" onchange="alternarModoFiltroEdad()">
+                    Buscar por rango de edad
+                </label>
+                <p id="ayudaFiltroEdadRango" style="color:var(--color-gray);margin:10px 0 16px;font-size:14px;">Desliza las barras para ajustar el rango. Por ejemplo, con máximo en 100 se muestran los asegurados de 0 a 100 años.</p>
+                <div class="filtro-edad-slider">
+                    <label for="edadFiltroMin">Edad mínima: <strong id="edadFiltroMinValor">0</strong></label>
+                    <input type="range" id="edadFiltroMin" min="0" max="100" step="1" value="0" oninput="actualizarSlidersFiltroEdad('min')">
+                </div>
+                <div class="filtro-edad-slider">
+                    <label for="edadFiltroMax">Edad máxima: <strong id="edadFiltroMaxValor">100</strong></label>
+                    <input type="range" id="edadFiltroMax" min="0" max="100" step="1" value="100" oninput="actualizarSlidersFiltroEdad('max')">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="aplicarFiltroEdad()">Aplicar</button>
+                <button class="btn btn-outline" type="button" onclick="quitarFiltroEdad()">Quitar filtro</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalFiltroEdad()">Cancelar</button>
             </div>
         </div>
     </div>

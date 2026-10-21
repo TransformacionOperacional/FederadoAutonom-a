@@ -2319,7 +2319,7 @@ function configurarOpcionesPlan(contenedor) {
 function obtenerEtiquetaDeducible(deducible) {
     const [diasMinimos, diasMaximos] = String(deducible || '').split('-');
     return diasMinimos && diasMaximos
-        ? `Mín. ${diasMinimos} días - Máx. ${diasMaximos} días`
+        ? `Deducible ${diasMinimos} días - Máx. ${diasMaximos} días`
         : 'Deducible...';
 }
 
@@ -2331,7 +2331,7 @@ function opcionesDeduciblePlan(deducible = DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFEC
 
 function opcionesEnfermedadesGravesPlan(codigo, factor = FACTOR_ENFERMEDADES_GRAVES_POR_DEFECTO, cancerInSitu = false) {
     return `<div class="configuracion-eg-plan" data-configuracion-eg="${codigo}" hidden>
-        <span>Factor del valor asegurado
+        <span>Porcentaje del valor asegurado en vida
             <select data-factor-eg="${codigo}" aria-label="Factor para enfermedades graves">
                 ${FACTORES_ENFERMEDADES_GRAVES.map(opcion => `<option value="${opcion}" ${opcion === Number(factor) ? 'selected' : ''}>${Math.round(opcion * 100)}%</option>`).join('')}
             </select>
@@ -5287,13 +5287,14 @@ function renderizarAsignacionPlanes() {
 }
 
 const seleccionAsignacionIds = new Set();
+let filtroEdadAsignacion = null;
 let paginaAsignacion = 1;
 let registrosPorPaginaAsignacion = REGISTROS_POR_PAGINA_MIN;
 
 function obtenerAseguradosAsignacionFiltrados() {
     const filtros = {
         documento: normalizarTexto(document.getElementById('filtroAsignacionDocumento')?.value || ''),
-        edad: normalizarTexto(document.getElementById('filtroAsignacionEdad')?.value || ''),
+        edad: filtroEdadAsignacion,
         parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
         grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
         valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
@@ -5301,7 +5302,7 @@ function obtenerAseguradosAsignacionFiltrados() {
     };
     return estado.asegurados.filter(asegurado =>
         (!filtros.documento || normalizarTexto(asegurado.numeroDocumento || '').includes(filtros.documento))
-        && (!filtros.edad || normalizarTexto(asegurado.edad ?? '').includes(filtros.edad))
+        && (!filtros.edad || (Number.isFinite(Number(asegurado.edad)) && Number(asegurado.edad) >= filtros.edad.min && Number(asegurado.edad) <= filtros.edad.max))
         && (!filtros.parentesco || normalizarTexto(asegurado.tipoAsegurado || '').includes(filtros.parentesco))
         && (!filtros.grupo || (asegurado.grupo || '') === filtros.grupo)
         && (!filtros.valor || String(obtenerValorAseguradoBase(asegurado)).includes(filtros.valor))
@@ -5382,10 +5383,85 @@ function limpiarFiltrosAsignacionPlanes() {
         const filtro = document.getElementById(`filtroAsignacion${sufijo}`);
         if (filtro) filtro.value = '';
     });
+    filtroEdadAsignacion = null;
+    aplicarFiltrosAsignacionPlanes();
+}
+
+function abrirModalFiltroEdad() {
+    const modal = document.getElementById('modalFiltroEdad');
+    if (!modal) return;
+    const usaRango = filtroEdadAsignacion?.modo === 'rango';
+    document.getElementById('edadFiltroUsarRango').checked = usaRango;
+    document.getElementById('edadFiltroExacta').value = filtroEdadAsignacion?.modo === 'exacta' ? filtroEdadAsignacion.min : '';
+    document.getElementById('edadFiltroMin').value = usaRango ? filtroEdadAsignacion.min : 0;
+    document.getElementById('edadFiltroMax').value = usaRango ? filtroEdadAsignacion.max : 100;
+    actualizarSlidersFiltroEdad();
+    alternarModoFiltroEdad();
+    modal.style.display = 'flex';
+    (usaRango ? document.getElementById('edadFiltroMin') : document.getElementById('edadFiltroExacta')).focus();
+}
+
+function alternarModoFiltroEdad() {
+    const usaRango = document.getElementById('edadFiltroUsarRango').checked;
+    document.getElementById('edadFiltroExacta').disabled = usaRango;
+    document.getElementById('edadFiltroMin').disabled = !usaRango;
+    document.getElementById('edadFiltroMax').disabled = !usaRango;
+    document.querySelectorAll('#modalFiltroEdad .filtro-edad-slider').forEach(bloque => bloque.classList.toggle('deshabilitado', !usaRango));
+}
+
+function cerrarModalFiltroEdad() {
+    const modal = document.getElementById('modalFiltroEdad');
+    if (modal) modal.style.display = 'none';
+}
+
+function actualizarSlidersFiltroEdad(origen) {
+    const campoMin = document.getElementById('edadFiltroMin');
+    const campoMax = document.getElementById('edadFiltroMax');
+    let min = Number(campoMin.value);
+    let max = Number(campoMax.value);
+    if (min > max) {
+        if (origen === 'min') max = min;
+        else min = max;
+        campoMin.value = min;
+        campoMax.value = max;
+    }
+    document.getElementById('edadFiltroMinValor').textContent = min;
+    document.getElementById('edadFiltroMaxValor').textContent = max;
+}
+
+function aplicarFiltroEdad() {
+    if (document.getElementById('edadFiltroUsarRango').checked) {
+        filtroEdadAsignacion = {
+            modo: 'rango',
+            min: Number(document.getElementById('edadFiltroMin').value),
+            max: Number(document.getElementById('edadFiltroMax').value)
+        };
+    } else {
+        const texto = document.getElementById('edadFiltroExacta').value.trim();
+        const edad = Number(texto);
+        if (texto === '' || !Number.isFinite(edad) || edad < 0 || edad > 100) {
+            mostrarToast('Ingresa una edad entre 0 y 100.', 'warning');
+            return;
+        }
+        filtroEdadAsignacion = { modo: 'exacta', min: Math.round(edad), max: Math.round(edad) };
+    }
+    cerrarModalFiltroEdad();
+    aplicarFiltrosAsignacionPlanes();
+}
+
+function quitarFiltroEdad() {
+    filtroEdadAsignacion = null;
+    cerrarModalFiltroEdad();
     aplicarFiltrosAsignacionPlanes();
 }
 
 function aplicarFiltrosAsignacionPlanes(reiniciarPagina = true) {
+    const campoEdad = document.getElementById('filtroAsignacionEdad');
+    if (campoEdad) {
+        campoEdad.value = !filtroEdadAsignacion ? ''
+            : filtroEdadAsignacion.modo === 'exacta' ? `${filtroEdadAsignacion.min} años`
+            : `${filtroEdadAsignacion.min} - ${filtroEdadAsignacion.max} años`;
+    }
     if (reiniciarPagina) paginaAsignacion = 1;
     renderizarFilasAsignacionPlanes();
 }

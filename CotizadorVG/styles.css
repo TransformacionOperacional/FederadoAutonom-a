@@ -3093,6 +3093,53 @@ textarea {
     font-size: 13px;
 }
 
+.filtro-edad-usar-rango {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.filtro-edad-usar-rango input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-primary);
+}
+
+.filtro-edad-slider.deshabilitado {
+    opacity: 0.45;
+}
+
+.filtro-edad-slider.deshabilitado input {
+    cursor: not-allowed;
+}
+
+.filtro-edad-slider {
+    margin-bottom: 18px;
+}
+
+.filtro-edad-slider label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.filtro-edad-slider strong {
+    color: var(--color-primary);
+    font-size: 16px;
+}
+
+.filtro-edad-slider input[type="range"] {
+    width: 100%;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
 .siniestros-agrupaciones-acciones {
     display: flex;
     align-items: center;
