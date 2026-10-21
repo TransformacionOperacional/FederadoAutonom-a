@@ -5870,26 +5870,33 @@ function cerrarAlertaRango() {
 
 function actualizarEstadoBotonReiniciarAsignacion() {
     const boton = document.getElementById('btnReiniciarAsignacion');
-    if (boton) boton.disabled = !estado.planes.some(plan => plan.creadoPorAsignacionAutomatica);
+    const hayAsignaciones = estado.planes.some(plan =>
+        esPlanDerivadoDeAsignacion(plan) || (plan.asegurados || []).length > 0
+    ) || estado.asegurados.some(asegurado => asegurado.planId);
+    if (boton) boton.disabled = !hayAsignaciones;
 }
 
 function reiniciarAsignacionAutomatica(mostrarConfirmacion = true) {
-    const planesAutomaticos = estado.planes.filter(plan => plan.creadoPorAsignacionAutomatica);
-    if (planesAutomaticos.length === 0) {
-        mostrarToast('No hay una asignación automática para reiniciar.', 'info');
+    const planesDerivados = estado.planes.filter(esPlanDerivadoDeAsignacion);
+    const hayAsignaciones = planesDerivados.length > 0
+        || estado.planes.some(plan => (plan.asegurados || []).length > 0)
+        || estado.asegurados.some(asegurado => asegurado.planId);
+    if (!hayAsignaciones) {
+        mostrarToast('No hay planes asignados para reiniciar.', 'info');
         return;
     }
 
-    const idsPlanesAutomaticos = new Set(planesAutomaticos.map(plan => plan.id));
     estado.asegurados.forEach(asegurado => {
-        if (idsPlanesAutomaticos.has(asegurado.planId)) {
-            asegurado.planId = null;
-            asegurado.subgrupoId = null;
-        }
+        asegurado.planId = null;
+        asegurado.subgrupoId = null;
     });
-    estado.planes = estado.planes.filter(plan => !idsPlanesAutomaticos.has(plan.id));
+    estado.planes = estado.planes
+        .filter(plan => !esPlanDerivadoDeAsignacion(plan))
+        .map(plan => ({ ...plan, asegurados: [] }));
     const subgruposConPlan = new Set(estado.planes.map(plan => plan.subgrupoId));
-    estado.subgrupos = estado.subgrupos.filter(subgrupo => subgruposConPlan.has(subgrupo.id));
+    estado.subgrupos = estado.subgrupos
+        .filter(subgrupo => subgruposConPlan.has(subgrupo.id))
+        .map(subgrupo => ({ ...subgrupo, asegurados: [] }));
     if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoActivoEnPlanes)) subgrupoActivoEnPlanes = null;
 
     guardarEstado();
@@ -5897,7 +5904,7 @@ function reiniciarAsignacionAutomatica(mostrarConfirmacion = true) {
     renderizarPlanesSubgrupoTabs();
     renderizarTablaCalculos();
     if (mostrarConfirmacion) {
-        mostrarToast('Asignación automática reiniciada. Puedes ajustar nuevamente los rangos.', 'success');
+        mostrarToast('Asignación reiniciada. Puedes configurar los planes nuevamente.', 'success');
     }
 }
 
