@@ -13,9 +13,9 @@
             "previewLimit": 50,
             "driver": "SQLTools Teradata Driver",
             "server": "Teradata.suranet.com",
-            "username": "fredaran",
-            "password": "Charizard930618*",
-            "name": "SURA"
+            "name": "Dani_Sura",
+            "password": "Alicia200019lina*",
+            "username": "daniruzu"
         },
         {
             "port": 1025,
@@ -30,9 +30,9 @@
             "previewLimit": 50,
             "driver": "SQLTools Teradata Driver",
             "server": "Teradata.suranet.com",
-            "name": "Dani_Sura",
-            "password": "Alicia200019lina*",
-            "username": "daniruzu"
+            "username": "fredaran",
+            "password": "Dragonite5161*",
+            "name": "SURA"
         }
     ]
 }
