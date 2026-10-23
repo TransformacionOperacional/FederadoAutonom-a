@@ -162,7 +162,7 @@ TARGET_COLUMNS = [
     "NUMERO_POLIZA",
     "POLIZA_ID",
     "GRUPO_PRODUCTO",
-    "CLASIFICACION",                   # Copia de GRUPO_PRODUCTO
+    "CLASIFICACION",                   # GRUPO_PRODUCTO concatenado con PLAN_PRODUCTO
     "NOMBRE_CANAL_COMERCIAL",
     "NOMBRE_GRUPO_CANAL_COMERCIAL",
     "CODIGO_OFICINA",
@@ -247,8 +247,12 @@ def _calcular_campos(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    # CLASIFICACION replica GRUPO_PRODUCTO.
-    df["CLASIFICACION"] = df.get("GRUPO_PRODUCTO")
+    df["CLASIFICACION"] = (
+        df["GRUPO_PRODUCTO"].astype("string").str.cat(
+            df["PLAN_PRODUCTO"].astype("string"),
+            sep="_",
+        )
+    )
 
     # ── Campo 1: TPR_PONDERADA_REDUCCION_20PCT ────────────────────────────
     # Fórmula: TPR_PONDERADA_POR_PERSONA * (1 - 20%)
