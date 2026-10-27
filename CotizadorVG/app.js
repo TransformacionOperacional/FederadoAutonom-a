@@ -2955,7 +2955,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
         <header><strong>Valor según forma de pago</strong><span>Selecciona la forma de pago que prefieras</span></header>
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
-        <p class="fraccionamiento-resultado">${obtenerDescripcionFormaPago()}: <strong>${formatearDinero(primaSegunFormaPago)}</strong> por pago (${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}).</p>
+        <p class="fraccionamiento-resultado">${obtenerDescripcionFormaPago()}: <strong>${formatearDinero(primaSegunFormaPago)}</strong>.</p>
     </section>`);
     if (estado.poliza.aplicaCredibilidad === true) {
         contenedor.insertAdjacentHTML('beforeend', `<section class="comparativa-credibilidad-acciones">
