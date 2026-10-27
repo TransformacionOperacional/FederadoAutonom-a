@@ -254,8 +254,7 @@ let estado = {
         oficinasAsesor: [],
         oficinaAsesor: '',
         codigoOficinaAsesor: '',
-        canalComercial: '',
-        observaciones: ''
+        canalComercial: ''
     },
     coberturasCatalogo: crearCatalogoInicial(),
     tasasPorCoberturaEdad: {},
@@ -395,8 +394,7 @@ function limpiarEstado() {
                 oficinasAsesor: [],
                 oficinaAsesor: '',
                 codigoOficinaAsesor: '',
-                canalComercial: '',
-                observaciones: ''
+                canalComercial: ''
             },
             coberturasCatalogo: crearCatalogoInicial(),
             tasasPorCoberturaEdad: {},
@@ -3327,7 +3325,7 @@ function setupEventListeners() {
     const camposPoliza = [
         'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'modalidadPlan',
         'vigenciaDesde', 'vigenciaHasta',
-        'formaPago', 'fechaCobro', 'observaciones'
+        'formaPago', 'fechaCobro'
     ];
     camposPoliza.forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
@@ -3556,7 +3554,7 @@ function seleccionarSubtipo(subtipo) {
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
         siniestrosInformados: false, detalleSiniestrosCobertura: false, gruposSiniestrosPoliza: [], siniestrosPorCobertura: [],
         codigoAsesor: '', asesor: '', regional: '', oficinasAsesor: [], oficinaAsesor: '', codigoOficinaAsesor: '',
-        canalComercial: '', observaciones: ''
+        canalComercial: ''
     };
     limpiarDatosAsesor(true);
     actualizarAplicacionCredibilidad(true);
