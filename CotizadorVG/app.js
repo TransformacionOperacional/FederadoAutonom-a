@@ -33,8 +33,8 @@ const CONFIG = {
     CANAL_COMERCIAL: ['SUCURSALES', 'PROMOTORAS', 'CORREDORES'],
     FACTORES_FRACCIONAMIENTO: {
         Mensual: { factor: 0.091, periodos: 12 },
-        Trimestral: { factor: 0.07, periodos: 4 },
-        Semestral: { factor: 0.04, periodos: 2 },
+        Trimestral: { factor: 0.267, periodos: 4 },
+        Semestral: { factor: 0.522, periodos: 2 },
         Anual: { factor: 0, periodos: 1 }
     },
     FACTORES_EDAD: {
@@ -4347,6 +4347,7 @@ async function descargarPlantillaExcel() {
     hoja.getColumn(4).numFmt = '"$" #,##0';
     hoja.getRow(1).font = { bold: true };
     hoja.getRow(1).alignment = { horizontal: 'center' };
+    hoja.views = [{ state: 'frozen', ySplit: 1 }];
 
     const opcionesTipoAsegurado = `"${CONFIG.TIPO_ASEGURADO.join(',')}"`;
     hoja.getCell('B2').dataValidation = {
@@ -4379,6 +4380,63 @@ async function descargarPlantillaExcel() {
     for (let fila = 3; fila <= 1000; fila++) {
         hoja.getCell(`E${fila}`).dataValidation = { ...hoja.getCell('E2').dataValidation };
     }
+
+    const guia = libro.addWorksheet('Guía de uso');
+    guia.mergeCells('A1:B1');
+    guia.getCell('A1').value = 'GUÍA DE USO - PLANTILLA DE ASEGURADOS';
+    guia.getCell('A1').font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 };
+    guia.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0033A0' } };
+    guia.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    guia.getRow(1).height = 30;
+
+    guia.mergeCells('A2:B2');
+    guia.getCell('A2').value = 'Diligencie la hoja "Asegurados" siguiendo estas indicaciones. La primera hoja del archivo es la que se procesa al cargarlo en el cotizador.';
+    guia.getCell('A2').alignment = { wrapText: true, vertical: 'middle' };
+    guia.getRow(2).height = 34;
+
+    guia.addRow([]);
+    guia.addRow(['Campo', 'Mensaje de guía']);
+    const filaEncabezadosGuia = guia.getRow(4);
+    filaEncabezadosGuia.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    filaEncabezadosGuia.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    filaEncabezadosGuia.alignment = { vertical: 'middle' };
+
+    [
+        ['Numero_Documento', 'Ingrese el número de documento. Se recomienda usar únicamente números, sin puntos, comas, guiones ni espacios.'],
+        ['Tipo_Asegurado', `Seleccione una opción de la lista desplegable: ${CONFIG.TIPO_ASEGURADO.join(', ')}.`],
+        ['Edad', `Ingrese la edad en números enteros. La edad mínima depende del tipo de asegurado y la modalidad; el máximo permitido es de ${CONFIG.EDAD_MAXIMA_ASEGURADO} años.`],
+        ['Valor_Asegurado_COP', 'Ingrese únicamente el valor asegurado en pesos colombianos como un número mayor que cero. No escriba el símbolo $ ni texto.'],
+        ['Grupo', `Seleccione una opción de la lista desplegable (${CONFIG.GRUPOS_ASIGNACION.join(', ')}). El grupo sirve como referencia para la preasignación de planes.`]
+    ].forEach(fila => guia.addRow(fila));
+
+    guia.addRow([]);
+    const filaNotas = guia.rowCount + 1;
+    guia.mergeCells(`A${filaNotas}:B${filaNotas}`);
+    guia.getCell(`A${filaNotas}`).value = 'Recomendaciones para completar y cargar el archivo';
+    guia.getCell(`A${filaNotas}`).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    guia.getCell(`A${filaNotas}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    [
+        'Use una fila por cada asegurado y diligencie las cinco columnas.',
+        'No cambie los nombres ni el orden de las columnas de la hoja "Asegurados".',
+        'Las filas de ejemplo se pueden reemplazar o eliminar antes de ingresar la información real.',
+        'Asigne el grupo correspondiente a cada asegurado; el cotizador acepta únicamente Grupo 1 a Grupo 5.'
+    ].forEach((mensaje, indice) => {
+        const fila = filaNotas + indice + 1;
+        guia.mergeCells(`A${fila}:B${fila}`);
+        guia.getCell(`A${fila}`).value = `- ${mensaje}`;
+        guia.getCell(`A${fila}`).alignment = { wrapText: true, vertical: 'middle' };
+        guia.getRow(fila).height = 30;
+    });
+
+    guia.columns = [{ width: 30 }, { width: 100 }];
+    for (let fila = 5; fila <= 9; fila++) {
+        guia.getRow(fila).alignment = { vertical: 'middle', wrapText: true };
+        guia.getRow(fila).height = 42;
+        if (fila % 2 === 1) {
+            guia.getRow(fila).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F6FC' } };
+        }
+    }
+    guia.views = [{ state: 'frozen', ySplit: 4 }];
 
     const contenido = await libro.xlsx.writeBuffer();
     const enlace = document.createElement('a');
