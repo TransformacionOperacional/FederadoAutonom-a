@@ -6378,6 +6378,9 @@ function irAlPaso(numero) {
 
     pasoActual = numero;
     pasosNavegacion();
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
 
     // Renderizado específico por paso
     const renderizarPaso = () => {
