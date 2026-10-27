@@ -5158,40 +5158,68 @@ function desplazarAnioFecha(fechaISO, anios) {
     return `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
+function obtenerFechaActualISO() {
+    const ahora = new Date();
+    const diferenciaZonaHoraria = ahora.getTimezoneOffset() * 60000;
+    return new Date(ahora.getTime() - diferenciaZonaHoraria).toISOString().slice(0, 10);
+}
+
 function sincronizarVigencia(campoModificado, valor) {
     if (!valor) return;
     const esDesde = campoModificado === 'vigenciaDesde';
     const campoOpuesto = esDesde ? 'vigenciaHasta' : 'vigenciaDesde';
+    const hoy = obtenerFechaActualISO();
+
+    if (esDesde && valor < hoy) {
+        const inputDesde = document.getElementById('vigenciaDesde');
+        if (inputDesde) {
+            inputDesde.value = hoy;
+            inputDesde.min = hoy;
+        }
+        estado.poliza.vigenciaDesde = hoy;
+        return;
+    }
+
     const fechaOpuesta = desplazarAnioFecha(valor, esDesde ? 1 : -1);
     if (!fechaOpuesta) return;
 
     const input = document.getElementById(campoOpuesto);
-    if (input) input.value = fechaOpuesta;
+    if (input) {
+        input.value = fechaOpuesta;
+        input.min = esDesde ? valor : hoy;
+    }
     estado.poliza[campoModificado] = valor;
     estado.poliza[campoOpuesto] = fechaOpuesta;
     guardarEstado();
 }
 
 function establecerFechasDefault() {
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = obtenerFechaActualISO();
     const proxAnioStr = desplazarAnioFecha(hoje, 1);
 
     const inputDesde = document.getElementById('vigenciaDesde');
     const inputHasta = document.getElementById('vigenciaHasta');
     const inputCobro = document.getElementById('fechaCobro');
 
-    if (inputDesde && !estado.poliza.vigenciaDesde) {
-        inputDesde.value = hoje;
-        estado.poliza.vigenciaDesde = hoje;
-    } else if (inputDesde && estado.poliza.vigenciaDesde) {
-        inputDesde.value = estado.poliza.vigenciaDesde;
+    if (inputDesde) {
+        inputDesde.min = hoje;
+        if (!estado.poliza.vigenciaDesde || estado.poliza.vigenciaDesde < hoje) {
+            inputDesde.value = hoje;
+            estado.poliza.vigenciaDesde = hoje;
+        } else {
+            inputDesde.value = estado.poliza.vigenciaDesde;
+        }
     }
 
-    if (inputHasta && !estado.poliza.vigenciaHasta) {
-        inputHasta.value = proxAnioStr;
-        estado.poliza.vigenciaHasta = proxAnioStr;
-    } else if (inputHasta && estado.poliza.vigenciaHasta) {
-        inputHasta.value = estado.poliza.vigenciaHasta;
+    if (inputHasta) {
+        const fechaMinHasta = inputDesde?.value || hoje;
+        inputHasta.min = fechaMinHasta;
+        if (!estado.poliza.vigenciaHasta || estado.poliza.vigenciaHasta < fechaMinHasta) {
+            inputHasta.value = proxAnioStr;
+            estado.poliza.vigenciaHasta = proxAnioStr;
+        } else {
+            inputHasta.value = estado.poliza.vigenciaHasta;
+        }
     }
 
     if (inputCobro && !estado.poliza.fechaCobro) {
