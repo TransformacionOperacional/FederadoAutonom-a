@@ -6108,10 +6108,10 @@ function asignarPlanAAsegurado(aseguradoId, planId, opciones = {}) {
 
 function obtenerCoberturasPlan(plan) {
     const subgrupo = estado.subgrupos.find(item => item.id === plan.subgrupoId);
-    return (subgrupo?.coberturas || []).map(codigo =>
+    return ordenarCoberturasPorNombre((subgrupo?.coberturas || []).map(codigo =>
         coberturasDisponibles.find(cobertura => cobertura.codigo === codigo)
         || estado.coberturasCatalogo.find(cobertura => cobertura.codigo === codigo)
-    ).filter(Boolean);
+    ).filter(Boolean), true);
 }
 
 function obtenerCoberturasPermitidasPorParentesco(coberturas, tipoAsegurado) {
