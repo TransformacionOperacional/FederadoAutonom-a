@@ -5341,12 +5341,32 @@ function mostrarSeccionAsegurados() {
     // barraAsignacionMasiva permanece controlada por su propia lógica (solo si hay subgrupos)
 }
 
+function actualizarOpcionesFiltroAsignacion(id, valores) {
+    const filtro = document.getElementById(id);
+    if (!filtro) return;
+
+    const valorSeleccionado = filtro.value;
+    const opciones = [...new Set(valores.map(valor => String(valor || '').trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'es'));
+    filtro.replaceChildren(new Option('Filtrar', ''));
+    opciones.forEach(valor => filtro.add(new Option(valor, valor)));
+    filtro.value = opciones.includes(valorSeleccionado) ? valorSeleccionado : '';
+}
+
 function renderizarAsignacionPlanes() {
     const cuerpoRangos = document.getElementById('tbody-rangos-planes');
     const cuerpoPlanesAsignados = document.getElementById('tbody-planes-asignados');
     const cuerpoAsignacion = document.getElementById('tbody-asignacion-planes');
     if (!cuerpoRangos || !cuerpoPlanesAsignados || !cuerpoAsignacion) return;
     actualizarEstadoBotonReiniciarAsignacion();
+    actualizarOpcionesFiltroAsignacion(
+        'filtroAsignacionParentesco',
+        estado.planes.length > 0 ? estado.asegurados.map(asegurado => asegurado.tipoAsegurado) : []
+    );
+    actualizarOpcionesFiltroAsignacion(
+        'filtroAsignacionGrupo',
+        estado.planes.length > 0 ? estado.asegurados.map(asegurado => asegurado.grupo) : []
+    );
 
     if (estado.planes.length === 0) {
         cuerpoRangos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>';
@@ -5403,7 +5423,7 @@ function obtenerAseguradosAsignacionFiltrados() {
     const filtros = {
         documento: normalizarTexto(document.getElementById('filtroAsignacionDocumento')?.value || ''),
         edad: filtroEdadAsignacion,
-        parentesco: normalizarTexto(document.getElementById('filtroAsignacionParentesco')?.value || ''),
+        parentesco: document.getElementById('filtroAsignacionParentesco')?.value || '',
         grupo: document.getElementById('filtroAsignacionGrupo')?.value || '',
         valor: String(document.getElementById('filtroAsignacionValor')?.value || '').replace(/\D/g, ''),
         planId: document.getElementById('filtroAsignacionPlan')?.value || ''
@@ -5411,8 +5431,8 @@ function obtenerAseguradosAsignacionFiltrados() {
     return estado.asegurados.filter(asegurado =>
         (!filtros.documento || normalizarTexto(asegurado.numeroDocumento || '').includes(filtros.documento))
         && (!filtros.edad || (Number.isFinite(Number(asegurado.edad)) && Number(asegurado.edad) >= filtros.edad.min && Number(asegurado.edad) <= filtros.edad.max))
-        && (!filtros.parentesco || normalizarTexto(asegurado.tipoAsegurado || '').includes(filtros.parentesco))
-        && (!filtros.grupo || (asegurado.grupo || '') === filtros.grupo)
+        && (!filtros.parentesco || String(asegurado.tipoAsegurado || '').trim() === filtros.parentesco)
+        && (!filtros.grupo || String(asegurado.grupo || '').trim() === filtros.grupo)
         && (!filtros.valor || String(obtenerValorAseguradoBase(asegurado)).includes(filtros.valor))
         && (!filtros.planId || (asegurado.planId || '') === filtros.planId));
 }
