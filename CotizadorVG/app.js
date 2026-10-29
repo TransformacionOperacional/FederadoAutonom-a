@@ -2149,7 +2149,13 @@ function renderizarPlanesSugeridos() {
                     ? '<span style="font-size:12px;color:#a35b00;">No disponible para Core GW</span>'
                     : `<button class="btn btn-secondary btn-small" onclick="aplicarPlanSugerido(${indice + 1})">Agregar plan</button>`}
             </article>`;
-    }).join('');
+    }).join('') + `
+        <article class="plan-sugerido-personalizado">
+            <span class="plan-sugerido-personalizado-icono" aria-hidden="true">+</span>
+            <strong>¿Buscas otra opción?</strong>
+            <p>Crea un plan a tu medida y elige sus coberturas.</p>
+            <button class="btn btn-outline btn-small" type="button" onclick="abrirModalCrearPlan()">Crear plan personalizado</button>
+        </article>`;
     renderizarResumenPlanesConfigurados();
 }
 
@@ -2764,6 +2770,13 @@ function renderizarResumenCredibilidad() {
 let registrosPorPaginaCalculos = 10;
 const paginasCalculos = new Map();
 const filasCalculosPorPlan = new Map();
+const REGISTROS_POR_PAGINA_CALCULOS_MIN = 10;
+
+function normalizarRegistrosPorPaginaCalculos(valor) {
+    const numero = Math.round(Number(valor));
+    if (!Number.isFinite(numero)) return REGISTROS_POR_PAGINA_CALCULOS_MIN;
+    return Math.min(REGISTROS_POR_PAGINA_MAX, Math.max(REGISTROS_POR_PAGINA_CALCULOS_MIN, numero));
+}
 
 function renderizarPaginaCalculosPlan(llave) {
     const tbody = document.querySelector(`tbody[data-calculos-plan="${llave}"]`);
@@ -2779,7 +2792,7 @@ function renderizarPaginaCalculosPlan(llave) {
 
     const barra = document.querySelector(`[data-paginacion-calculos="${llave}"]`);
     if (!barra) return;
-    barra.hidden = tbody.hidden || filas.length <= REGISTROS_POR_PAGINA_MIN;
+    barra.hidden = tbody.hidden || filas.length <= registrosPorPaginaCalculos;
     barra.querySelector('.paginacion-info').textContent = `Mostrando ${filas.length ? inicio + 1 : 0}-${inicio + visibles.length} de ${filas.length}`;
     barra.querySelector('.paginacion-pagina').textContent = `P\u00e1gina ${pagina} de ${totalPaginas}`;
     const campo = barra.querySelector('input[data-accion-calculos="registros"]');
@@ -2796,8 +2809,8 @@ function renderizarBarraPaginacionCalculos(llave) {
     return `<div class="paginacion-asegurados" data-paginacion-calculos="${llave}" hidden>
         <div class="paginacion-info" aria-live="polite"></div>
         <div class="paginacion-opciones">
-            <label>Registros por página (20-100)
-                <input type="number" min="20" max="100" step="1" value="${registrosPorPaginaCalculos}" data-accion-calculos="registros">
+            <label>Registros por página (10-100)
+                <input type="number" min="10" max="100" step="1" value="${registrosPorPaginaCalculos}" data-accion-calculos="registros">
             </label>
         </div>
         <div class="paginacion-controles">
@@ -2841,7 +2854,7 @@ function configurarPaginacionCalculos() {
     });
     contenedor?.addEventListener('change', evento => {
         if (!evento.target.matches('input[data-accion-calculos="registros"]')) return;
-        registrosPorPaginaCalculos = normalizarRegistrosPorPagina(evento.target.value);
+        registrosPorPaginaCalculos = normalizarRegistrosPorPaginaCalculos(evento.target.value);
         evento.target.value = registrosPorPaginaCalculos;
         paginasCalculos.clear();
         filasCalculosPorPlan.forEach((_, llave) => renderizarPaginaCalculosPlan(llave));
