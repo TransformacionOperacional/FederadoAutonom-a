@@ -352,6 +352,67 @@ textarea {
     background: #fff;
 }
 
+.calculos-plan-bloque {
+    border: 1px solid var(--color-primary);
+}
+
+.calculos-plan-bloque > .calculos-plan-header {
+    background: var(--color-blue-light);
+}
+
+.calculos-plan-secuencia {
+    display: inline-block !important;
+    width: fit-content;
+    margin: 0 0 5px !important;
+    padding: 3px 9px;
+    border-radius: 4px;
+    background: var(--color-primary);
+    color: var(--color-white) !important;
+    font-size: 11px !important;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.calculos-plan-bloque > .tabla-tasa-card.tabla-tasa-plan {
+    border: 0;
+    border-top: 2px solid var(--color-blue-light);
+    border-radius: 0;
+}
+
+.tabla-tasa-card.tabla-tasa-plan {
+    border-left: 0;
+}
+
+.tabla-tasa-card.tabla-tasa-plan .calculos-plan-header {
+    background: var(--color-blue-light);
+}
+
+.tabla-tasa-card.tabla-tasa-poliza {
+    border: 2px solid var(--color-primary);
+}
+
+.tabla-tasa-card.tabla-tasa-poliza .calculos-plan-header {
+    background: var(--color-blue-light);
+}
+
+.tabla-tasa-card .calculos-plan-header > div:first-child > strong,
+.tabla-tasa-card .calculos-plan-header > div:first-child > span {
+    color: var(--color-primary-dark);
+}
+
+.tabla-tasa-alcance {
+    display: inline-block !important;
+    width: fit-content;
+    margin-bottom: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--color-white);
+    color: var(--color-primary-dark) !important;
+    font-size: 10px !important;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
 .calculos-plan-header {
     display: flex;
     align-items: center;
@@ -377,6 +438,14 @@ textarea {
     margin-top: 3px;
     color: var(--color-gray, #65758b);
     font-size: 12px;
+}
+
+.calculos-toggle-asegurados {
+    margin-top: 8px;
+}
+
+.tabla-calculos tbody[data-calculos-plan][hidden] {
+    display: none;
 }
 
 .calculos-plan-total {

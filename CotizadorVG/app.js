@@ -1160,14 +1160,14 @@ function renderizarRecargosActividad() {
         ['Muerte accidental', 'WE1'],
         ['Invalidez por accidente', 'WEY']
     ];
-    contenedor.innerHTML = coberturas.map(([nombre, codigo]) => {
+    const coberturasNoAsegurables = coberturas.filter(([, codigo]) => {
         const campo = CAMPOS_ACTIVIDAD_POR_COBERTURA[codigo];
-        const valor = actividad[campo];
-        const noAsegurable = esNoAsegurableActividad(valor);
-        const detalle = noAsegurable ? 'No asegurable' : `${formatearPorcentaje(obtenerRecargoPorActividad({ codigo }) / 100)}`;
-        return `<div class="recargo-actividad-item"><span>${nombre}</span><strong class="${noAsegurable ? 'recargo-no-asegurable' : ''}">${detalle}</strong></div>`;
-    }).join('');
-    contenedor.hidden = false;
+        return esNoAsegurableActividad(actividad[campo]);
+    });
+    contenedor.innerHTML = coberturasNoAsegurables
+        .map(([nombre]) => `<div class="recargo-actividad-item"><span>${nombre}</span><strong class="recargo-no-asegurable">No asegurable</strong></div>`)
+        .join('');
+    contenedor.hidden = coberturasNoAsegurables.length === 0;
 }
 
 function actualizarCoberturasPorActividad() {
@@ -2779,7 +2779,7 @@ function renderizarPaginaCalculosPlan(llave) {
 
     const barra = document.querySelector(`[data-paginacion-calculos="${llave}"]`);
     if (!barra) return;
-    barra.hidden = filas.length <= REGISTROS_POR_PAGINA_MIN;
+    barra.hidden = tbody.hidden || filas.length <= REGISTROS_POR_PAGINA_MIN;
     barra.querySelector('.paginacion-info').textContent = `Mostrando ${filas.length ? inicio + 1 : 0}-${inicio + visibles.length} de ${filas.length}`;
     barra.querySelector('.paginacion-pagina').textContent = `P\u00e1gina ${pagina} de ${totalPaginas}`;
     const campo = barra.querySelector('input[data-accion-calculos="registros"]');
@@ -2813,6 +2813,20 @@ function renderizarBarraPaginacionCalculos(llave) {
 function configurarPaginacionCalculos() {
     const contenedor = document.querySelector('.calculos-container');
     contenedor?.addEventListener('click', evento => {
+        const botonListado = evento.target.closest('button[data-accion-calculos="toggle-asegurados"]');
+        if (botonListado) {
+            const listado = document.getElementById(botonListado.getAttribute('aria-controls'));
+            if (!listado) return;
+            const expandido = listado.hidden;
+            listado.hidden = !expandido;
+            renderizarPaginaCalculosPlan(listado.dataset.calculosPlan);
+            botonListado.setAttribute('aria-expanded', String(expandido));
+            botonListado.textContent = expandido
+                ? 'Ocultar asegurados'
+                : `Ver asegurados (${botonListado.dataset.cantidadAsegurados})`;
+            return;
+        }
+
         const boton = evento.target.closest('button[data-accion-calculos]');
         const llave = boton?.closest('[data-paginacion-calculos]')?.dataset.paginacionCalculos;
         if (!boton || !llave) return;
@@ -2836,21 +2850,18 @@ function configurarPaginacionCalculos() {
 
 function renderizarFilasTasaPorCobertura(totalesPorCobertura) {
     return [...totalesPorCobertura.entries()].map(([codigo, total]) => {
-        const cobertura = coberturasDisponibles.find(item => item.codigo === codigo)
-            || estado.coberturasCatalogo.find(item => item.codigo === codigo);
         return `
         <tr>
             <td>${total.nombre} (${codigo})</td>
-            <td>${formatearPorcentaje(obtenerRecargoPorActividad(cobertura) / 100)}</td>
             <td>${formatearDinero(total.valorAsegurado)}</td>
-            <td>${formatearDinero(total.prima)}</td>
             <td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td>
+            <td>${formatearDinero(total.prima)}</td>
         </tr>`;
     }).join('');
 }
 
-function renderizarTablaTasaPorCobertura(filas, titulo = 'Tasa por cobertura') {
-    return `<section class="calculos-plan-card"><header class="calculos-plan-header"><div><strong>${titulo}</strong><span>Consolidado por cobertura: Prima total ÷ Valor asegurado total × 1.000</span></div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Extraprima ocupación</th><th>Valor asegurado total</th><th>Prima total</th><th>Tasa por cobertura</th></tr></thead><tbody>${filas}</tbody></table></div></section>`;
+function renderizarTablaTasaPorCobertura(filas, alcance, titulo, descripcion, clase) {
+    return `<section class="calculos-plan-card tabla-tasa-card ${clase}"><header class="calculos-plan-header"><div>${alcance ? `<span class="tabla-tasa-alcance">${alcance}</span>` : ''}<strong>${titulo}</strong>${descripcion ? `<span>${descripcion}</span>` : ''}</div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Valor asegurado total</th><th>Tasa por cobertura</th><th>Prima total</th></tr></thead><tbody>${filas}</tbody></table></div></section>`;
 }
 
 function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
@@ -2876,12 +2887,32 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     filasCalculosPorPlan.clear();
     const totalesPolizaPorCobertura = new Map();
     const ajustesCredibilidad = esComparativaSinCredibilidad ? null : obtenerAjustesCredibilidad();
-    // Patronal: solo la tasa única total de la póliza (sin tasas por cobertura ni tasa única por plan).
-    // Voluntaria/Mixta: tasas por cobertura y tasa única por plan, además del consolidado de la póliza.
+    // Patronal: no muestra los resúmenes de tasas por cobertura.
+    // Voluntaria/Mixta: mantiene esos resúmenes fuera del listado de asegurados.
     const mostrarTasasCobertura = !esPolizaPatronal();
-    const tarjetasPlanes = [...aseguradosPorPlan.values()].map(({ plan, asegurados }) => {
+    const gruposPlanes = [...aseguradosPorPlan.values()].sort((grupoA, grupoB) => {
+        if (!grupoA.plan) return grupoB.plan ? 1 : 0;
+        if (!grupoB.plan) return -1;
+        const obtenerOrdenAlfabetico = plan => {
+            const letras = String(plan.nombre || '').match(/^Plan\s+([A-Z]+)(?:\s|$)/i)?.[1];
+            return letras
+                ? [...letras.toUpperCase()].reduce((orden, letra) => orden * 26 + letra.charCodeAt(0) - 64, 0)
+                : null;
+        };
+        const ordenA = obtenerOrdenAlfabetico(grupoA.plan);
+        const ordenB = obtenerOrdenAlfabetico(grupoB.plan);
+        if (ordenA !== null && ordenB !== null && ordenA !== ordenB) return ordenA - ordenB;
+        return String(grupoA.plan.nombre || '').localeCompare(String(grupoB.plan.nombre || ''), 'es', {
+            numeric: true,
+            sensitivity: 'base'
+        });
+    });
+    const cantidadPlanesConAsegurados = gruposPlanes.filter(grupo => grupo.plan).length;
+    let numeroPlan = 0;
+    const tarjetasPlanes = gruposPlanes.map(({ plan, asegurados }) => {
         const coberturas = plan ? obtenerCoberturasPlan(plan) : [];
-        const columnas = 2 + coberturas.length * (mostrarTasasCobertura ? 4 : 3);
+        const secuenciaPlan = plan ? `PLAN ${++numeroPlan} DE ${cantidadPlanesConAsegurados}` : 'SIN PLAN ASIGNADO';
+        const columnas = 2 + coberturas.length * 2;
         let primaTotalPlan = 0;
         const totalesPlanPorCobertura = new Map(coberturas.map(cobertura => [cobertura.codigo, {
             nombre: cobertura.nombre || cobertura.codigo,
@@ -2894,7 +2925,6 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 const tasaComercial = obtenerTasaPorEdad(cobertura, asegurado.edad, deducible, plan);
                 const tasaCredibilidad = obtenerTasaComercialConCredibilidadCobertura(asegurado, cobertura.codigo, ajustesCredibilidad);
                 const tasa = tasaCredibilidad ?? tasaComercial;
-                const recargoActividad = obtenerRecargoPorActividad(cobertura);
                 const valorAsegurado = calcularValorAseguradoCobertura(cobertura, asegurado);
                 const prima = tasa === undefined || valorAsegurado === null
                     ? null
@@ -2905,7 +2935,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
                 if (valorAsegurado !== null) totalPlan.valorAsegurado += valorAsegurado;
                 if (prima !== null) totalPlan.prima += prima;
-                return `${mostrarTasasCobertura ? `<td>${formatearTasa(tasa)}</td>` : ''}<td>${formatearPorcentaje(recargoActividad / 100)}</td><td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
+                return `<td>${valorAsegurado === null ? '—' : formatearDinero(valorAsegurado)}</td><td>${prima === null ? '—' : formatearDinero(prima)}</td>`;
             }).join('');
             return `<tr><td>${asegurado.numeroDocumento || '—'}</td><td>${asegurado.edad ?? '—'}</td>${celdas}</tr>`;
         });
@@ -2926,20 +2956,24 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 totalesPolizaPorCobertura.set(cobertura.codigo, totalPoliza);
             });
         }
-        const totalVidaPlan = totalesPlanPorCobertura.get('WET')?.valorAsegurado || 0;
-        const tasaUnicaPlan = formatearTasaUnica(primaTotalPlan, totalVidaPlan);
         const filaTotalesCobertura = `<tr class="tasa-unica-row"><td colspan="2"><strong>Totales por cobertura ${plan?.nombre || ''}</strong></td>${coberturas.map(cobertura => {
             const total = totalesPlanPorCobertura.get(cobertura.codigo);
-            return `${mostrarTasasCobertura ? `<td><strong>${formatearTasaUnica(total.prima, total.valorAsegurado)}</strong></td>` : ''}<td><strong>${formatearPorcentaje(obtenerRecargoPorActividad(cobertura) / 100)}</strong></td><td><strong>${formatearDinero(total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.prima)}</strong></td>`;
+            return `<td><strong>${formatearDinero(total.valorAsegurado)}</strong></td><td><strong>${formatearDinero(total.prima)}</strong></td>`;
         }).join('')}</tr>`;
-        const filaTasaUnicaPlan = !mostrarTasasCobertura ? '' : `<tr class="tasa-unica-row"><td colspan="${columnas - 1}"><strong>Tasa única total ${plan?.nombre || ''}</strong> <small>(Prima total del plan ÷ Valor asegurado total Vida × 1.000)</small></td><td><strong>${tasaUnicaPlan}</strong></td></tr>`;
-        return `<section class="calculos-plan-card">
+        return `<section class="calculos-plan-card calculos-plan-bloque">
             <header class="calculos-plan-header">
-                <div><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span></div>
-                <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong>${mostrarTasasCobertura ? `<span>Tasa única total</span><strong>${plan ? tasaUnicaPlan : '—'}</strong>` : ''}</div>
+                <div><span class="calculos-plan-secuencia">${secuenciaPlan}</span><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span>${plan ? `<button class="btn btn-outline btn-small calculos-toggle-asegurados" type="button" data-accion-calculos="toggle-asegurados" data-cantidad-asegurados="${asegurados.length}" aria-expanded="false" aria-controls="listado-asegurados-${plan.id}">Ver asegurados (${asegurados.length})</button>` : ''}</div>
+                <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
             </header>
-            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `${mostrarTasasCobertura ? `<th>Tasa ${cobertura.codigo}</th>` : ''}<th>Extraprima ocup. ${cobertura.codigo}</th><th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody data-calculos-plan="${plan.id}"></tbody><tfoot>${filaTotalesCobertura}${filaTasaUnicaPlan}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
-        </section>${plan && mostrarTasasCobertura ? renderizarTablaTasaPorCobertura(renderizarFilasTasaPorCobertura(totalesPlanPorCobertura), `Tasa por cobertura ${plan.nombre}`) : ''}`;
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody id="listado-asegurados-${plan.id}" data-calculos-plan="${plan.id}" hidden></tbody><tfoot>${filaTotalesCobertura}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
+            ${plan && mostrarTasasCobertura ? renderizarTablaTasaPorCobertura(
+                renderizarFilasTasaPorCobertura(totalesPlanPorCobertura),
+                '',
+                `Tasas por cobertura · ${plan.nombre}`,
+                '',
+                'tabla-tasa-plan'
+            ) : ''}
+        </section>`;
     }).join('');
 
     const resumenTasaUnicaPoliza = renderizarFilasTasaPorCobertura(totalesPolizaPorCobertura);
@@ -2954,12 +2988,18 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         : renderizarResumenCredibilidad();
 
     contenedor.innerHTML = `${avisoComparativa}${tarjetasPlanes}
-        ${mostrarTasasCobertura && resumenTasaUnicaPoliza ? renderizarTablaTasaPorCobertura(resumenTasaUnicaPoliza, 'Tasa por cobertura de la póliza') : ''}
+        ${mostrarTasasCobertura && resumenTasaUnicaPoliza ? renderizarTablaTasaPorCobertura(
+            resumenTasaUnicaPoliza,
+            'TODOS LOS PLANES',
+            'Tasas por cobertura · toda la póliza',
+            '',
+            'tabla-tasa-poliza'
+        ) : ''}
         <section class="calculos-total-poliza">
-            <span>Prima anual de la póliza</span>
-            <strong>${formatearDinero(primaTotalPoliza)}</strong>
             <span>Tasa única total de la póliza</span>
             <strong>${tasaUnicaPoliza}</strong>
+            <span>Prima anual de la póliza</span>
+            <strong>${formatearDinero(primaTotalPoliza)}</strong>
         </section>`;
     filasCalculosPorPlan.forEach((_, llave) => renderizarPaginaCalculosPlan(llave));
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
@@ -3601,7 +3641,7 @@ function actualizarBadgeFlujo() {
     if (!badge) return;
     const labels = {
         'nuevo-simulacion': 'Seguro Nuevo &mdash; Simulación',
-        'nuevo-cotizacion': 'Seguro Nuevo &mdash; Cotización con datos reales',
+        'nuevo-cotizacion': 'Seguro Nuevo - Plan Vida Integral',
         'renovacion':       'Modificación / Renovación'
     };
     const key = flujo.tipo === 'renovacion' ? 'renovacion' : `${flujo.tipo}-${flujo.subtipo}`;
