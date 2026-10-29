@@ -2143,6 +2143,13 @@ textarea {
     max-width: 1100px;
 }
 
+.modo-busqueda-polizas {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 auto 18px;
+}
+
 .busqueda-form {
     max-width: 680px;
     margin-left: auto;
@@ -2155,16 +2162,39 @@ textarea {
 }
 
 .busqueda-campo {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 6px;
     min-width: 0;
 }
 
+.busqueda-campo[hidden] {
+    display: none;
+}
+
+.busqueda-form-por-poliza {
+    grid-template-columns: minmax(220px, 1fr) auto;
+}
+
 .busqueda-campo label {
     font-size: 13px;
     font-weight: 600;
     color: var(--color-primary-dark);
+}
+
+.ayuda-documento-busqueda {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    display: block;
+    color: var(--color-gray);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ayuda-documento-busqueda[hidden] {
+    display: none;
 }
 
 .input-busqueda {
@@ -2228,8 +2258,20 @@ textarea {
 }
 
 @media (max-width: 640px) {
+    .modo-busqueda-polizas {
+        flex-wrap: wrap;
+    }
+
     .busqueda-form {
         grid-template-columns: 1fr;
+    }
+
+    .busqueda-form-por-poliza .btn-buscar-polizas {
+        margin-top: 20px;
+    }
+
+    .busqueda-form-con-ayuda-nit .btn-buscar-polizas {
+        margin-top: 20px;
     }
 
     .btn-buscar-polizas {

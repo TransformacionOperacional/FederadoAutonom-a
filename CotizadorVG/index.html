@@ -76,11 +76,15 @@
         <div class="pantalla-header">
             <button class="btn-volver" onclick="volverAlLanding()">&#8592; Volver</button>
             <h2>Modificación / Renovación</h2>
-            <p>Ingresa la identificación del asegurado/tomador para buscar sus pólizas vigentes</p>
+            <p>Busca las pólizas vigentes por identificación del tomador o por número de póliza</p>
         </div>
         <div class="renovacion-busqueda">
+            <div class="modo-busqueda-polizas" role="group" aria-label="Método de búsqueda de pólizas">
+                <button class="btn btn-primary btn-small" id="btnBuscarPorTomador" type="button" aria-pressed="true" onclick="cambiarModoBusquedaRenovacion('tomador')">Buscar por tomador</button>
+                <button class="btn btn-outline btn-small" id="btnBuscarPorNumeroPoliza" type="button" aria-pressed="false" onclick="cambiarModoBusquedaRenovacion('poliza')">Buscar por número de póliza</button>
+            </div>
             <div class="busqueda-form">
-                <div class="busqueda-campo busqueda-campo-tipo">
+                <div class="busqueda-campo busqueda-campo-tipo" id="campoTipoDocumentoBusqueda">
                     <label for="tipoDocBusqueda">Tipo de Documento *</label>
                     <select id="tipoDocBusqueda" class="input-busqueda">
                         <option value="">Seleccionar...</option>
@@ -89,11 +93,16 @@
                         <option value="A">NIT</option>
                     </select>
                 </div>
-                <div class="busqueda-campo">
+                <div class="busqueda-campo" id="campoNumeroDocumentoBusqueda">
                     <label for="numDocBusqueda">Número de Documento *</label>
-                    <input type="text" id="numDocBusqueda" class="input-busqueda" placeholder="Ej: 1020455161" maxlength="20">
+                    <input type="text" id="numDocBusqueda" class="input-busqueda" placeholder="Ej: 1020455161" maxlength="20" aria-describedby="ayudaDocumentoBusqueda">
+                    <small id="ayudaDocumentoBusqueda" class="ayuda-documento-busqueda" hidden>Para buscar un NIT, incluye el número de verificación. Ejemplo: 8909037905.</small>
                 </div>
-                <button class="btn btn-primary btn-buscar-polizas" id="btnBuscarPolizas" onclick="buscarPolizasRenovacion()">Buscar pólizas</button>
+                <div class="busqueda-campo" id="campoNumeroPolizaBusqueda" hidden>
+                    <label for="numPolizaBusqueda">Número de Póliza *</label>
+                    <input type="text" id="numPolizaBusqueda" class="input-busqueda" placeholder="Ej: 900001658522 o 083000123386" maxlength="20" inputmode="numeric">
+                </div>
+                <button class="btn btn-primary btn-buscar-polizas" id="btnBuscarPolizas" type="button" onclick="buscarPolizasRenovacion()">Buscar pólizas</button>
             </div>
             <div id="resultadosBusqueda" class="resultados-busqueda" style="display:none;">
                 <h3 id="tituloResultados"></h3>

@@ -3558,6 +3558,53 @@ function setupEventListeners() {
     document.getElementById('numDocBusqueda')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') buscarPolizasRenovacion();
     });
+    document.getElementById('numPolizaBusqueda')?.addEventListener('keydown', evento => {
+        if (evento.key === 'Enter') evento.preventDefault();
+    });
+    document.getElementById('tipoDocBusqueda')?.addEventListener('change', actualizarAyudaDocumentoBusqueda);
+    actualizarAyudaDocumentoBusqueda();
+    cambiarModoBusquedaRenovacion('tomador');
+}
+
+function cambiarModoBusquedaRenovacion(modo) {
+    const esBusquedaPorPoliza = modo === 'poliza';
+    const campoTipoDocumento = document.getElementById('campoTipoDocumentoBusqueda');
+    const campoNumeroDocumento = document.getElementById('campoNumeroDocumentoBusqueda');
+    const campoNumeroPoliza = document.getElementById('campoNumeroPolizaBusqueda');
+    const formulario = document.querySelector('.busqueda-form');
+    const botonBuscar = document.getElementById('btnBuscarPolizas');
+    const botonTomador = document.getElementById('btnBuscarPorTomador');
+    const botonPoliza = document.getElementById('btnBuscarPorNumeroPoliza');
+    if (!campoTipoDocumento || !campoNumeroDocumento || !campoNumeroPoliza || !formulario || !botonBuscar || !botonTomador || !botonPoliza) return;
+
+    document.getElementById('resultadosBusqueda').style.display = 'none';
+    document.getElementById('errorBusqueda').style.display = 'none';
+    campoTipoDocumento.hidden = esBusquedaPorPoliza;
+    campoNumeroDocumento.hidden = esBusquedaPorPoliza;
+    campoNumeroPoliza.hidden = !esBusquedaPorPoliza;
+    formulario.classList.toggle('busqueda-form-por-poliza', esBusquedaPorPoliza);
+    botonBuscar.disabled = esBusquedaPorPoliza;
+    botonBuscar.textContent = esBusquedaPorPoliza ? 'Buscar Póliza' : 'Buscar pólizas';
+    botonTomador.classList.toggle('btn-primary', !esBusquedaPorPoliza);
+    botonTomador.classList.toggle('btn-outline', esBusquedaPorPoliza);
+    botonTomador.setAttribute('aria-pressed', String(!esBusquedaPorPoliza));
+    botonPoliza.classList.toggle('btn-primary', esBusquedaPorPoliza);
+    botonPoliza.classList.toggle('btn-outline', !esBusquedaPorPoliza);
+    botonPoliza.setAttribute('aria-pressed', String(esBusquedaPorPoliza));
+    actualizarAyudaDocumentoBusqueda();
+}
+
+function actualizarAyudaDocumentoBusqueda() {
+    const tipoDocumento = document.getElementById('tipoDocBusqueda')?.value;
+    const campoDocumento = document.getElementById('numDocBusqueda');
+    const ayudaDocumento = document.getElementById('ayudaDocumentoBusqueda');
+    if (!campoDocumento || !ayudaDocumento) return;
+
+    const esNit = tipoDocumento === 'A';
+    campoDocumento.placeholder = esNit ? 'Ej: 8909037905' : 'Ej: 1020455161';
+    ayudaDocumento.hidden = !esNit;
+    const formulario = campoDocumento.closest('.busqueda-form');
+    formulario?.classList.toggle('busqueda-form-con-ayuda-nit', esNit && !formulario.classList.contains('busqueda-form-por-poliza'));
 }
 
 /* ============================================================
@@ -3893,8 +3940,8 @@ function renderizarPolizasRenovacion(polizas, nombreTomador) {
                         <th>Canal comercial</th>
                         <th>Asesor</th>
                         <th>Oficina</th>
-                        <th>Vigencia desde</th>
-                        <th>Vigencia hasta</th>
+                        <th>Fecha última expedición</th>
+                        <th>Fecha próxima renovación</th>
                         <th>Acción</th>
                     </tr>
                 </thead>
