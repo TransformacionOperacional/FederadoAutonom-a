@@ -3620,7 +3620,6 @@ function actualizarAyudaDocumentoBusqueda() {
 function mostrarSoloPantalla(idPantalla) {
     const pantallas = [
         'pantalla-landing',
-        'pantalla-tipo-nuevo',
         'pantalla-renovacion',
         'mainContainer'
     ];
@@ -3636,7 +3635,7 @@ function seleccionarTipoNegocio(tipo) {
     flujo.polizaSeleccionada = null;
 
     if (tipo === 'nuevo') {
-        mostrarSoloPantalla('pantalla-tipo-nuevo');
+        seleccionarSubtipo('cotizacion');
     } else {
         mostrarSoloPantalla('pantalla-renovacion');
         document.getElementById('tipoDocBusqueda').value = '';

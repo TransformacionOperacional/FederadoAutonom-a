@@ -36,7 +36,7 @@
             <div class="card-opcion" onclick="seleccionarTipoNegocio('nuevo')">
                 <div class="card-opcion-icono"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div>
                 <h2 class="card-opcion-titulo">Seguro Nuevo</h2>
-                <p class="card-opcion-desc">Cotización para una póliza nueva. Ingresarás los datos de forma manual o mediante carga de archivo.</p>
+                <p class="card-opcion-desc">Inicia una cotización nueva cargando el archivo Excel con los datos de los asegurados.</p>
                 <span class="card-opcion-cta">Iniciar cotización &rarr;</span>
             </div>
             <div class="card-opcion" onclick="seleccionarTipoNegocio('renovacion')">
@@ -44,29 +44,6 @@
                 <h2 class="card-opcion-titulo">Modificación / Renovación</h2>
                 <p class="card-opcion-desc">Actualiza o renueva una póliza existente. Búscala por la identificación del tomador.</p>
                 <span class="card-opcion-cta">Buscar póliza &rarr;</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- PANTALLA: Selector subtipo para negocio nuevo -->
-    <div id="pantalla-tipo-nuevo" class="pantalla-inicial" style="display:none;">
-        <div class="pantalla-header">
-            <button class="btn-volver" onclick="volverAlLanding()">&#8592; Volver</button>
-            <h2>Seguro Nuevo &mdash; Elige el método de cotización</h2>
-            <p>Selecciona cómo ingresarás la información de los asegurados</p>
-        </div>
-        <div class="landing-opciones">
-            <div class="card-opcion card-opcion-simulacion" onclick="seleccionarSubtipo('simulacion')">
-                <div class="card-opcion-icono"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></div>
-                <h2 class="card-opcion-titulo">Simulación</h2>
-                <p class="card-opcion-desc">No tienes la base de asegurados. Ingresarás datos promedio: cantidad de asegurados, edad promedio y grupos salariales.</p>
-                <span class="card-opcion-cta">Hacer simulación &rarr;</span>
-            </div>
-            <div class="card-opcion card-opcion-cotizacion" onclick="seleccionarSubtipo('cotizacion')">
-                <div class="card-opcion-icono"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></div>
-                <h2 class="card-opcion-titulo">Cotización con datos reales</h2>
-                        <p class="card-opcion-desc">Cargarás un archivo Excel con la base de asegurados: documento, tipo de asegurado, edad y valor asegurado.</p>
-                <span class="card-opcion-cta">Cargar Excel &rarr;</span>
             </div>
         </div>
     </div>
