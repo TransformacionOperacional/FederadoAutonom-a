@@ -3415,6 +3415,7 @@ function setupEventListeners() {
     });
     document.getElementById('vigenciaDesde')?.addEventListener('change', evento => sincronizarVigencia('vigenciaDesde', evento.target.value));
     document.getElementById('vigenciaHasta')?.addEventListener('change', evento => sincronizarVigencia('vigenciaHasta', evento.target.value));
+    document.getElementById('fechaCobro')?.addEventListener('change', evento => sincronizarFechaCobro(evento.target.value));
     document.addEventListener('click', evento => {
         const opcionFormaPago = evento.target.closest('[data-forma-pago]');
         if (opcionFormaPago && !evento.target.closest('[data-tipo-pago-mensual]')) {
@@ -5312,6 +5313,18 @@ function sincronizarVigencia(campoModificado, valor) {
     guardarEstado();
 }
 
+function sincronizarFechaCobro(valor) {
+    const hoy = obtenerFechaActualISO();
+    const fechaCobro = !valor || valor < hoy ? hoy : valor;
+    const inputCobro = document.getElementById('fechaCobro');
+    if (inputCobro) {
+        inputCobro.min = hoy;
+        inputCobro.value = fechaCobro;
+    }
+    estado.poliza.fechaCobro = fechaCobro;
+    guardarEstado();
+}
+
 function establecerFechasDefault() {
     const hoje = obtenerFechaActualISO();
     const proxAnioStr = desplazarAnioFecha(hoje, 1);
@@ -5341,11 +5354,13 @@ function establecerFechasDefault() {
         }
     }
 
-    if (inputCobro && !estado.poliza.fechaCobro) {
-        inputCobro.value = hoje;
-        estado.poliza.fechaCobro = hoje;
-    } else if (inputCobro && estado.poliza.fechaCobro) {
-        inputCobro.value = estado.poliza.fechaCobro;
+    if (inputCobro) {
+        inputCobro.min = hoje;
+        const fechaCobro = !estado.poliza.fechaCobro || estado.poliza.fechaCobro < hoje
+            ? hoje
+            : estado.poliza.fechaCobro;
+        inputCobro.value = fechaCobro;
+        estado.poliza.fechaCobro = fechaCobro;
     }
 }
 
