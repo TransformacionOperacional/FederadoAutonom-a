@@ -2344,7 +2344,7 @@ function opcionesEnfermedadesGravesPlan(codigo, factor = FACTOR_ENFERMEDADES_GRA
                 ${FACTORES_ENFERMEDADES_GRAVES.map(opcion => `<option value="${opcion}" ${opcion === Number(factor) ? 'selected' : ''}>${Math.round(opcion * 100)}%</option>`).join('')}
             </select>
         </span>
-        <span class="opcion-cancer-in-situ"><input type="checkbox" data-cancer-in-situ="${codigo}" ${cancerInSitu ? 'checked' : ''}> Añadir Cáncer in Situ <small>(tasa adicional ${formatearTasa(TASA_CANCER_IN_SITU)} × (% EF / 50% × 10%))</small></span>
+        <span class="opcion-cancer-in-situ"><input type="checkbox" data-cancer-in-situ="${codigo}" ${cancerInSitu ? 'checked' : ''}> Añadir Cáncer in Situ</span>
     </div>`;
 }
 
