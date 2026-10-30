@@ -71,7 +71,7 @@ const PDF_ESTILOS = `
 .pdf-cot .t-planes tr.cab td:first-child { text-align:left; }
 .pdf-cot .t-planes tr.seccion td { background:#DFEAFF; color:#0033A0; font-weight:bold; }
 .pdf-cot .t-planes tr.total td { font-weight:bold; background:#F9FAE1; color:#0033A0; }
-.pdf-cot .t-planes td.m { text-align:right; white-space:nowrap; }
+.pdf-cot .t-planes td.m { text-align:right; white-space:normal; overflow-wrap:anywhere; }
 .pdf-cot .t-planes td.c { text-align:center; }
 .pdf-cot .t-planes td.v { background:#F9FAE1; color:#0033A0; font-weight:bold; text-align:center; }
 .pdf-cot .t-req, .pdf-cot .t-req td, .pdf-cot .t-req th { border:1px solid #B4B4B5; }
@@ -120,7 +120,9 @@ function pdfColgroup(columnas, porcentajePlanes = 56) {
 }
 
 function pdfDinero(valor) {
-    return Number.isFinite(valor) ? escaparHTML(formatearDinero(Math.round(valor))) : '—';
+    return Number.isFinite(valor)
+        ? escaparHTML(formatearDinero(Math.round(valor))).replace(/\./g, '.<wbr>')
+        : '—';
 }
 
 function pdfNombreArchivo() {
@@ -133,6 +135,24 @@ function pdfNombreArchivo() {
 function pdfDirigidoA(plan) {
     if (!esPlanSoloFamiliares(plan)) return 'Afiliado principal';
     return (plan.parentescosRestriccion || []).join(', ') || 'Otros parentescos';
+}
+
+function pdfParentescosAseguradosAdicionales(resumen) {
+    if (!debeSepararPrincipalesDeFamiliares()) return [];
+    const idsPlanesCotizados = new Set(resumen.planes.map(item => item.plan.id));
+    const parentescos = new Set();
+    estado.asegurados
+        .filter(asegurado => idsPlanesCotizados.has(asegurado.planId)
+            && asegurado.tipoAsegurado !== 'Afiliado principal')
+        .forEach(asegurado => {
+            if (asegurado.tipoAsegurado) parentescos.add(asegurado.tipoAsegurado);
+        });
+
+    const nombresParentesco = { Conyugue: 'Cónyuge', Padrastos: 'Padrastros' };
+    return [...parentescos]
+        .sort((parentescoA, parentescoB) =>
+            CONFIG.TIPO_ASEGURADO.indexOf(parentescoA) - CONFIG.TIPO_ASEGURADO.indexOf(parentescoB))
+        .map(parentesco => nombresParentesco[parentesco] || parentesco);
 }
 
 // Coberturas de todos los planes, con Vida primero y sin repetir.
@@ -150,6 +170,11 @@ function pdfDividirEnGrupos(lista, tamano) {
     const grupos = [];
     for (let i = 0; i < lista.length; i += tamano) grupos.push(lista.slice(i, i + tamano));
     return grupos;
+}
+
+function pdfNombrePlan(plan) {
+    const coincidencia = /^\s*plan\s+([a-z]+)\b/i.exec(String(plan?.nombre || ''));
+    return coincidencia ? `PLAN ${coincidencia[1].toUpperCase()}` : String(plan?.nombre || '').toUpperCase();
 }
 
 // Valor asegurado y primas por plan, según la forma de pago elegida.
@@ -186,9 +211,9 @@ function pdfTablasPlanes(resumen) {
 
         return `<table class="t-planes">${colgroup}
             <tr><td colspan="${columnas}" class="titulo">VIDA GRUPO INTEGRAL</td></tr>
-            <tr class="cab"><td>PLAN</td>${celdasPlan(item => `<td>${escaparHTML(item.plan.nombre)}</td>`)}${esUltimo ? '<td>TOTAL PÓLIZA</td>' : ''}</tr>
+            <tr class="cab"><td>PLAN</td>${celdasPlan(item => `<td>${escaparHTML(pdfNombrePlan(item.plan))}</td>`)}${esUltimo ? '<td>TOTAL PÓLIZA</td>' : ''}</tr>
             ${mostrarDirigidoA ? filaConTotal('Dirigido a', item => `<td class="c">${escaparHTML(pdfDirigidoA(item.plan))}</td>`, '—', '', 'c') : ''}
-            ${filaConTotal('Asegurados', item => `<td class="c">${item.cantidadAsegurados.toLocaleString('es-CO')}</td>`, planes.reduce((suma, item) => suma + item.cantidadAsegurados, 0).toLocaleString('es-CO'), '', 'c')}
+            ${filaConTotal('Asegurados Aproximados', item => `<td class="c">${item.cantidadAsegurados.toLocaleString('es-CO')}</td>`, planes.reduce((suma, item) => suma + item.cantidadAsegurados, 0).toLocaleString('es-CO'), '', 'c')}
             ${filaSeccion('VALOR ASEGURADO TOTAL POR COBERTURA')}
             ${filasCoberturas}
             ${filaSeccion('PRIMAS')}
@@ -221,7 +246,7 @@ function pdfTablasTasas(resumen) {
         const filas = coberturas.map(({ codigo, nombre }) => `<tr><td>${escaparHTML(nombre)}</td>${grupo.map(item => `<td class="v">${tasa(item.totales.get(codigo))}</td>`).join('')}${esUltimo ? `<td class="v">${tasa(totalesPoliza.get(codigo))}</td>` : ''}</tr>`).join('');
         return `<table class="t-planes">${colgroup}
             <tr><td colspan="${columnas}" class="titulo">TASAS POR COBERTURA (POR MIL)</td></tr>
-            <tr class="cab"><td>COBERTURA</td>${grupo.map(item => `<td>${escaparHTML(item.plan.nombre)}</td>`).join('')}${esUltimo ? '<td>TODA LA PÓLIZA</td>' : ''}</tr>
+            <tr class="cab"><td>COBERTURA</td>${grupo.map(item => `<td>${escaparHTML(pdfNombrePlan(item.plan))}</td>`).join('')}${esUltimo ? '<td>TODA LA PÓLIZA</td>' : ''}</tr>
             ${filas}
             ${esUltimo ? filaTasaUnica(columnas) : ''}
         </table>`;
@@ -245,6 +270,10 @@ function construirHtmlCotizacionPdf(resumen) {
         ? `la presente cotización tiene validez hasta el ${escaparHTML(validez)}.`
         : 'la presente cotización tiene validez hasta el día XX del mes de XXXX de 20XX.';
     const frecuencias = ['Diario', 'Mensual', 'Trimestral', 'Semestral', 'Anual'];
+    const parentescosAdicionales = pdfParentescosAseguradosAdicionales(resumen);
+    const textoAseguradosAdicionales = parentescosAdicionales.length > 0
+        ? `; familiares incluidos: ${escaparHTML(parentescosAdicionales.join(', '))}`
+        : '';
 
     return `<div class="pdf-cot"><style>${PDF_ESTILOS}</style>
   <div class="pdf-espacio-encabezado" style="height:${pdfAltoEspacioEncabezadoPx()}px"></div>
@@ -291,7 +320,7 @@ function construirHtmlCotizacionPdf(resumen) {
 
   <p class="b"><span>Solución</span> Seguro Vida Grupo – Plan Vida Integral</p>
   <p class="b">Modalidad: ${pdfTexto(p.modalidadPlan)}</p>
-  <p class="b">Asegurado: TODOS LOS EMPLEADOS DE LA EMPRESA</p>
+  <p class="b">Asegurado: TODOS LOS EMPLEADOS DE LA EMPRESA${textoAseguradosAdicionales}</p>
   <p class="b">Beneficiario: LOS DESIGNADOS POR CADA ASEGURADO</p>
 
   <p class="b tit" style="margin-top:14px;">Valor Asegurado, Prima Total y Tasa de acuerdo con el plan elegido</p>
@@ -418,11 +447,11 @@ function construirHtmlCotizacionPdf(resumen) {
     <tr><td>&nbsp;</td><td></td><td></td></tr>
   </table>
 
-  <p class="b tit" style="margin-top:18px;">Condiciones generales <span>Indica cuál tipo de plan aplica para el cliente: Vida Deudores, Vida Docentes, Vida Clásico</span></p>
+  <p class="b tit" style="margin-top:18px;">Condiciones generales</p>
   <table class="t-cg">
     <tr><th colspan="4" class="cab1">DATOS DE LAS CONDICIONES GENERALES APLICABLES</th></tr>
     <tr><th class="cab2">Solución</th><th class="cab2">Fecha a partir de la cual se utiliza</th><th class="cab2">Ramo al que pertenece</th><th class="cab2">Identificación de la proforma</th></tr>
-    <tr><td></td><td></td><td></td><td></td></tr>
+    <tr><td>${pdfTexto('Vida Integral')}</td><td>${pdfTexto(pdfFecha(p.vigenciaDesde))}</td><td>${pdfTexto('083')}</td><td></td></tr>
   </table>
 
   <h2>Pago de las primas:</h2>
@@ -450,8 +479,8 @@ function construirHtmlCotizacionPdf(resumen) {
           <li>Transferencia</li>
           <li>Financiación (Servicios Financieros)</li>
         </ul>
-        <p class="b" style="margin-top:28px;">Acompañamiento de gestor BST: Sí</p>
-        <p class="b">¿Tiene ARL SURA?: Sí</p>
+        <p class="b" style="margin-top:28px;">Acompañamiento de gestor BST: Sí o No</p>
+        <p class="b">¿Tiene ARL SURA?: Sí o No</p>
         <p class="b">¿Tiene recargo por fraccionamiento?: ${detallePago.factor > 0 ? 'Sí' : 'No'}</p>
       </td>
     </tr>

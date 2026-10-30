@@ -3706,6 +3706,7 @@ function seleccionarSubtipo(subtipo) {
         canalComercial: ''
     };
     limpiarCamposAdicionalesCotizacion();
+    establecerFechasDefault();
     limpiarDatosAsesor(true);
     actualizarAplicacionCredibilidad(true);
     actualizarSiniestralidad(true);
