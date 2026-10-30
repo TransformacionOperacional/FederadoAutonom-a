@@ -96,6 +96,7 @@ const PDF_ESTILOS = `
 .pdf-cot ul, .pdf-cot ol { margin:4px 0 8px; padding-left:22px; }
 .pdf-cot li { margin-bottom:3px; }
 .pdf-cot .nota-tabla { font-size:8pt; color:#888B8D; margin:-6px 0 10px; }
+.pdf-cot .pdf-campo-pendiente { color:#2D6DF6; font-weight:bold; }
 `;
 
 function pdfFecha(iso) {
@@ -412,10 +413,16 @@ function construirHtmlCotizacionPdf(resumen) {
     <li>Modificaciones de valor asegurado: no se requiere diligenciamiento de la declaración de asegurabilidad para incrementos hasta $ 50.000.000, incrementos superiores a este valor, deben ser verificados para que no superen el 40 % del valor asegurado con un límite máximo de $ 150.000.000, de lo contrario se deberá llenar la declaración de asegurabilidad.</li>
   </ul>
 
-  ${esCanalPromotora(p.canalComercial) ? `<h2>Honorarios por administración y recaudo:</h2>
-  <p>Se entregará al tomador un ${escaparHTML(String(Number(p.honorarioPromotora) || 0))} % de las primas pagadas a SURAMERICANA, como aporte por concepto de Honorarios por Administración y Recaudo. Para ello, el Tomador debe enviar una factura de venta o documento equivalente a Suramericana por el monto correspondiente al honorario por la administración de seguros. Una vez realice el proceso de causación de la factura, la compañía procederá a realizar el pago.</p>
+  <h2>Continuidad:</h2>
+  <p>Seguros de Vida Suramericana S.A. amparará a las personas que venían aseguradas en la póliza <span class="pdf-campo-pendiente">XXXXXX</span> de la Compañía <span class="pdf-campo-pendiente">XXXXXX</span>. Lo que significa que acepta dichos riesgos en el estado en que se encuentran, otorgando cobertura solamente a aquellas preexistencias que hubieran sido cubiertas por la anterior compañía/póliza. Las extra primas y limitaciones de cobertura que hayan sido impuestas en la póliza anterior regirán para este contrato sin perjuicio de aquellas que puedan ser impuestas por esta aseguradora. Se aplicarán para la presente póliza, las manifestaciones o declaraciones de asegurabilidad realizadas para la póliza anterior. Los nuevos asegurados deben cumplir con los requisitos de asegurabilidad exigidos por SURAMERICANA.</p>
+  <p>El Tomador de la póliza certifica que no tiene conocimiento de asegurados con enfermedades graves o procesos de invalidez en curso.</p>
+  <p class="b">CONDICIONES PÓLIZA <span class="pdf-campo-pendiente">XXXXXX</span>, COMPAÑÍA <span class="pdf-campo-pendiente">XXXXX</span></p>
+  <p>La anterior continuidad se otorgará solamente con respecto a los amparos y valores asegurados que tenga en la otra compañía/póliza, bajo las definiciones que para dichas coberturas tiene Suramericana. <b>“Se deben relacionar las coberturas que incluye la póliza a la cual se quiere dar continuidad”</b></p>
 
-  ` : ''}<h2>Bono por siniestralidad:</h2>
+  <h2>Honorarios por administración y recaudo:</h2>
+  <p>Se entregará al tomador un <span class="pdf-campo-pendiente">XXX %</span> de las primas pagadas a SURAMERICANA, como aporte por concepto de Honorarios por Administración y Recaudo. Para ello, el Tomador debe enviar una factura de venta o documento equivalente a Suramericana por el monto correspondiente al honorario por la administración de seguros. Una vez realice el proceso de causación de la factura, la compañía procederá a realizar el pago.</p>
+
+  <h2>Bono por siniestralidad:</h2>
   <p>El bono por siniestralidad se debe calcular tres meses posteriores a la terminación de la vigencia y se liquida a través de una factura de cobro (incluye IVA) que el tomador debe generar, por lo que no afecta la comisión del intermediario. El bono por siniestralidad se establece para esta póliza de la siguiente forma:</p>
   <p>PU = 30 % (40 % primas emitidas – siniestros incurridos*).</p>
   <p class="b">Siniestros incurridos*: Corresponde al valor de siniestros pagados y avisados de la vigencia que se está evaluando y se le debe sumar la Reserva de Siniestros No Avisados (IBNR), que corresponde a siniestros que ya ocurrieron y aún no se han reportado a la aseguradora.</p>
