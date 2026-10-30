@@ -170,6 +170,14 @@
                         <input type="text" id="tomador" placeholder="Ej: Empresa XYZ S.A.S." required>
                     </div>
                     <div class="form-group">
+                        <label for="segmento">Segmento</label>
+                        <input type="text" id="segmento" placeholder="Ej: Gran empresa" maxlength="60" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="direccionCorrespondencia">Direcci&oacute;n de correspondencia</label>
+                        <input type="text" id="direccionCorrespondencia" placeholder="Ej: Calle 10 # 20-30, Barranquilla" maxlength="150" autocomplete="off">
+                    </div>
+                    <div class="form-group">
                         <label for="actividad">Actividad Econ&oacute;mica</label>
                         <div class="actividad-selector">
                             <input type="search" id="actividad" placeholder="Busca una actividad económica..." autocomplete="off" disabled aria-autocomplete="list" aria-controls="listaActividades" aria-expanded="false" aria-describedby="ayudaActividad">
@@ -209,6 +217,14 @@
                     <div class="form-group">
                         <label for="fechaCobro">Día de Facturación</label>
                         <input type="date" id="fechaCobro">
+                    </div>
+                    <div class="form-group">
+                        <label for="numeroPoliza">N&uacute;mero de P&oacute;liza</label>
+                        <input type="text" id="numeroPoliza" placeholder="Ej: 083001768824" maxlength="30" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="validezOferta">Validez de la oferta (hasta)</label>
+                        <input type="date" id="validezOferta">
                     </div>
                     <div class="form-group" id="grupoTipoPagoMensual" hidden>
                         <label for="tipoPagoMensual">Modalidad de pago mensual</label>
@@ -541,6 +557,7 @@
                 </div>
                 <div class="button-group">
                     <button class="btn btn-outline" id="btnAtras4">← Atrás</button>
+                    <button class="btn btn-success" id="btnDescargarPdfCalculos" type="button">⬇ Descargar cotización PDF</button>
                     <button class="btn btn-primary" id="btnSiguiente5">Configurar planes →</button>
                 </div>
             </section>
@@ -624,6 +641,7 @@
 
                 <div class="button-group">
                     <button class="btn btn-success" id="btnExportarJSONResumen">📄 Guardar JSON</button>
+                    <button class="btn btn-primary" id="btnDescargarPdfResumen" type="button">⬇ Descargar cotización PDF</button>
                     <button class="btn btn-secondary" id="btnExportarAseguradosFinal">⬇ Asegurados CSV</button>
                     <button class="btn btn-outline" id="btnAtras5">← Atrás</button>
                     <button class="btn btn-danger" id="btnLimpiarTodo">🗑 Limpiar Todo</button>
@@ -1043,6 +1061,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="app.js"></script>
+    <script src="pdf-encabezado-data.js"></script>
+    <script src="pdf-cotizacion.js"></script>
 </body>
 </html>

@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slip Vida Grupo Integral</title>
+<style>
+  /* ============ Variables de marca ============ */
+  :root {
+    --azul-oscuro: #0033A1;
+    --azul: #2D6DF6;
+    --azul-claro: #99ADD9;
+    --turquesa: #00ADC7;
+    --gris-texto: #53565A;
+    --gris-borde: #BFBFBF;
+    --pagina: 794px;      /* A4 (11910 twips) */
+    --margen: 57px;       /* 851 twips */
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #e9e9e9;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    color: var(--azul-oscuro);
+    line-height: 1.35;
+  }
+
+  /* ============ Páginas ============ */
+  .pagina {
+    width: var(--pagina);
+    max-width: 100%;
+    margin: 0 auto 16px;
+    background: #fff;
+  }
+  .pagina.portada { padding: 0; }
+  .pagina.portada img { display: block; width: 100%; height: auto; }
+  .pagina.contenido { padding: 38px var(--margen); }
+
+  /* ============ Tipografía ============ */
+  h1 {
+    font-family: Verdana, Geneva, sans-serif;
+    font-size: 14pt;
+    font-style: italic;
+    font-weight: bold;
+    color: var(--azul-oscuro);
+    margin: 22px 0 8px;
+  }
+  h2 { font-size: 9pt; font-weight: bold; color: var(--azul-oscuro); margin: 14px 0 4px; }
+  h3 { font-size: 9pt; font-weight: bold; color: var(--azul-oscuro); margin: 12px 0 4px; }
+  p  { margin: 0 0 6px; }
+  .b { font-weight: bold; }
+  .gris { color: var(--gris-texto); }
+  .sep-linea { border: 0; border-top: 1.5px solid var(--azul-oscuro); width: 78px; margin: 4px 0 8px; }
+
+  /* ============ Tablas ============ */
+  table { border-collapse: collapse; width: 100%; margin-bottom: 12px; table-layout: fixed; }
+  td, th { padding: 4px 8px; vertical-align: top; text-align: left; font-weight: normal; }
+  td b, th b { font-weight: bold; }
+  td small { display: block; font-weight: normal; }
+
+  /* Info general / asesor / tomadores */
+  .t-turquesa, .t-turquesa td { border: 1px solid var(--turquesa); }
+  .t-turquesa td { color: var(--azul-oscuro); min-height: 28px; }
+  .t-turquesa td .lbl { font-weight: bold; display: block; }
+  .t-turquesa td.cab-azul-osc { background: var(--azul-oscuro); color: #fff; font-weight: bold; letter-spacing: 1px; }
+  .t-turquesa td.cab-azul     { background: var(--azul);        color: #fff; font-weight: bold; letter-spacing: 1px; }
+
+  /* Celdas monetarias: el símbolo $ a la izquierda, la cifra a la derecha */
+  td.m { text-align: right; white-space: nowrap; }
+  td.m::before { content: "$"; float: left; }
+
+  /* Cuadro de planes y primas */
+  .t-planes { font-size: 8.5pt; color: #000; }
+  .t-planes, .t-planes td { border: 1px solid #000; }
+  .t-planes td { padding: 3px 5px; }
+  .t-planes tr.va td { background: #f2f2f2; border-left: 0; border-right: 0; border-top: 0; }
+  .t-planes tr.va td.m { font-size: 9pt; }
+  .t-planes td.titulo { background: #3333A0; color: #fff; font-weight: bold; text-align: center; }
+  .t-planes tr.cab td { background: #d9d9d9; font-weight: bold; text-align: center; }
+  .t-planes tr.cab td:first-child { text-align: left; }
+  .t-planes tr.seccion td { background: #bfbfbf; font-weight: bold; }
+  .t-planes tr.total td { font-weight: bold; }
+
+  /* Planes progenitores y padrastros */
+  .t-prog { font-size: 8pt; color: #000; margin-bottom: 14px; }
+  .t-prog td { padding: 1px 4px; border: 1px solid #1f1fa8; }
+  .t-prog td.titulo { background: #2E75B6; color: #fff; font-size: 14pt; font-weight: bold; text-align: center; border: 0; padding: 4px; }
+  .t-prog tr.cab td { color: #1f1fa8; font-weight: bold; text-align: center; font-size: 7.5pt; }
+  .t-prog td.ramo { color: #1f1fa8; font-weight: bold; text-align: center; vertical-align: middle; }
+  .t-prog td.cob { color: #1f1fa8; }
+  .t-prog td.precios { background: #bfbfbf; font-size: 12pt; font-weight: bold; text-align: center; border: 0; padding: 3px; }
+  .t-prog tr.prima td { background: #d9d9d9; color: #1f1fa8; font-weight: bold; text-align: center; vertical-align: middle; padding: 8px 4px; border-color: #7f7f7f; }
+  .t-prog tr.prima td:first-child { text-align: left; }
+
+  /* Tasas progenitores */
+  .t-tasas, .t-tasas td, .t-tasas th { border: 1px solid #5B9BD5; }
+  .t-tasas th { background: #0032A0; color: #fff; font-weight: bold; text-align: center; }
+  .t-tasas td { color: #000; }
+  .t-tasas td:nth-child(2) { text-align: center; }
+
+  /* Tablas de requisitos (cab. azul, cuerpo gris) */
+  .t-req, .t-req td, .t-req th { border: 1px solid var(--gris-borde); }
+  .t-req th { background: #2D6FFF; color: #fff; font-weight: bold; text-align: center; vertical-align: middle; }
+  .t-req td { color: var(--gris-texto); text-align: center; }
+  .t-req td:first-child { text-align: left; }
+
+  /* Edades */
+  .t-edades th { background: #2D6FFF; color: #fff; font-weight: bold; padding: 6px 8px; }
+  .t-edades td { color: var(--gris-texto); border: 1px solid var(--gris-borde); }
+  .t-edades td.c { text-align: center; vertical-align: middle; }
+  .t-edades td.c small { font-size: 7.5pt; }
+  .t-edades th:nth-child(n+2) { text-align: center; }
+
+  /* Tasas vida grupo */
+  .t-tasas-vg { width: 340px; font-size: 7.5pt; color: #000; margin: 6px 0 10px; }
+  .t-tasas-vg, .t-tasas-vg td, .t-tasas-vg th { border: 1px solid #000; }
+  .t-tasas-vg th { background: #bfbfbf; font-weight: bold; padding: 2px 4px; }
+  .t-tasas-vg th.tasa { background: #fff; color: #f00; text-align: center; }
+  .t-tasas-vg td { padding: 2px 4px; vertical-align: middle; }
+  .t-tasas-vg td.v { background: #ffff99; font-weight: bold; text-align: center; }
+
+  /* Asesores (tabla final) */
+  .t-asesores, .t-asesores td, .t-asesores th { border: 1px solid var(--azul); }
+  .t-asesores th.cab1 { background: var(--azul); color: #fff; font-weight: bold; text-align: center; }
+  .t-asesores th.cab2 { background: var(--azul-oscuro); color: #fff; font-weight: bold; text-align: center; }
+  .t-asesores td { color: var(--azul-oscuro); text-align: center; height: 24px; }
+
+  /* Otras condiciones especiales */
+  .caja-otras { border: 1px solid var(--azul); min-height: 70px; margin-bottom: 8px; }
+
+  /* Condiciones generales aplicables */
+  .t-cg, .t-cg td, .t-cg th { border: 1px solid var(--azul); }
+  .t-cg th.cab1 { background: var(--azul-oscuro); color: #fff; font-weight: bold; border-color: var(--turquesa); }
+  .t-cg th.cab2 { background: var(--azul); color: #fff; font-weight: bold; text-align: center; }
+  .t-cg td { height: 26px; }
+
+  /* Forma / medio de pago (sin bordes) */
+  .t-pago, .t-pago td { border: 0; }
+  .t-pago td { color: var(--azul-oscuro); }
+
+  /* ============ Listas ============ */
+  ul, ol { margin: 4px 0 8px; padding-left: 22px; }
+  li { margin-bottom: 3px; }
+
+  /* ============ Imágenes ============ */
+  img.full  { display: block; width: 100%; height: auto; margin: 8px 0; }
+  img.tasas { display: block; width: 254px; height: auto; margin: 6px 0 10px; }
+  img.icono { width: 66px; height: 66px; vertical-align: middle; margin-right: 8px; }
+  img.qr    { width: 192px; height: 192px; display: block; margin: 6px 0; }
+  .fila-icono { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; }
+  .fila-icono h2 { margin: 0; }
+
+  a { color: var(--azul); }
+  .nota { font-size: 9pt; }
+
+  /* ============ Impresión ============ */
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .pagina { margin: 0; width: auto; page-break-after: always; }
+    .pagina.contenido { padding: 40px var(--margen); }
+    table, img { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= PORTADA ================= -->
+<section class="pagina portada">
+  <img src="encabezadoVG.png" alt="SURA Seguros - El bienestar de tus colaboradores contribuye con la competitividad de tu empresa">
+</section>
+
+<!-- ================= CONTENIDO ================= -->
+<section class="pagina contenido">
+
+  <!-- INFORMACIÓN GENERAL -->
+  <table class="t-turquesa">
+    <tr><td colspan="4" class="cab-azul-osc">INFORMACIÓN GENERAL</td></tr>
+    <tr>
+      <td><span class="lbl">Ciudad y fecha de cotización</span>2026/10/29</td>
+      <td><span class="lbl">Oficina de radicación</span>035 – Barranquilla</td>
+      <td><span class="lbl">Número de póliza</span>083001768824</td>
+      <td><span class="lbl">Documento de identificación</span>A8305055372</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="lbl">Vigencia del seguro</span>Desde 24:00 horas del 30/10/2026 Hasta 24:00 horas del 20/10/2027</td>
+      <td colspan="2"><span class="lbl">Vigencia del movimiento</span>Desde 24:00 horas del 30/10/2026 Hasta 24:00 horas del 20/10/2027</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="lbl">Actividad</span>Procesamiento y conservación de carne y productos cárnicos</td>
+      <td colspan="2"><span class="lbl">Día de facturación</span>Este campo aplica para las pólizas expedidas en GW</td>
+    </tr>
+  </table>
+
+  <!-- ASESOR -->
+  <table class="t-turquesa">
+    <colgroup><col style="width:75%"><col style="width:25%"></colgroup>
+    <tr><td colspan="2" class="cab-azul">ASESOR</td></tr>
+    <tr>
+      <td><span class="lbl">NOMBRE: CATALINA DELGADO RODRIGUEZ</span></td>
+      <td><span class="lbl">Código</span>64882</td>
+    </tr>
+  </table>
+
+  <!-- TOMADORES -->
+  <table class="t-turquesa">
+    <tr><td colspan="4" class="cab-azul">TOMADORES</td></tr>
+    <tr>
+      <td><span class="lbl">Nombre:</span>AGROPECUARIA SANTACRUZ LIMITADA</td>
+      <td><span class="lbl">Tipo de identificación</span>NIT</td>
+      <td><span class="lbl">Número de identificación</span>8305055372</td>
+      <td><span class="lbl">Segmento</span>GRAN EMPRESA</td>
+    </tr>
+    <tr>
+      <td colspan="4"><span class="lbl">Dirección de correspondencia</span>&nbsp;</td>
+    </tr>
+  </table>
+
+  <p class="b"><span>Solución</span> Seguro Vida Grupo – Plan Vida Integral</p>
+  <p class="b">Asegurado: TODOS LOS EMPLEADOS DE LA EMPRESA</p>
+  <p class="b">Beneficiario: LOS DESIGNADOS POR CADA ASEGURADO</p>
+
+  <p class="b" style="margin-top:14px;">Valor Asegurado, Prima Total y Tasa de acuerdo con el plan elegido</p>
+
+  <!-- Cuadro de planes y primas -->
+  <table class="t-planes">
+    <colgroup><col style="width:44%"><col style="width:14%"><col style="width:14%"><col style="width:14%"><col style="width:14%"></colgroup>
+    <tr class="va">
+      <td>VA Vigencia anterior</td>
+      <td class="m">22.081.615,00</td><td class="m">33.122.424,00</td><td class="m">55.204.040,00</td><td class="m">77.285.645,00</td>
+    </tr>
+    <tr><td colspan="5" class="titulo">VIDA GRUPO INTEGRAL</td></tr>
+    <tr class="cab">
+      <td>COBERTURAS DE VIDA GRUPO</td><td>PLAN A</td><td>PLAN B</td><td>PLAN C</td><td>PLAN D</td>
+    </tr>
+    <tr><td>Básico de Vida</td><td class="m">22.523.247</td><td class="m">33.784.872</td><td class="m">56.308.121</td><td class="m">78.831.358</td></tr>
+    <tr><td>Invalidez Total y Permanente</td><td class="m">22.523.247</td><td class="m">33.784.872</td><td class="m">56.308.121</td><td class="m">78.831.358</td></tr>
+    <tr><td>Enfermedades Graves (Anticipo 50%)</td><td class="m">22.523.247</td><td class="m">33.784.872</td><td class="m">56.308.121</td><td class="m">78.831.358</td></tr>
+    <tr><td>Muerte Accidental Adicional Con Armas</td><td class="m">11.261.624</td><td class="m">16.892.436</td><td class="m">28.154.060</td><td class="m">39.415.679</td></tr>
+    <tr><td>Invalidez Accidental adicional Con Armas</td><td class="m">11.261.624</td><td class="m">16.892.436</td><td class="m">28.154.060</td><td class="m">39.415.679</td></tr>
+    <tr><td>Bono para gastos funerarios (Vida - Pago unico)</td><td class="m">2.252.325</td><td class="m">3.378.487</td><td class="m">5.630.812</td><td class="m">7.883.136</td></tr>
+    <tr><td>Bono Canasta (Invalidez y/o Vida - Pago Único)</td><td class="m">2.252.325</td><td class="m">3.378.487</td><td class="m">5.630.812</td><td class="m">7.883.136</td></tr>
+    <tr><td>Bono adecuaciones del hogar (Invalidez - Pago unico)</td><td class="m">2.252.325</td><td class="m">3.378.487</td><td class="m">5.630.812</td><td class="m">7.883.136</td></tr>
+    <tr><td>Auxilio por maternidad y/o Paternidad (Pago unico x vigencia)</td><td class="m">225.232</td><td class="m">337.849</td><td class="m">563.081</td><td class="m">788.314</td></tr>
+    <tr><td>Renta por incapacidad (Deducible 7 dias)</td><td class="m">22.523</td><td class="m">33.785</td><td class="m">56.308</td><td class="m">78.831</td></tr>
+    <tr><td>Incapacidad permanente parcial</td><td class="m">11.261.624</td><td class="m">16.892.436</td><td class="m">28.154.060</td><td class="m">39.415.679</td></tr>
+    <tr class="seccion"><td>COBERTURAS DE RENTA</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>Renta diaria: indemnización diaria por hospitalización para tratamiento medico o quirúrgico, cirugía ambulatoria</td><td class="m">45.046</td><td class="m">67.570</td><td class="m">112.616</td><td class="m">157.663</td></tr>
+    <tr><td>Incapacidad posthospitalaria o postquirúrgica (Maximo 6 dias)</td><td class="m">22.523</td><td class="m">33.785</td><td class="m">56.308</td><td class="m">78.831</td></tr>
+    <tr><td>Renta diaria UCI (maximo 10 dias)</td><td class="m">45.046</td><td class="m">67.570</td><td class="m">112.616</td><td class="m">157.663</td></tr>
+    <tr class="seccion"><td>PRIMAS MENSUAL</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>VIDA GRUPO</td><td class="m">22.343</td><td class="m">33.514</td><td class="m">55.857</td><td class="m">78.200</td></tr>
+    <tr><td>RENTA</td><td class="m">4.698</td><td class="m">7.047</td><td class="m">11.744</td><td class="m">16.442</td></tr>
+    <tr class="total"><td>TOTAL PRIMA MENSUAL</td><td class="m">27.041</td><td class="m">40.561</td><td class="m">67.601</td><td class="m">94.642</td></tr>
+  </table>
+
+  <!-- Planes progenitores y padrastros -->
+  <table class="t-prog">
+    <colgroup><col style="width:9%"><col style="width:25%"><col style="width:13.2%"><col style="width:13.2%"><col style="width:13.2%"><col style="width:13.2%"><col style="width:13.2%"></colgroup>
+    <tr><td colspan="7" class="titulo">PLANES - PROGENITORES Y PADRASTROS</td></tr>
+    <tr class="cab">
+      <td>RAMO</td><td>COBERTURAS</td><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td>
+    </tr>
+    <tr>
+      <td rowspan="3" class="ramo">Vida<br>Grupo</td>
+      <td class="cob">Vida</td>
+      <td class="m">50.000.000</td><td class="m">40.000.000</td><td class="m">30.000.000</td><td class="m">20.000.000</td><td class="m">10.000.000</td>
+    </tr>
+    <tr>
+      <td class="cob">Invalidez por enfermedad o accidente</td>
+      <td class="m">50.000.000</td><td class="m">40.000.000</td><td class="m">30.000.000</td><td class="m">20.000.000</td><td class="m">10.000.000</td>
+    </tr>
+    <tr>
+      <td class="cob">Auxilio Funerario</td>
+      <td class="m">2.000.000</td><td class="m">2.000.000</td><td class="m">2.000.000</td><td class="m">2.000.000</td><td class="m">2.000.000</td>
+    </tr>
+    <tr><td colspan="7" class="precios">PRECIOS</td></tr>
+    <tr class="prima">
+      <td colspan="2">Prima Total Mensual (Por Asegurado)</td>
+      <td>$58.944</td><td>$47.551</td><td>$36.158</td><td>$24.765</td><td>$13.372</td>
+    </tr>
+  </table>
+
+  <p style="margin-top:10px;">Tasas</p>
+  <table class="t-tasas-vg">
+    <colgroup><col style="width:80%"><col style="width:20%"></colgroup>
+    <tr><th>COBERTURAS DE VIDA GRUPO</th><th class="tasa">TASAS</th></tr>
+    <tr><td>Básico de Vida</td><td class="v">2,400</td></tr>
+    <tr><td>Invalidez Total y Permanente</td><td class="v">0,370</td></tr>
+    <tr><td>Enfermedades Graves (Anticipo 50%)</td><td class="v">1,190</td></tr>
+    <tr><td>Muerte Accidental Adicional Con Armas</td><td class="v">1,630</td></tr>
+    <tr><td>Invalidez Accidental adicional Con Armas</td><td class="v">1,630</td></tr>
+    <tr><td>Bono para gastos funerarios (Vida - Pago unico)</td><td class="v">2,400</td></tr>
+    <tr><td>Bono Canasta (Invalidez y/o Vida - Pago Único)</td><td class="v">2,760</td></tr>
+    <tr><td>Bono para educacion (Vida - Pago unico)</td><td class="v">0,000</td></tr>
+    <tr><td>Bono adecuaciones del hogar (Invalidez - Pago unico)</td><td class="v">0,270</td></tr>
+    <tr><td>Auxilio por maternidad y/o Paternidad (Pago unico x vigencia)</td><td class="v">0,031</td></tr>
+    <tr><td>Renta por incapacidad (Deducible 7 dias)</td><td class="v">4,033</td></tr>
+    <tr><td>Incapacidad permanente parcial</td><td class="v">0,850</td></tr>
+    <tr><td>Renta diaria: indemnización diaria por hospitalización para tratamiento medico o quirúrgico, cirugía ambulatoria</td><td class="v">0,573</td></tr>
+    <tr><td>Incapacidad posthospitalaria o postquirúrgica (Maximo 6 dias)</td><td></td></tr>
+    <tr><td>Renta diaria UCI (maximo 10 dias)</td><td class="v">0,573</td></tr>
+  </table>
+
+  <p>Tasa Progenitores</p>
+  <table class="t-tasas">
+    <colgroup><col style="width:75%"><col style="width:25%"></colgroup>
+    <tr><th>COBERTURA</th><th>TASA ANUAL POR MIL</th></tr>
+    <tr><td>Vida</td><td>10,87</td></tr>
+    <tr><td>Invalidez, perdida o inutilización por enfermedad o accidente</td><td>1,650</td></tr>
+    <tr><td>Auxilio funerario</td><td>10,87</td></tr>
+  </table>
+
+  <p><b>Nota técnica:</b> Las pólizas de Vida Grupo emitidas por el Core Guidewire (Policy) pueden presentar variaciones en la prima debido al prorrateo automático del sistema. Este ajuste aplica en modificaciones posteriores, devoluciones y en inclusiones realizadas después del inicio de vigencia. La distribución aplica cuando los riesgos continúan vigentes, no para exclusiones.</p>
+  <p><b>Ejemplo:</b> Si una persona se incluye en la póliza 15 días después del inicio de vigencia, el sistema calcula la prima proporcional al tiempo restante y distribuye el cobro en los periodos pendientes.</p>
+
+  <!-- ============ REQUISITOS DE ASEGURABILIDAD ============ -->
+  <h1>Requisitos de asegurabilidad para todas las coberturas</h1>
+
+  <table class="t-req">
+    <colgroup><col style="width:32%"><col style="width:17%"><col style="width:17%"><col style="width:17%"><col style="width:17%"></colgroup>
+    <tr>
+      <th rowspan="2">Valor Asegurado</th>
+      <th colspan="2">Patronales</th>
+      <th colspan="2">Voluntarias<br><span style="font-size:8pt">(máx. de VA en Vida según segmento)</span></th>
+    </tr>
+    <tr>
+      <th>Hasta 55 años</th><th>Entre 56 y 69 años</th>
+      <th>Hasta 55 años</th><th>Entre 56 y 69 años</th>
+    </tr>
+    <tr><td>Hasta $500.000.000</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+    <tr><td>$500.000.001 a $700.000.000</td><td>1</td><td>1,4</td><td>1</td><td>1,2,4</td></tr>
+    <tr><td>$700.000.001 a $1.700.000.000</td><td>1,2,4</td><td>1,2,4,5</td><td>1,2,4</td><td>1,2,4,5</td></tr>
+    <tr><td>Mayor a $1.700.000.000</td><td>1,2,3,4,5,6</td><td>1,2,3,4,5,6,7</td><td>1,2,3,4,5,6</td><td>1,2,3,4,5,6,7</td></tr>
+  </table>
+
+  <p class="b">Requisitos Aplicables para la Cobertura de Enfermedades Graves:</p>
+
+  <table class="t-req" style="width:80%">
+    <colgroup><col style="width:42%"><col style="width:29%"><col style="width:29%"></colgroup>
+    <tr><th>Valor Asegurado</th><th>Hasta 55 años</th><th>Entre 56 y 60 años</th></tr>
+    <tr><td>Hasta $100.000.000</td><td>1</td><td>1</td></tr>
+    <tr><td>$101.000.000 a $200.000.000</td><td>1</td><td>1,2,3,4</td></tr>
+    <tr><td>$200.000.000 a $810.000.000</td><td>1,2,3,4</td><td>1,2,4,5,6</td></tr>
+  </table>
+
+  <h3>Listado de requisitos de asegurabilidad</h3>
+  <hr class="sep-linea">
+  <ol>
+    <li>Declaración de asegurabilidad</li>
+    <li>Examen médico</li>
+    <li>Electrocardiograma</li>
+    <li>Exámenes de laboratorio (glicemia, colesterol total, colesterol HDL, triglicéridos)</li>
+    <li>Creatinina</li>
+    <li>VIH</li>
+    <li>Prueba de esfuerzo</li>
+  </ol>
+
+  <h3>Vigencia de los requisitos de asegurabilidad</h3>
+  <hr class="sep-linea">
+  <ol>
+    <li>Examen médico, citoquímico de orina y química sanguínea: 1 año (12 meses).</li>
+    <li>Electrocardiograma: 1 año (12 meses).</li>
+    <li>Declaración de asegurabilidad: seis (6) meses.</li>
+  </ol>
+
+  <p class="b"><b>Nota:</b> los exámenes descritos anteriormente están cubiertos por SURA. En caso de solicitarse exámenes adicionales para la evaluación médica de cada riesgo, deben ser asumidos por el asegurado.</p>
+
+  <!-- ============ EDADES ============ -->
+  <h1>Edades de ingreso y permanencia</h1>
+  <table class="t-edades">
+    <colgroup><col style="width:34%"><col style="width:20%"><col style="width:46%"></colgroup>
+    <tr><th>COBERTURA</th><th>Edad máxima de ingreso</th><th>Edad máxima de permanencia</th></tr>
+    <tr>
+      <td>Vida – Muerte por cualquier causa</td>
+      <td class="c" rowspan="5">70 años + 364 días</td>
+      <td class="c" rowspan="5">80 años + 364 días</td>
+    </tr>
+    <tr><td>Bono funerario</td></tr>
+    <tr><td>Bono para educación</td></tr>
+    <tr><td>Auxilio por maternidad o paternidad</td></tr>
+    <tr><td>Auxilio de repatriación</td></tr>
+    <tr><td>Muerte accidental</td><td class="c">69 años + 364 días</td><td class="c">75 años + 364 días</td></tr>
+    <tr>
+      <td>Invalidez, pérdida o inutilización por accidente o enfermedad</td>
+      <td class="c" rowspan="5">69 años + 364 días</td>
+      <td class="c" rowspan="5">70 años + 364 días</td>
+    </tr>
+    <tr><td>Invalidez, pérdida o inutilización por enfermedad</td></tr>
+    <tr><td>Invalidez accidental adicional</td></tr>
+    <tr><td>Pérdida parcial de la capacidad laboral</td></tr>
+    <tr><td>Bono para adecuaciones del hogar</td></tr>
+    <tr>
+      <td>Renta por incapacidad por accidente o enfermedad</td>
+      <td class="c" rowspan="3">60 años + 364 días</td>
+      <td class="c" rowspan="3">65 años + 364 días</td>
+    </tr>
+    <tr><td>Renta por hospitalización</td></tr>
+    <tr><td>Renta adicional por hospitalización en cuidados intensivos</td></tr>
+    <tr><td>Enfermedades graves</td><td class="c">65 años + 364 días</td><td class="c">70 años + 364 días</td></tr>
+    <tr>
+      <td>Gastos de curación</td>
+      <td class="c" rowspan="2">65 años + 364 días</td>
+      <td class="c" rowspan="2">75 años + 364 días</td>
+    </tr>
+    <tr><td>Renta por incapacidad por accidente</td></tr>
+    <tr>
+      <td>Bono canasta</td>
+      <td class="c">70 años + 364 días</td>
+      <td class="c"><small>Por estar ligada a la cobertura de ‘Vida – Muerte por cualquier causa’ o ‘Invalidez o pérdida por accidente o enfermedad’, se le aplica la edad máxima de permanencia de cada una de las coberturas mencionadas.</small></td>
+    </tr>
+  </table>
+
+  <!-- ============ CONDICIONES PARTICULARES ============ -->
+  <h1 style="font-family:Arial,sans-serif;font-style:normal;font-size:9pt;">Condiciones particulares</h1>
+
+  <p class="b">Índice variable: XXX</p>
+
+  <h2>Cobertura patronal automática:</h2>
+  <h3>SURA dará cobertura automática a los asegurados nuevos desde la fecha de inicio del contrato con la empresa, siempre y cuando:</h3>
+  <ul>
+    <li>SURA reciba la declaración de asegurabilidad dentro de los 30 días siguientes a la firma de dicho contrato.</li>
+    <li>La suma asegurada no supere $ 150.000.000.</li>
+    <li>La edad de ingreso del asegurado no supere 55 años.</li>
+    <li>Las respuestas a la declaración de asegurabilidad sean en su totalidad negativas.</li>
+    <li>Modificaciones de valor asegurado: no se requiere diligenciamiento de la declaración de asegurabilidad para incrementos hasta $ 50.000.000, incrementos superiores a este valor, deben ser verificados para que no superen el 40 % del valor asegurado con un límite máximo de $ 150.000.000, de lo contrario se deberá llenar la declaración de asegurabilidad.</li>
+  </ul>
+
+  <h2>Continuidad:</h2>
+  <p>Seguros de Vida Suramericana S.A. amparará a las personas que venían aseguradas en la póliza XXXXXX de la Compañía XXXXXX. Lo que significa que acepta dichos riesgos en el estado en que se encuentran, otorgando cobertura solamente a aquellas preexistencias que hubieran sido cubiertas por la anterior compañía/póliza. Las extra primas y limitaciones de cobertura que hayan sido impuestas en la póliza anterior regirán para este contrato sin perjuicio de aquellas que puedan ser impuestas por esta aseguradora. Se aplicarán para la presente póliza, las manifestaciones o declaraciones de asegurabilidad realizadas para la póliza anterior. Los nuevos asegurados deben cumplir con los requisitos de asegurabilidad exigidos por SURAMERICANA.</p>
+  <p>El Tomador de la póliza certifica que no tiene conocimiento de asegurados con enfermedades graves o procesos de invalidez en curso.</p>
+  <p class="b">CONDICIONES PÓLIZA XXXXXX, COMPAÑÍA XXXXX</p>
+  <p>La anterior continuidad se otorgará solamente con respecto a los amparos y valores asegurados que tenga en la otra compañía/póliza, bajo las definiciones que para dichas coberturas tiene Suramericana.</p>
+
+  <h2>Honorarios por administración y recaudo:</h2>
+  <p>Se entregará al tomador un XX % de las primas pagadas a SURAMERICANA, como aporte por concepto de Honorarios por Administración y Recaudo. Para ello, el Tomador debe enviar una factura de venta o documento equivalente a Suramericana por el monto correspondiente al honorario por la administración de seguros. Una vez realice el proceso de causación de la factura, la compañía procederá a realizar el pago.</p>
+
+  <h2>Bono por siniestralidad:</h2>
+  <p>El bono por siniestralidad se debe calcular tres meses posteriores a la terminación de la vigencia y se liquida a través de una factura de cobro (incluye IVA) que el tomador debe generar, por lo que no afecta la comisión del intermediario. El bono por siniestralidad se establece para esta póliza de la siguiente forma:</p>
+  <p>PU = 30 % (40 % primas emitidas – siniestros incurridos*).</p>
+  <p class="b">Siniestros incurridos*: Corresponde al valor de siniestros pagados y avisados de la vigencia que se está evaluando y se le debe sumar la Reserva de Siniestros No Avisados (IBNR), que corresponde a siniestros que ya ocurrieron y aún no se han reportado a la aseguradora.</p>
+
+  <h2>Errores, omisiones o inexactitudes:</h2>
+  <p>En caso de que, por alguna inconsistencia en los sistemas o un error de digitación, un asegurado no aparezca en los listados de asegurados y tenga un siniestro, la aseguradora pagaría el siniestro, previa prueba de que el asegurado haya diligenciado satisfactoriamente la declaración de asegurabilidad y el valor asegurado se encuentre dentro de los límites de automaticidad autorizados por la aseguradora.</p>
+
+  <h2>Beneficiarios:</h2>
+  <p>La designación de los beneficiarios es una POTESTAD LIBRE, EXCLUSIVA E INDELEGABLE DE CADA UNO DE LOS ASEGURADOS. Por lo anterior, cada uno de los asegurados deberá indicar el nombre de las personas con sus respectivos porcentajes, a quienes desea que se les entregue la indemnización y en el evento de no haber designación, los beneficiarios serán los estipulados por ley.</p>
+
+  <h2>Irreductibilidad:</h2>
+  <p>ARTÍCULO 1160. IMPOSIBILIDAD DE REDUCCIÓN DEL VALOR DEL SEGURO. Transcurridos dos años en vida del asegurado, desde la fecha del perfeccionamiento del contrato, el valor del seguro de vida no podrá ser reducido por causa de error en la declaración de asegurabilidad.</p>
+
+  <h2>Otras condiciones especiales:</h2>
+  <div class="caja-otras">&nbsp;</div>
+
+  <!-- ASESORES -->
+  <table class="t-asesores" style="margin-top:24px;">
+    <colgroup><col style="width:16%"><col style="width:30%"><col style="width:16%"><col style="width:17%"><col style="width:21%"></colgroup>
+    <tr><th colspan="5" class="cab1">ASESORES</th></tr>
+    <tr>
+      <th class="cab2">Código</th><th class="cab2">Nombre del asesor principal</th>
+      <th class="cab2">Líder</th><th class="cab2">Participación</th><th class="cab2">Comisión ponderada</th>
+    </tr>
+    <tr><td><b>64882</b></td><td>CATALINA DELGADO RODRIGUEZ</td><td>X</td><td>100%</td><td></td></tr>
+    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>
+  </table>
+
+  <!-- COASEGURADOR -->
+  <table class="t-asesores">
+    <colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>
+    <tr><th colspan="3" class="cab1">COASEGURADOR</th></tr>
+    <tr><th class="cab2">Código</th><th class="cab2">Porcentaje</th><th class="cab2">Líder</th></tr>
+    <tr><td>&nbsp;</td><td></td><td></td></tr>
+  </table>
+
+  <!-- CONDICIONES GENERALES -->
+  <p class="b" style="margin-top:18px;">Condiciones generales <span>Indica cuál tipo de plan aplica para el cliente: Vida Deudores, Vida Docentes, Vida Clásico</span></p>
+
+  <table class="t-cg">
+    <tr><th colspan="4" class="cab1">DATOS DE LAS CONDICIONES GENERALES APLICABLES</th></tr>
+    <tr>
+      <th class="cab2">Solución</th>
+      <th class="cab2">Fecha a partir de la cual se utiliza</th>
+      <th class="cab2">Ramo al que pertenece</th>
+      <th class="cab2">Identificación de la proforma</th>
+    </tr>
+    <tr><td></td><td></td><td></td><td></td></tr>
+  </table>
+
+  <h2>Pago de las primas:</h2>
+  <p>El plazo para el pago de la prima será de 30 días entre la fecha de inicio de vigencia y la fecha de expedición más reciente.</p>
+
+  <table class="t-pago">
+    <colgroup><col style="width:51%"><col style="width:49%"></colgroup>
+    <tr>
+      <td>
+        <p class="b">Forma de pago: Mensual.</p>
+        <p class="b">Mensual*: anticipado___x___ Vencido______</p>
+        <p class="b">**Este campo aplica para las pólizas expedidas en GW.</p>
+        <p>Fecha(s) acordada(s) para el pago (según forma de pago)</p>
+        <p>Frecuencia ajuste**</p>
+        <ul>
+          <li>Diario</li>
+          <li>Mensual x</li>
+          <li>Trimestral</li>
+          <li>Semestral</li>
+          <li>Anual</li>
+        </ul>
+        <p class="b">Nota: la forma de pago y la frecuencia de ajuste deben ser iguales.</p>
+        <p class="b">**Este campo aplica para las pólizas expedidas en Cliente Servidor.</p>
+      </td>
+      <td>
+        <p class="b">Medio de pago</p>
+        <ul>
+          <li>Pago express (PSE – Código de Barras)</li>
+          <li>Recaudo en línea</li>
+          <li>Débito automático al tomador</li>
+          <li>Transferencia</li>
+          <li>Financiación (Servicios Financieros)</li>
+        </ul>
+        <p class="b" style="margin-top:28px;">Acompañamiento de gestor BST: Sí</p>
+        <p class="b">¿Tiene ARL SURA?: Sí</p>
+        <p class="b">¿Tiene recargo por fraccionamiento?: Sí</p>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ============ PROGRAMAS DE ACOMPAÑAMIENTO ============ -->
+  <h1>Programas de Acompañamiento y Gestión de Riesgos</h1>
+
+  <ul style="list-style:disc;"><li class="b">Estamos cerca de tus colaboradores cuando más lo necesitan.</li></ul>
+
+  <div class="fila-icono">
+    <img class="icono" src="img/image5.png" alt="">
+    <h2>Gestión Médica:</h2>
+  </div>
+  <p>Orientación especializada en casos de invalidez, enfermedades graves o cáncer.</p>
+
+  <div class="fila-icono">
+    <img class="icono" src="img/image6.png" alt="">
+    <h2>Programa Cuidar:</h2>
+  </div>
+  <p>Apoyo integral a personas con patologías en etapa avanzada, junto a sus familias, en aspectos emocionales, jurídicos y financieros.</p>
+
+  <div class="fila-icono">
+    <img class="icono" src="img/image7.png" alt="">
+    <h2>Empresas SURA:</h2>
+  </div>
+  <p class="b">En Empresas SURA, te acompañamos en el cuidado de tu talento humano mientras alcanzas los objetivos de tu empresa. Te proporcionamos herramientas que puedes implementar para fidelizar a tu equipo y lograr tus metas. <a href="https://www.segurossura.com.co/empresasura/Paginas/default.aspx" target="_blank" rel="noopener">Agenda la primera cita aquí.</a> Aplica para empresas clientes de Vida Grupo del segmento Empresarial.</p>
+
+  <h1 style="font-size:10pt;">Escanea el siguiente código QR y descubre cómo Vida Grupo SURA se convierte en el respaldo que potencia el bienestar y la competitividad de tu empresa:</h1>
+  <img class="qr" src="img/image8.png" alt="Código QR Vida Grupo SURA">
+
+  <!-- ============ CONDICIONES DE COTIZACIÓN ============ -->
+  <h1>Condiciones de cotización</h1>
+
+  <p>El seguro que se cotiza en esta oferta se expedirá y se regirá, en caso que sea adjudicado a Seguros de Vida Suramericana S.A., en los términos y condiciones que específicamente se mencionan en este documento.</p>
+  <p>Seguros Generales Suramericana S.A. se reserva el derecho de revisar términos y condiciones indicados en esta cotización si antes de la iniciación de la vigencia se presenta un incremento importante en la siniestralidad o existe una variación importante del estado de riesgo.</p>
+  <p>Al contratar el seguro se entiende que la cotización le fue explicada, así como las coberturas y exclusiones de la póliza; cabe resaltar que la propuesta presentada está basada en sus requerimientos frente a los valores asegurados y eventuales solicitudes de eliminar ciertas coberturas.</p>
+  <p>El seguro que se cotiza en esta oferta se expedirá y se regirá, en caso que sea adjudicado a Seguros Generales Suramericana S.A., en los términos y condiciones que específicamente se mencionan en este documento.</p>
+  <p>Para que SEGUROS DE VIDA SURAMERICANA S.A no se considere en riesgo, la compañía debe recibir confirmación escrita de la aceptación de los términos y condiciones de esta cotización, de lo contrario se entiende que SURAMERICANA no ha asumido responsabilidad alguna.</p>
+  <p>Validez de la oferta: la presente cotización tiene validez hasta el día XX del mes de XXXX de 20XX.</p>
+
+  <h1 style="margin-top:36px;">SEGUROS DE VIDA SURAMERICANA S.A.</h1>
+
+</section>
+
+</body>
+</html>

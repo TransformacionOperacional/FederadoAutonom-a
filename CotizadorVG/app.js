@@ -241,6 +241,10 @@ let estado = {
         formaPago: 'Anual',
         tipoPagoMensual: 'Vencida',
         fechaCobro: '',
+        numeroPoliza: '',
+        segmento: '',
+        direccionCorrespondencia: '',
+        validezOferta: '',
         comision: 20,
         honorarioPromotora: 10,
         aplicaCredibilidad: false,
@@ -362,6 +366,13 @@ function cargarEstado() {
     }
 }
 
+function limpiarCamposAdicionalesCotizacion() {
+    ['numeroPoliza', 'segmento', 'direccionCorrespondencia', 'validezOferta'].forEach(id => {
+        const campo = document.getElementById(id);
+        if (campo) campo.value = '';
+    });
+}
+
 function limpiarEstado() {
     if (confirm('¿Deseas limpiar todos los datos? Esta acción no se puede deshacer.')) {
         localStorage.removeItem('cotizadorEstado');
@@ -381,6 +392,10 @@ function limpiarEstado() {
                 formaPago: 'Anual',
                 tipoPagoMensual: 'Vencida',
                 fechaCobro: '',
+                numeroPoliza: '',
+                segmento: '',
+                direccionCorrespondencia: '',
+                validezOferta: '',
                 comision: 20,
                 honorarioPromotora: 10,
                 aplicaCredibilidad: false,
@@ -413,6 +428,7 @@ function limpiarEstado() {
         };
         pasoActual = 1;
         flujo = { tipo: null, subtipo: null, polizaSeleccionada: null };
+        limpiarCamposAdicionalesCotizacion();
         actualizarAplicacionCredibilidad(true);
         actualizarSiniestralidad(true);
         mostrarSoloPantalla('pantalla-landing');
@@ -2770,6 +2786,8 @@ function renderizarResumenCredibilidad() {
 let registrosPorPaginaCalculos = 10;
 const paginasCalculos = new Map();
 const filasCalculosPorPlan = new Map();
+// Último cálculo de la pantalla de cálculos con credibilidad; lo usa el PDF.
+let resumenCotizacion = null;
 const REGISTROS_POR_PAGINA_CALCULOS_MIN = 10;
 
 function normalizarRegistrosPorPaginaCalculos(valor) {
@@ -2897,6 +2915,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     });
 
     let primaTotalPoliza = 0;
+    const resumenPlanes = [];
     filasCalculosPorPlan.clear();
     const totalesPolizaPorCobertura = new Map();
     const ajustesCredibilidad = esComparativaSinCredibilidad ? null : obtenerAjustesCredibilidad();
@@ -2957,6 +2976,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         if (plan) {
             if (!esComparativaSinCredibilidad) plan.primaTotal = Math.round(primaTotalPlan * 100) / 100;
             primaTotalPoliza += primaTotalPlan;
+            resumenPlanes.push({ plan, cantidadAsegurados: asegurados.length, primaTotal: primaTotalPlan, totales: totalesPlanPorCobertura });
             coberturas.forEach(cobertura => {
                 const totalPlan = totalesPlanPorCobertura.get(cobertura.codigo);
                 const totalPoliza = totalesPolizaPorCobertura.get(cobertura.codigo) || {
@@ -2995,6 +3015,15 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     const tasaUnicaPoliza = formatearTasaUnica(primaTotalPoliza, totalVidaPoliza);
     const detalleFraccionamiento = obtenerDetalleFraccionamiento();
     const primaSegunFormaPago = calcularPrimaPorFormaPago(primaTotalPoliza);
+    if (!esComparativaSinCredibilidad) {
+        resumenCotizacion = {
+            planes: resumenPlanes,
+            totalesPoliza: totalesPolizaPorCobertura,
+            primaTotalPoliza,
+            tasaUnicaPoliza,
+            sinPlan: gruposPlanes.some(grupo => !grupo.plan)
+        };
+    }
 
     const avisoComparativa = esComparativaSinCredibilidad
         ? `<section class="comparativa-credibilidad" role="status"><strong>Comparativa sin credibilidad</strong><span>Estos resultados se calculan sin usar la información de siniestros. Los datos de la póliza no se modifican.</span></section>`
@@ -3388,7 +3417,8 @@ function setupEventListeners() {
     const camposPoliza = [
         'tomador', 'tipoIdentificacion', 'numeroIdentificacion', 'modalidadPlan',
         'vigenciaDesde', 'vigenciaHasta',
-        'formaPago', 'fechaCobro'
+        'formaPago', 'fechaCobro',
+        'numeroPoliza', 'segmento', 'direccionCorrespondencia', 'validezOferta'
     ];
     camposPoliza.forEach(campo => {
         document.getElementById(campo)?.addEventListener('change', (e) => {
@@ -3659,6 +3689,7 @@ function seleccionarSubtipo(subtipo) {
         modalidadPlan: 'Patronal (No Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         actividadDetalle: null,
         oficina: '', formaPago: 'Anual', tipoPagoMensual: 'Vencida', fechaCobro: '',
+        numeroPoliza: '', segmento: '', direccionCorrespondencia: '', validezOferta: '',
         comision: 20, honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
@@ -3666,6 +3697,7 @@ function seleccionarSubtipo(subtipo) {
         codigoAsesor: '', asesor: '', regional: '', oficinasAsesor: [], oficinaAsesor: '', codigoOficinaAsesor: '',
         canalComercial: ''
     };
+    limpiarCamposAdicionalesCotizacion();
     limpiarDatosAsesor(true);
     actualizarAplicacionCredibilidad(true);
     actualizarSiniestralidad(true);
@@ -3973,6 +4005,10 @@ function seleccionarPolizaRenovacion(indice) {
     const fechaCobro = poliza.vigenciaFin ? `${poliza.vigenciaFin.slice(0, 8)}01` : '';
 
     limpiarDatosAsesor(true);
+    estado.poliza.segmento = '';
+    estado.poliza.direccionCorrespondencia = '';
+    estado.poliza.validezOferta = '';
+    limpiarCamposAdicionalesCotizacion();
     estado.poliza.tomador              = poliza.nombreTomador;
     estado.poliza.tipoIdentificacion   = TIPO_IDENTIFICACION_POR_PREFIJO[poliza.documento.charAt(0)] || 'CC';
     estado.poliza.numeroIdentificacion = poliza.documento.slice(1);
@@ -3982,6 +4018,7 @@ function seleccionarPolizaRenovacion(indice) {
     estado.poliza.vigenciaDesde        = vigNuevaDesde;
     estado.poliza.vigenciaHasta        = vigNuevaHasta;
     estado.poliza.fechaCobro           = fechaCobro;
+    estado.poliza.numeroPoliza         = String(poliza.numero || '');
     estado.poliza.comision             = 20;
     estado.poliza.honorarioPromotora   = 10;
     estado.poliza.codigoAsesor         = poliza.codigoAsesor;
@@ -4036,6 +4073,7 @@ function seleccionarPolizaRenovacion(indice) {
             formaPago:            estado.poliza.formaPago,
             tipoPagoMensual:      estado.poliza.tipoPagoMensual || 'Vencida',
             fechaCobro:           estado.poliza.fechaCobro,
+            numeroPoliza:         estado.poliza.numeroPoliza,
             comision:             estado.poliza.comision,
             honorarioPromotora:   estado.poliza.honorarioPromotora
         };
