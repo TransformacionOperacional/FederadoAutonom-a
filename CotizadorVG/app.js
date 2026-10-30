@@ -371,6 +371,14 @@ function limpiarCamposAdicionalesCotizacion() {
         const campo = document.getElementById(id);
         if (campo) campo.value = '';
     });
+    const hoy = obtenerFechaActualISO();
+    const inputValidezOferta = document.getElementById('validezOferta');
+    const validezOfertaPorDefecto = sumarDiasISO(hoy, 30);
+    if (inputValidezOferta) {
+        inputValidezOferta.min = hoy;
+        inputValidezOferta.value = validezOfertaPorDefecto;
+    }
+    estado.poliza.validezOferta = validezOfertaPorDefecto;
 }
 
 function limpiarEstado() {
@@ -5368,6 +5376,17 @@ function obtenerFechaActualISO() {
     return new Date(ahora.getTime() - diferenciaZonaHoraria).toISOString().slice(0, 10);
 }
 
+function sumarDiasISO(fechaISO, dias) {
+    const coincidencia = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fechaISO || '');
+    if (!coincidencia) return '';
+    const fecha = new Date(Date.UTC(
+        Number(coincidencia[1]),
+        Number(coincidencia[2]) - 1,
+        Number(coincidencia[3]) + dias
+    ));
+    return fecha.toISOString().slice(0, 10);
+}
+
 function sincronizarVigencia(campoModificado, valor) {
     if (!valor) return;
     const esDesde = campoModificado === 'vigenciaDesde';
@@ -5416,6 +5435,7 @@ function establecerFechasDefault() {
     const inputDesde = document.getElementById('vigenciaDesde');
     const inputHasta = document.getElementById('vigenciaHasta');
     const inputCobro = document.getElementById('fechaCobro');
+    const inputValidezOferta = document.getElementById('validezOferta');
 
     if (inputDesde) {
         inputDesde.min = hoje;
@@ -5445,6 +5465,15 @@ function establecerFechasDefault() {
             : estado.poliza.fechaCobro;
         inputCobro.value = fechaCobro;
         estado.poliza.fechaCobro = fechaCobro;
+    }
+
+    if (inputValidezOferta) {
+        inputValidezOferta.min = hoje;
+        const validezOferta = !estado.poliza.validezOferta || estado.poliza.validezOferta < hoje
+            ? sumarDiasISO(hoje, 30)
+            : estado.poliza.validezOferta;
+        inputValidezOferta.value = validezOferta;
+        estado.poliza.validezOferta = validezOferta;
     }
 }
 

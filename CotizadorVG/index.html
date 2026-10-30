@@ -171,7 +171,12 @@
                     </div>
                     <div class="form-group">
                         <label for="segmento">Segmento</label>
-                        <input type="text" id="segmento" placeholder="Ej: Gran empresa" maxlength="60" autocomplete="off">
+                        <select id="segmento">
+                            <option value="" selected disabled hidden>Selecciona un segmento...</option>
+                            <option value="Empresarial">Empresarial</option>
+                            <option value="Gran Empresa">Gran Empresa</option>
+                            <option value="Corporativo">Corporativo</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="direccionCorrespondencia">Direcci&oacute;n de correspondencia</label>
@@ -223,7 +228,7 @@
                         <input type="text" id="numeroPoliza" placeholder="Ej: 083001768824" maxlength="30" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label for="validezOferta">Validez de la oferta (hasta)</label>
+                        <label for="validezOferta">Oferta válida hasta</label>
                         <input type="date" id="validezOferta">
                     </div>
                     <div class="form-group" id="grupoTipoPagoMensual" hidden>
