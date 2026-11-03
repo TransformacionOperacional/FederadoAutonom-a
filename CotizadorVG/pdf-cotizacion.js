@@ -334,8 +334,8 @@ function construirHtmlCotizacionPdf(resumen) {
 
   <p class="b"><span>Solución</span> Seguro Vida Grupo – Plan Vida Integral</p>
   <p class="b">Modalidad: ${pdfTexto(p.modalidadPlan)}</p>
-  <p class="b">Asegurado: TODOS LOS EMPLEADOS DE LA EMPRESA${textoAseguradosAdicionales}</p>
-  <p class="b">Beneficiario: LOS DESIGNADOS POR CADA ASEGURADO</p>
+  <p class="b">Asegurado: Los empleados de la empresa${textoAseguradosAdicionales}</p>
+  <p class="b">Beneficiario: Los designados por cada asegurado</p>
 
   <p class="b tit" style="margin-top:14px;">Valor Asegurado, Prima Total y Tasa de acuerdo con el plan elegido</p>
   ${pdfTablasPlanes(resumen)}

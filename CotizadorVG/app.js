@@ -5596,16 +5596,13 @@ function renderizarInfoRestriccionesPlan(plan) {
         const afectados = detalle.parentesco
             ? asegurados.filter(asegurado => asegurado.tipoAsegurado === detalle.parentesco)
             : asegurados;
-        const listaAfectados = afectados
-            .map(asegurado => `${asegurado.numeroDocumento || asegurado.nombreCompleto || 'Asegurado'}${asegurado.edad !== null && asegurado.edad !== undefined && Number.isFinite(Number(asegurado.edad)) ? ` (${asegurado.edad} años)` : ''}`)
-            .join(', ');
         const exclusiones = detalle.coberturasExcluidas.map(cobertura =>
             `${escaparHTML(cobertura.nombre)}${Number.isFinite(cobertura.edadMaxima) ? ` (edad máxima: ${cobertura.edadMaxima} años)` : ''}`
         ).join(', ');
         const motivo = detalle.tipo === 'edad'
             ? 'Restricción por edad'
             : `Restricción por parentesco: ${escaparHTML(nombresParentesco[detalle.parentesco] || detalle.parentesco)}`;
-        return `<p><strong>${motivo}.</strong> Coberturas excluidas: ${exclusiones}.${listaAfectados ? ` Asegurado(s): ${escaparHTML(listaAfectados)}.` : ''}</p>`;
+        return `<p><strong>${motivo}.</strong> Coberturas excluidas: ${exclusiones}.${afectados.length ? ` Personas afectadas: ${afectados.length}.` : ''}</p>`;
     }).join('');
     return `<details class="plan-restriccion-info"><summary aria-label="Consultar por qué se creó ${escaparHTML(obtenerNombreCortoPlan(plan))}">i</summary><div class="plan-restriccion-detalle"><strong>Motivo del nuevo plan</strong>${detalles}</div></details>`;
 }
