@@ -3,7 +3,7 @@ const el = () => new Proxy(function () {}, { get: (t, p) => p === 'style' ? {} :
 const doc = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, createElement: () => el(), documentElement: {}, body: {} };
 const ctx = { document: doc, window: { addEventListener() {}, scrollTo() {} }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} }, console, setTimeout, navigator: {}, alert() {}, requestAnimationFrame() {} };
 ctx.window.document = doc; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync('CotizadorVG/app.js', 'utf8') + `
+vm.runInContext(fs.readFileSync('CotizadorVG/js/app.js', 'utf8') + `
 ;this.T = { estado: () => estado, asig: asignarPlanAAsegurado, mez: obtenerPlanesConMezclaPrincipalFamiliares };`, ctx);
 const T = ctx.T, e = T.estado();
 const cob = [{ codigo: 'VIDA', nombre: 'Vida' }, { codigo: 'IPP', nombre: 'IPP' }];

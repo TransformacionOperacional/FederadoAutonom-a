@@ -27,3 +27,7 @@ cache/
 
 # Proxy server (solo para desarrollo)
 proxy-server.js
+
+# Credenciales locales del proxy
+*.credentials.json
+!*.credentials.example.json

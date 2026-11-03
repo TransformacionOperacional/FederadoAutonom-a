@@ -5,7 +5,7 @@
 
 @font-face {
     font-family: 'FS Joey';
-    src: url('FS%20Joey%20Regular.otf') format('opentype');
+    src: url('../assets/fonts/FS-Joey-Regular.otf') format('opentype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;

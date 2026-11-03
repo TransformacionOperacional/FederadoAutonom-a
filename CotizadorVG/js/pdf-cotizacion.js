@@ -8,7 +8,7 @@
 const PDF_PLANES_POR_TABLA = 4;
 const PDF_PLANES_CON_TASAS_POR_TABLA = 2;
 
-// Geometría de la página y de la portada (encabezadoVG.png incrustada).
+// Geometría de la página y de la portada (assets/images/encabezado-vg.png incrustada).
 const PDF_ANCHO_PX = 794;
 const PDF_ANCHO_MM = 210;
 const PDF_MARGEN_VERTICAL_MM = 10;
@@ -548,23 +548,23 @@ function construirHtmlCotizacionPdf(resumen) {
   <h1>Programas de Acompañamiento y Gestión de Riesgos</h1>
   <ul style="list-style:disc;"><li class="b">Estamos cerca de tus colaboradores cuando más lo necesitan.</li></ul>
   <div class="pdf-fila-programa">
-    <img class="pdf-icono-programa" src="Logo1.png.png" alt="">
+    <img class="pdf-icono-programa" src="assets/images/pdf/icono-gestion-medica.png" alt="">
     <h2>Gestión Médica:</h2>
   </div>
   <p class="pdf-programa-descripcion">Orientación especializada en casos de invalidez, enfermedades graves o cáncer.</p>
   <div class="pdf-fila-programa">
-    <img class="pdf-icono-programa" src="logo2.png.png" alt="">
+    <img class="pdf-icono-programa" src="assets/images/pdf/icono-programa-cuidar.png" alt="">
     <h2>Programa Cuidar:</h2>
   </div>
   <p class="pdf-programa-descripcion">Apoyo integral a personas con patologías en etapa avanzada, junto a sus familias, en aspectos emocionales, jurídicos y financieros.</p>
   <div class="pdf-fila-programa">
-    <img class="pdf-icono-programa" src="logo3.png.png" alt="">
+    <img class="pdf-icono-programa" src="assets/images/pdf/icono-empresas-sura.png" alt="">
     <h2>Empresas SURA:</h2>
   </div>
   <p class="b pdf-programa-descripcion">En Empresas SURA, te acompañamos en el cuidado de tu talento humano mientras alcanzas los objetivos de tu empresa. Te proporcionamos herramientas que puedes implementar para fidelizar a tu equipo y lograr tus metas. <a href="https://www.segurossura.com.co/empresasura/Paginas/default.aspx">Agenda la primera cita aquí.</a> Aplica para empresas clientes de Vida Grupo del segmento Empresarial.</p>
   <div class="keep">
     <p class="pdf-texto-qr">Escanea el siguiente código QR y descubre cómo Vida Grupo SURA se convierte en el respaldo que potencia el bienestar y la competitividad de tu empresa:</p>
-    <img class="pdf-qr" src="QR_Slip.png.png" alt="Código QR Vida Grupo SURA">
+    <img class="pdf-qr" src="assets/images/pdf/qr-slip.png" alt="Código QR Vida Grupo SURA">
   </div>
 
   <h1>Condiciones de cotización</h1>

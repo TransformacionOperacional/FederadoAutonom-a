@@ -3752,7 +3752,7 @@ function actualizarBadgeFlujo() {
 
 async function cargarCatalogoCoberturas() {
     try {
-        const respuesta = await fetch('CoberturasVG.json');
+        const respuesta = await fetch('data/CoberturasVG.json');
         if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
 
         const amparos = await respuesta.json();
@@ -3842,7 +3842,7 @@ async function cargarCatalogoCoberturas() {
         guardarEstado();
         console.info(`Catálogo Core GW cargado: ${coberturasDisponibles.length} amparos.`);
     } catch (error) {
-        console.warn('No se pudo cargar CoberturasVG.json:', error);
+        console.warn('No se pudo cargar data/CoberturasVG.json:', error);
         coberturasDisponibles = [];
         if (estado.asegurados.length === 0) estado.coberturasCatalogo = [];
         renderizarTablaCoberturas();
