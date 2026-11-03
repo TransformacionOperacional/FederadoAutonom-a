@@ -47,9 +47,10 @@ const PDF_ESTILOS = `
 .pdf-cot { width:794px; padding:0 57px 24px; background:#fff; color:#1A2E4A; font-family:'FS Joey',-apple-system,'Segoe UI',Roboto,Arial,sans-serif; font-size:9pt; line-height:1.4; box-sizing:border-box; }
 .pdf-cot * { box-sizing:border-box; }
 .pdf-cot .pdf-espacio-encabezado { width:100%; }
-.pdf-cot h1 { font-size:14pt; font-style:italic; font-weight:bold; color:#0033A0; margin:22px 0 8px; }
-.pdf-cot h2 { font-size:9pt; font-weight:bold; color:#0033A0; margin:14px 0 4px; }
-.pdf-cot h3 { font-size:9pt; font-weight:bold; color:#0033A0; margin:12px 0 4px; }
+.pdf-cot h1 { font-size:14pt; font-style:italic; font-weight:bold; color:#2D6DF6; margin:22px 0 8px; }
+.pdf-cot h2 { font-size:9pt; font-weight:bold; color:#2D6DF6; margin:14px 0 4px; }
+.pdf-cot h3 { font-size:9pt; font-weight:bold; color:#2D6DF6; margin:12px 0 4px; }
+.pdf-cot .b.tit { color:#2D6DF6; }
 .pdf-cot p { margin:0 0 6px; }
 .pdf-cot .b { font-weight:bold; }
 .pdf-cot .sep-linea { border:0; border-top:1.5px solid #E3E829; width:78px; margin:4px 0 8px; }
@@ -97,6 +98,12 @@ const PDF_ESTILOS = `
 .pdf-cot li { margin-bottom:3px; }
 .pdf-cot .nota-tabla { font-size:8pt; color:#888B8D; margin:-6px 0 10px; }
 .pdf-cot .pdf-campo-pendiente { color:#2D6DF6; font-weight:bold; }
+.pdf-cot .pdf-fila-programa { display:flex; align-items:center; gap:10px; margin:10px 0 3px; break-inside:avoid; page-break-inside:avoid; }
+.pdf-cot .pdf-icono-programa { flex:0 0 100px; width:100px; height:100px; object-fit:contain; }
+.pdf-cot .pdf-fila-programa h2 { margin:0; }
+.pdf-cot .pdf-programa-descripcion { margin:0 0 8px 110px !important; color:#2D6DF6; }
+.pdf-cot .pdf-texto-qr { margin:12px 0 4px 110px !important; color:#2D6DF6; }
+.pdf-cot .pdf-qr { display:block; width:254px; height:254px; object-fit:contain; margin:10px 0 14px 110px; }
 `;
 
 function pdfFecha(iso) {
@@ -443,7 +450,7 @@ function construirHtmlCotizacionPdf(resumen) {
     <colgroup><col style="width:16%"><col style="width:30%"><col style="width:16%"><col style="width:17%"><col style="width:21%"></colgroup>
     <tr><th colspan="5" class="cab1">ASESORES</th></tr>
     <tr><th class="cab2">Código</th><th class="cab2">Nombre del asesor principal</th><th class="cab2">Líder</th><th class="cab2">Participación</th><th class="cab2">Comisión ponderada</th></tr>
-    <tr><td><b>${pdfTexto(p.codigoAsesor)}</b></td><td>${pdfTexto(String(p.asesor || '').toUpperCase())}</td><td>X</td><td>100%</td><td>${pdfTexto(comision)}</td></tr>
+    <tr><td><b>${pdfTexto(p.codigoAsesor)}</b></td><td>${pdfTexto(String(p.asesor || '').toUpperCase())}</td><td></td><td>100%</td><td>${pdfTexto(comision)}</td></tr>
     <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>
   </table>
 
@@ -495,12 +502,25 @@ function construirHtmlCotizacionPdf(resumen) {
 
   <h1>Programas de Acompañamiento y Gestión de Riesgos</h1>
   <ul style="list-style:disc;"><li class="b">Estamos cerca de tus colaboradores cuando más lo necesitan.</li></ul>
-  <h2>Gestión Médica:</h2>
-  <p>Orientación especializada en casos de invalidez, enfermedades graves o cáncer.</p>
-  <h2>Programa Cuidar:</h2>
-  <p>Apoyo integral a personas con patologías en etapa avanzada, junto a sus familias, en aspectos emocionales, jurídicos y financieros.</p>
-  <h2>Empresas SURA:</h2>
-  <p class="b">En Empresas SURA, te acompañamos en el cuidado de tu talento humano mientras alcanzas los objetivos de tu empresa. Te proporcionamos herramientas que puedes implementar para fidelizar a tu equipo y lograr tus metas. <a href="https://www.segurossura.com.co/empresasura/Paginas/default.aspx">Agenda la primera cita aquí.</a> Aplica para empresas clientes de Vida Grupo del segmento Empresarial.</p>
+  <div class="pdf-fila-programa">
+    <img class="pdf-icono-programa" src="Logo1.png.png" alt="">
+    <h2>Gestión Médica:</h2>
+  </div>
+  <p class="pdf-programa-descripcion">Orientación especializada en casos de invalidez, enfermedades graves o cáncer.</p>
+  <div class="pdf-fila-programa">
+    <img class="pdf-icono-programa" src="logo2.png.png" alt="">
+    <h2>Programa Cuidar:</h2>
+  </div>
+  <p class="pdf-programa-descripcion">Apoyo integral a personas con patologías en etapa avanzada, junto a sus familias, en aspectos emocionales, jurídicos y financieros.</p>
+  <div class="pdf-fila-programa">
+    <img class="pdf-icono-programa" src="logo3.png.png" alt="">
+    <h2>Empresas SURA:</h2>
+  </div>
+  <p class="b pdf-programa-descripcion">En Empresas SURA, te acompañamos en el cuidado de tu talento humano mientras alcanzas los objetivos de tu empresa. Te proporcionamos herramientas que puedes implementar para fidelizar a tu equipo y lograr tus metas. <a href="https://www.segurossura.com.co/empresasura/Paginas/default.aspx">Agenda la primera cita aquí.</a> Aplica para empresas clientes de Vida Grupo del segmento Empresarial.</p>
+  <div class="keep">
+    <p class="pdf-texto-qr">Escanea el siguiente código QR y descubre cómo Vida Grupo SURA se convierte en el respaldo que potencia el bienestar y la competitividad de tu empresa:</p>
+    <img class="pdf-qr" src="QR_Slip.png.png" alt="Código QR Vida Grupo SURA">
+  </div>
 
   <h1>Condiciones de cotización</h1>
   <p>El seguro que se cotiza en esta oferta se expedirá y se regirá, en caso que sea adjudicado a Seguros de Vida Suramericana S.A., en los términos y condiciones que específicamente se mencionan en este documento.</p>
@@ -544,6 +564,17 @@ async function descargarCotizacionPdf() {
         const raiz = document.createElement('div');
         raiz.innerHTML = construirHtmlCotizacionPdf(resumenCotizacion);
         const documentoPdf = raiz.firstElementChild;
+        await Promise.all([...documentoPdf.querySelectorAll('img')].map(imagen => {
+            if (imagen.complete) {
+                return imagen.naturalWidth > 0
+                    ? Promise.resolve()
+                    : Promise.reject(new Error(`No se pudo cargar la imagen del PDF: ${imagen.src}`));
+            }
+            return new Promise((resolve, reject) => {
+                imagen.addEventListener('load', resolve, { once: true });
+                imagen.addEventListener('error', () => reject(new Error(`No se pudo cargar la imagen del PDF: ${imagen.src}`)), { once: true });
+            });
+        }));
         pdfMantenerTitulosConContenido(documentoPdf);
         try { await document.fonts.load("9pt 'FS Joey'"); } catch (error) { /* se usa la tipografía de respaldo */ }
         await html2pdf().set({

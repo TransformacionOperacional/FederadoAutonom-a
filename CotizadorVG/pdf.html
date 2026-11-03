@@ -44,11 +44,11 @@
     font-size: 14pt;
     font-style: italic;
     font-weight: bold;
-    color: var(--azul-oscuro);
+    color: var(--azul);
     margin: 22px 0 8px;
   }
-  h2 { font-size: 9pt; font-weight: bold; color: var(--azul-oscuro); margin: 14px 0 4px; }
-  h3 { font-size: 9pt; font-weight: bold; color: var(--azul-oscuro); margin: 12px 0 4px; }
+  h2 { font-size: 9pt; font-weight: bold; color: var(--azul); margin: 14px 0 4px; }
+  h3 { font-size: 9pt; font-weight: bold; color: var(--azul); margin: 12px 0 4px; }
   p  { margin: 0 0 6px; }
   .b { font-weight: bold; }
   .gris { color: var(--gris-texto); }
@@ -147,10 +147,12 @@
   /* ============ Imágenes ============ */
   img.full  { display: block; width: 100%; height: auto; margin: 8px 0; }
   img.tasas { display: block; width: 254px; height: auto; margin: 6px 0 10px; }
-  img.icono { width: 66px; height: 66px; vertical-align: middle; margin-right: 8px; }
-  img.qr    { width: 192px; height: 192px; display: block; margin: 6px 0; }
+  .icono { width: 100px; height: 100px; flex: 0 0 100px; object-fit: contain; }
+  img.qr { width: 254px; height: 254px; display: block; object-fit: contain; margin: 10px 0 14px 110px; }
   .fila-icono { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; }
   .fila-icono h2 { margin: 0; }
+  .programa-descripcion { margin: 0 0 8px 110px; color: var(--azul); }
+  .texto-qr { margin: 12px 0 4px 110px; color: var(--azul); }
 
   a { color: var(--azul); }
   .nota { font-size: 9pt; }
@@ -463,7 +465,7 @@
       <th class="cab2">Código</th><th class="cab2">Nombre del asesor principal</th>
       <th class="cab2">Líder</th><th class="cab2">Participación</th><th class="cab2">Comisión ponderada</th>
     </tr>
-    <tr><td><b>64882</b></td><td>CATALINA DELGADO RODRIGUEZ</td><td>X</td><td>100%</td><td></td></tr>
+    <tr><td><b>64882</b></td><td>CATALINA DELGADO RODRIGUEZ</td><td></td><td>100%</td><td></td></tr>
     <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>
   </table>
 
@@ -533,25 +535,25 @@
   <ul style="list-style:disc;"><li class="b">Estamos cerca de tus colaboradores cuando más lo necesitan.</li></ul>
 
   <div class="fila-icono">
-    <img class="icono" src="img/image5.png" alt="">
+    <img class="icono" src="Logo1.png.png" alt="">
     <h2>Gestión Médica:</h2>
   </div>
-  <p>Orientación especializada en casos de invalidez, enfermedades graves o cáncer.</p>
+  <p class="programa-descripcion">Orientación especializada en casos de invalidez, enfermedades graves o cáncer.</p>
 
   <div class="fila-icono">
-    <img class="icono" src="img/image6.png" alt="">
+    <img class="icono" src="logo2.png.png" alt="">
     <h2>Programa Cuidar:</h2>
   </div>
-  <p>Apoyo integral a personas con patologías en etapa avanzada, junto a sus familias, en aspectos emocionales, jurídicos y financieros.</p>
+  <p class="programa-descripcion">Apoyo integral a personas con patologías en etapa avanzada, junto a sus familias, en aspectos emocionales, jurídicos y financieros.</p>
 
   <div class="fila-icono">
-    <img class="icono" src="img/image7.png" alt="">
+    <img class="icono" src="logo3.png.png" alt="">
     <h2>Empresas SURA:</h2>
   </div>
-  <p class="b">En Empresas SURA, te acompañamos en el cuidado de tu talento humano mientras alcanzas los objetivos de tu empresa. Te proporcionamos herramientas que puedes implementar para fidelizar a tu equipo y lograr tus metas. <a href="https://www.segurossura.com.co/empresasura/Paginas/default.aspx" target="_blank" rel="noopener">Agenda la primera cita aquí.</a> Aplica para empresas clientes de Vida Grupo del segmento Empresarial.</p>
+  <p class="b programa-descripcion">En Empresas SURA, te acompañamos en el cuidado de tu talento humano mientras alcanzas los objetivos de tu empresa. Te proporcionamos herramientas que puedes implementar para fidelizar a tu equipo y lograr tus metas. <a href="https://www.segurossura.com.co/empresasura/Paginas/default.aspx" target="_blank" rel="noopener">Agenda la primera cita aquí.</a> Aplica para empresas clientes de Vida Grupo del segmento Empresarial.</p>
 
-  <h1 style="font-size:10pt;">Escanea el siguiente código QR y descubre cómo Vida Grupo SURA se convierte en el respaldo que potencia el bienestar y la competitividad de tu empresa:</h1>
-  <img class="qr" src="img/image8.png" alt="Código QR Vida Grupo SURA">
+  <p class="texto-qr">Escanea el siguiente código QR y descubre cómo Vida Grupo SURA se convierte en el respaldo que potencia el bienestar y la competitividad de tu empresa:</p>
+  <img class="qr" src="QR_Slip.png.png" alt="Código QR Vida Grupo SURA">
 
   <!-- ============ CONDICIONES DE COTIZACIÓN ============ -->
   <h1>Condiciones de cotización</h1>

@@ -5545,6 +5545,71 @@ function actualizarOpcionesFiltroAsignacion(id, valores) {
     filtro.value = opciones.includes(valorSeleccionado) ? valorSeleccionado : '';
 }
 
+function agregarDetalleRestriccionPlan(plan, detalle) {
+    if (!detalle.coberturasExcluidas.length) return;
+    if (!Array.isArray(plan.detalleRestricciones)) plan.detalleRestricciones = [];
+    const existente = plan.detalleRestricciones.find(item =>
+        item.tipo === detalle.tipo && item.parentesco === detalle.parentesco
+    );
+    if (existente) {
+        const exclusiones = new Map(existente.coberturasExcluidas.map(cobertura => [cobertura.codigo, cobertura]));
+        detalle.coberturasExcluidas.forEach(cobertura => exclusiones.set(cobertura.codigo, cobertura));
+        existente.coberturasExcluidas = [...exclusiones.values()];
+        return;
+    }
+    plan.detalleRestricciones.push(detalle);
+}
+
+function renderizarInfoRestriccionesPlan(plan) {
+    let detalleRestricciones = Array.isArray(plan.detalleRestricciones) ? plan.detalleRestricciones : [];
+    if (detalleRestricciones.length === 0 && (plan.generadoPorEdad || plan.generadoPorParentesco)) {
+        const planBase = estado.planes.find(item => item.id === plan.planBaseId);
+        if (planBase) {
+            const coberturasPlan = new Set(obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo));
+            const coberturasExcluidas = obtenerCoberturasPlan(planBase)
+                .filter(cobertura => !coberturasPlan.has(cobertura.codigo))
+                .map(cobertura => ({
+                    codigo: cobertura.codigo,
+                    nombre: cobertura.nombre || cobertura.codigo,
+                    edadMaxima: plan.generadoPorEdad ? obtenerEdadMaximaCobertura(cobertura) : null
+                }));
+            detalleRestricciones = [
+                ...(plan.generadoPorEdad && coberturasExcluidas.length > 0
+                    ? [{ tipo: 'edad', coberturasExcluidas }]
+                    : []),
+                ...(plan.generadoPorParentesco && coberturasExcluidas.length > 0
+                    ? [{
+                        tipo: 'parentesco',
+                        parentesco: plan.parentescoRestriccion,
+                        coberturasExcluidas
+                    }]
+                    : [])
+            ];
+        }
+    }
+    if (detalleRestricciones.length === 0) return '';
+    const asegurados = (plan.asegurados || [])
+        .map(id => estado.asegurados.find(asegurado => asegurado.id === id))
+        .filter(Boolean);
+    const nombresParentesco = { Conyugue: 'Cónyuge', Padrastos: 'Padrastros' };
+    const detalles = detalleRestricciones.map(detalle => {
+        const afectados = detalle.parentesco
+            ? asegurados.filter(asegurado => asegurado.tipoAsegurado === detalle.parentesco)
+            : asegurados;
+        const listaAfectados = afectados
+            .map(asegurado => `${asegurado.numeroDocumento || asegurado.nombreCompleto || 'Asegurado'}${asegurado.edad !== null && asegurado.edad !== undefined && Number.isFinite(Number(asegurado.edad)) ? ` (${asegurado.edad} años)` : ''}`)
+            .join(', ');
+        const exclusiones = detalle.coberturasExcluidas.map(cobertura =>
+            `${escaparHTML(cobertura.nombre)}${Number.isFinite(cobertura.edadMaxima) ? ` (edad máxima: ${cobertura.edadMaxima} años)` : ''}`
+        ).join(', ');
+        const motivo = detalle.tipo === 'edad'
+            ? 'Restricción por edad'
+            : `Restricción por parentesco: ${escaparHTML(nombresParentesco[detalle.parentesco] || detalle.parentesco)}`;
+        return `<p><strong>${motivo}.</strong> Coberturas excluidas: ${exclusiones}.${listaAfectados ? ` Asegurado(s): ${escaparHTML(listaAfectados)}.` : ''}</p>`;
+    }).join('');
+    return `<details class="plan-restriccion-info"><summary aria-label="Consultar por qué se creó ${escaparHTML(obtenerNombreCortoPlan(plan))}">i</summary><div class="plan-restriccion-detalle"><strong>Motivo del nuevo plan</strong>${detalles}</div></details>`;
+}
+
 function renderizarAsignacionPlanes() {
     const cuerpoRangos = document.getElementById('tbody-rangos-planes');
     const cuerpoPlanesAsignados = document.getElementById('tbody-planes-asignados');
@@ -5589,7 +5654,7 @@ function renderizarAsignacionPlanes() {
 
     cuerpoPlanesAsignados.innerHTML = planesAsignados.length > 0 ? planesAsignados.map(plan => `
         <tr>
-            <td>${obtenerNombreCortoPlan(plan)}</td>
+            <td>${obtenerNombreCortoPlan(plan)}${renderizarInfoRestriccionesPlan(plan)}</td>
             <td>${formatearCoberturasPlan(plan)}</td>
             <td>${formatearDinero(obtenerValorAseguradoVidaPlan(plan))}</td>
             <td>${(plan.asegurados || []).length}</td>
@@ -6431,6 +6496,10 @@ function obtenerCoberturasPermitidasPorParentesco(coberturas, tipoAsegurado) {
 function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
     const coberturasBase = obtenerCoberturasPlan(planBase);
     const coberturasPermitidas = obtenerCoberturasPermitidasPorParentesco(coberturasBase, tipoAsegurado);
+    const codigosPermitidosSet = new Set(coberturasPermitidas.map(cobertura => cobertura.codigo));
+    const coberturasExcluidas = coberturasBase
+        .filter(cobertura => !codigosPermitidosSet.has(cobertura.codigo))
+        .map(cobertura => ({ codigo: cobertura.codigo, nombre: cobertura.nombre || cobertura.codigo }));
     const codigosBase = coberturasBase.map(cobertura => cobertura.codigo).sort().join(',');
     const codigosPermitidos = coberturasPermitidas.map(cobertura => cobertura.codigo).sort().join(',');
 
@@ -6459,6 +6528,11 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
         const parentescos = new Set(planExistente.parentescosRestriccion || [planExistente.parentescoRestriccion].filter(Boolean));
         parentescos.add(tipoAsegurado);
         planExistente.parentescosRestriccion = [...parentescos];
+        agregarDetalleRestriccionPlan(planExistente, {
+            tipo: 'parentesco',
+            parentesco: tipoAsegurado,
+            coberturasExcluidas
+        });
         return planExistente;
     }
 
@@ -6491,9 +6565,18 @@ function crearPlanFiltradoPorParentesco(planBase, tipoAsegurado) {
         deduciblesCobertura: { ...planBase.deduciblesCobertura },
         factoresEnfermedadesGraves: { ...planBase.factoresEnfermedadesGraves },
         cancerInSituPorCobertura: { ...planBase.cancerInSituPorCobertura },
+        detalleRestricciones: (planBase.detalleRestricciones || []).map(detalle => ({
+            ...detalle,
+            coberturasExcluidas: detalle.coberturasExcluidas.map(cobertura => ({ ...cobertura }))
+        })),
         asegurados: [],
         primaTotal: 0
     };
+    agregarDetalleRestriccionPlan(plan, {
+        tipo: 'parentesco',
+        parentesco: tipoAsegurado,
+        coberturasExcluidas
+    });
     estado.planes.push(plan);
     return plan;
 }
@@ -6545,12 +6628,23 @@ function formatearEdadMaximaPlan(plan) {
 function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
     const codigos = coberturasElegibles.map(cobertura => cobertura.codigo).sort();
     const firmaCoberturas = codigos.join(',');
+    const codigosElegibles = new Set(codigos);
+    const coberturasExcluidas = obtenerCoberturasPlan(planBase)
+        .filter(cobertura => !codigosElegibles.has(cobertura.codigo))
+        .map(cobertura => ({
+            codigo: cobertura.codigo,
+            nombre: cobertura.nombre || cobertura.codigo,
+            edadMaxima: obtenerEdadMaximaCobertura(cobertura)
+        }));
     const planExistente = estado.planes.find(plan =>
         plan.generadoPorEdad
         && plan.planBaseId === planBase.id
         && obtenerCoberturasPlan(plan).map(cobertura => cobertura.codigo).sort().join(',') === firmaCoberturas
     );
-    if (planExistente) return planExistente;
+    if (planExistente) {
+        agregarDetalleRestriccionPlan(planExistente, { tipo: 'edad', coberturasExcluidas });
+        return planExistente;
+    }
 
     const subgrupoId = generarIdSubgrupo(codigos);
     if (!estado.subgrupos.some(subgrupo => subgrupo.id === subgrupoId)) {
@@ -6570,9 +6664,14 @@ function crearPlanElegiblePorEdad(planBase, coberturasElegibles) {
         deduciblesCobertura: { ...planBase.deduciblesCobertura },
         factoresEnfermedadesGraves: { ...planBase.factoresEnfermedadesGraves },
         cancerInSituPorCobertura: { ...planBase.cancerInSituPorCobertura },
+        detalleRestricciones: (planBase.detalleRestricciones || []).map(detalle => ({
+            ...detalle,
+            coberturasExcluidas: detalle.coberturasExcluidas.map(cobertura => ({ ...cobertura }))
+        })),
         asegurados: [],
         primaTotal: 0
     };
+    agregarDetalleRestriccionPlan(plan, { tipo: 'edad', coberturasExcluidas });
     estado.planes.push(plan);
     return plan;
 }
