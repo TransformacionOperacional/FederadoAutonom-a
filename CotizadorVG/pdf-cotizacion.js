@@ -6,6 +6,7 @@
    ============================================================ */
 
 const PDF_PLANES_POR_TABLA = 4;
+const PDF_PLANES_CON_TASAS_POR_TABLA = 2;
 
 // Geometría de la página y de la portada (encabezadoVG.png incrustada).
 const PDF_ANCHO_PX = 794;
@@ -70,11 +71,12 @@ const PDF_ESTILOS = `
 .pdf-cot .t-planes td.titulo { background:#0033A0; color:#fff; font-weight:bold; text-align:center; }
 .pdf-cot .t-planes tr.cab td { background:#2D6DF6; color:#fff; font-weight:bold; text-align:center; }
 .pdf-cot .t-planes tr.cab td:first-child { text-align:left; }
+.pdf-cot .t-planes tr.subcab td { background:#D6E4FF; color:#0033A0; font-weight:bold; text-align:center; font-size:7.5pt; }
 .pdf-cot .t-planes tr.seccion td { background:#DFEAFF; color:#0033A0; font-weight:bold; }
 .pdf-cot .t-planes tr.total td { font-weight:bold; background:#F9FAE1; color:#0033A0; }
 .pdf-cot .t-planes td.m { text-align:right; white-space:normal; overflow-wrap:anywhere; }
 .pdf-cot .t-planes td.c { text-align:center; }
-.pdf-cot .t-planes td.v { background:#F9FAE1; color:#0033A0; font-weight:bold; text-align:center; }
+.pdf-cot .t-planes td.v { background:#F9FAE1; color:#0033A0; font-weight:bold; text-align:center; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
 .pdf-cot .t-req, .pdf-cot .t-req td, .pdf-cot .t-req th { border:1px solid #B4B4B5; }
 .pdf-cot .t-req th { background:#2D6DF6; color:#fff; font-weight:bold; text-align:center; vertical-align:middle; }
 .pdf-cot .t-req td { color:#1A2E4A; text-align:center; }
@@ -132,10 +134,24 @@ function pdfColgroup(columnas, porcentajePlanes = 56) {
     return `<colgroup><col style="width:${100 - anchoPlan * (columnas - 1)}%">${`<col style="width:${anchoPlan}%">`.repeat(columnas - 1)}</colgroup>`;
 }
 
+function pdfColgroupValoresYTasas(cantidadPares) {
+    const anchoPar = 72 / cantidadPares;
+    const anchoValor = anchoPar * 0.62;
+    const anchoTasa = anchoPar - anchoValor;
+    return `<colgroup><col style="width:28%">${Array.from(
+        { length: cantidadPares },
+        () => `<col style="width:${anchoValor}%"><col style="width:${anchoTasa}%">`
+    ).join('')}</colgroup>`;
+}
+
 function pdfDinero(valor) {
     return Number.isFinite(valor)
         ? escaparHTML(formatearDinero(Math.round(valor))).replace(/\./g, '.<wbr>')
         : '—';
+}
+
+function pdfTextoTasa(valor) {
+    return escaparHTML(valor).replace(/[.,]/g, separador => `${separador}<wbr>`);
 }
 
 function pdfNombreArchivo() {
@@ -190,48 +206,87 @@ function pdfNombrePlan(plan) {
     return coincidencia ? `PLAN ${coincidencia[1].toUpperCase()}` : String(plan?.nombre || '').toUpperCase();
 }
 
-// Valor asegurado y primas por plan, según la forma de pago elegida.
+// Valores asegurados, tasas y primas por plan, según la forma de pago elegida.
 function pdfTablasPlanes(resumen) {
     const { planes, totalesPoliza, primaTotalPoliza } = resumen;
     const coberturas = pdfCoberturasResumen(planes);
-    const detallePago = obtenerDetalleFraccionamiento();
     const descripcionPago = obtenerDescripcionFormaPago();
     const esAnual = (estado.poliza.formaPago || 'Anual') === 'Anual';
+    const mostrarTasasPorCobertura = !esPolizaPatronal();
     const mostrarDirigidoA = debeSepararPrincipalesDeFamiliares();
-    const grupos = pdfDividirEnGrupos(planes, PDF_PLANES_POR_TABLA);
+    const grupos = pdfDividirEnGrupos(
+        planes,
+        mostrarTasasPorCobertura ? PDF_PLANES_CON_TASAS_POR_TABLA : PDF_PLANES_POR_TABLA
+    );
 
     return grupos.map((grupo, indice) => {
         const esUltimo = indice === grupos.length - 1;
-        const columnas = grupo.length + 1 + (esUltimo ? 1 : 0);
-        const colgroup = pdfColgroup(columnas);
+        const columnasPorPlan = mostrarTasasPorCobertura ? 2 : 1;
+        const pares = (grupo.length + (esUltimo ? 1 : 0));
+        const columnas = 1 + pares * columnasPorPlan;
+        const colgroup = mostrarTasasPorCobertura
+            ? pdfColgroupValoresYTasas(pares)
+            : pdfColgroup(columnas);
         const celdasPlan = funcion => grupo.map(funcion).join('');
+        const celdaTotal = (contenido, clase = 'm') => {
+            if (!esUltimo) return '';
+            if (Array.isArray(contenido)) {
+                return contenido.map((valor, indice) => `<td class="${indice === 1 ? 'v' : clase}">${valor}</td>`).join('');
+            }
+            return `<td class="${clase}"${mostrarTasasPorCobertura ? ' colspan="2"' : ''}>${contenido}</td>`;
+        };
         const filaConTotal = (etiqueta, funcionPlan, totalPoliza, clase = '', claseCelda = 'm') =>
-            `<tr${clase ? ` class="${clase}"` : ''}><td>${etiqueta}</td>${celdasPlan(funcionPlan)}${esUltimo ? `<td class="${claseCelda}">${totalPoliza}</td>` : ''}</tr>`;
+            `<tr${clase ? ` class="${clase}"` : ''}><td>${etiqueta}</td>${celdasPlan(funcionPlan)}${celdaTotal(totalPoliza, claseCelda)}</tr>`;
         const filaSeccion = texto => `<tr class="seccion"><td colspan="${columnas}">${texto}</td></tr>`;
+        const tasa = total => pdfTextoTasa(total ? formatearTasaUnica(total.prima, total.valorAsegurado) : '—');
 
         const filasCoberturas = coberturas.map(({ codigo, nombre }) => filaConTotal(
             escaparHTML(nombre),
-            item => `<td class="m">${item.totales.has(codigo) ? pdfDinero(item.totales.get(codigo).valorAsegurado) : '—'}</td>`,
-            totalesPoliza.has(codigo) ? pdfDinero(totalesPoliza.get(codigo).valorAsegurado) : '—'
+            item => {
+                const total = item.totales.get(codigo);
+                const valor = total ? pdfDinero(total.valorAsegurado) : '—';
+                return mostrarTasasPorCobertura
+                    ? `<td class="m">${valor}</td><td class="v">${tasa(total)}</td>`
+                    : `<td class="m">${valor}</td>`;
+            },
+            mostrarTasasPorCobertura
+                ? (totalesPoliza.has(codigo)
+                    ? [pdfDinero(totalesPoliza.get(codigo).valorAsegurado), tasa(totalesPoliza.get(codigo))]
+                    : ['—', '—'])
+                : (totalesPoliza.has(codigo) ? pdfDinero(totalesPoliza.get(codigo).valorAsegurado) : '—')
         )).join('');
 
         const filaAnual = esAnual ? '' : filaConTotal(
             'Prima anual',
-            item => `<td class="m">${pdfDinero(item.primaTotal)}</td>`,
+            item => mostrarTasasPorCobertura
+                ? `<td class="m" colspan="2">${pdfDinero(item.primaTotal)}</td>`
+                : `<td class="m">${pdfDinero(item.primaTotal)}</td>`,
             pdfDinero(primaTotalPoliza)
         );
-        const etiquetaPago = `Prima ${escaparHTML(descripcionPago)} · ${detallePago.periodos} ${detallePago.periodos === 1 ? 'pago' : 'pagos'}`;
+        const etiquetaPago = `Prima ${escaparHTML(descripcionPago)}`;
+
+        const filasCabecera = mostrarTasasPorCobertura
+            ? `<tr class="cab"><td rowspan="2">COBERTURA</td>${grupo.map(item => `<td colspan="2">${escaparHTML(pdfNombrePlan(item.plan))}</td>`).join('')}${esUltimo ? '<td colspan="2">TODA LA PÓLIZA</td>' : ''}</tr>
+            <tr class="subcab">${grupo.map(() => '<td>Valor asegurado</td><td>Tasa (por mil)</td>').join('')}${esUltimo ? '<td>Valor asegurado</td><td>Tasa (por mil)</td>' : ''}</tr>`
+            : `<tr class="cab"><td>PLAN</td>${celdasPlan(item => `<td>${escaparHTML(pdfNombrePlan(item.plan))}</td>`)}${esUltimo ? '<td>TOTAL PÓLIZA</td>' : ''}</tr>`;
+        const celdaPlan = contenido =>
+            mostrarTasasPorCobertura ? `<td class="c" colspan="2">${contenido}</td>` : `<td class="c">${contenido}</td>`;
 
         return `<table class="t-planes">${colgroup}
-            <tr><td colspan="${columnas}" class="titulo">VIDA GRUPO INTEGRAL</td></tr>
-            <tr class="cab"><td>PLAN</td>${celdasPlan(item => `<td>${escaparHTML(pdfNombrePlan(item.plan))}</td>`)}${esUltimo ? '<td>TOTAL PÓLIZA</td>' : ''}</tr>
-            ${mostrarDirigidoA ? filaConTotal('Tipo de asegurado', item => `<td class="c">${escaparHTML(pdfDirigidoA(item.plan))}</td>`, '—', '', 'c') : ''}
-            ${filaConTotal('Asegurados Aproximados', item => `<td class="c">${item.cantidadAsegurados.toLocaleString('es-CO')}</td>`, planes.reduce((suma, item) => suma + item.cantidadAsegurados, 0).toLocaleString('es-CO'), '', 'c')}
-            ${filaSeccion('VALOR ASEGURADO TOTAL POR COBERTURA')}
+            <tr><td colspan="${columnas}" class="titulo">${mostrarTasasPorCobertura ? 'VALORES ASEGURADOS Y TASAS POR COBERTURA' : 'VIDA GRUPO INTEGRAL'}</td></tr>
+            ${filasCabecera}
+            ${mostrarDirigidoA ? filaConTotal('Tipo de asegurado', item => celdaPlan(escaparHTML(pdfDirigidoA(item.plan))), '—', '', 'c') : ''}
+            ${filaConTotal('Asegurados Aproximados', item => celdaPlan(item.cantidadAsegurados.toLocaleString('es-CO')), planes.reduce((suma, item) => suma + item.cantidadAsegurados, 0).toLocaleString('es-CO'), '', 'c')}
+            ${filaSeccion(mostrarTasasPorCobertura ? 'VALOR ASEGURADO Y TASA POR COBERTURA' : 'VALOR ASEGURADO TOTAL POR COBERTURA')}
             ${filasCoberturas}
+            ${mostrarTasasPorCobertura && esUltimo
+                ? `<tr class="total"><td colspan="${columnas - 2}">Tasa única total de la póliza (por mil)</td><td class="v" colspan="2">${pdfTextoTasa(resumen.tasaUnicaPoliza)}</td></tr>`
+                : ''}
             ${filaSeccion('PRIMAS')}
             ${filaAnual}
-            ${filaConTotal(etiquetaPago, item => `<td class="m">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`, pdfDinero(calcularPrimaPorFormaPago(primaTotalPoliza)), 'total')}
+            ${filaConTotal(etiquetaPago, item => mostrarTasasPorCobertura
+                ? `<td class="m" colspan="2">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`
+                : `<td class="m">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`, pdfDinero(calcularPrimaPorFormaPago(primaTotalPoliza)), 'total')}
         </table>`;
     }).join('');
 }
@@ -239,31 +294,15 @@ function pdfTablasPlanes(resumen) {
 // Patronal: solo la tasa única de la póliza. Voluntaria/Mixta: tasas por
 // cobertura por plan y para toda la póliza, además de la tasa única.
 function pdfTablasTasas(resumen) {
-    const { planes, totalesPoliza, tasaUnicaPoliza } = resumen;
-    const filaTasaUnica = columnas => `<tr class="total"><td colspan="${columnas - 1}">Tasa única total de la póliza (por mil)</td><td class="v">${escaparHTML(tasaUnicaPoliza)}</td></tr>`;
+    const { tasaUnicaPoliza } = resumen;
+    const filaTasaUnica = columnas => `<tr class="total"><td colspan="${columnas - 1}">Tasa única total de la póliza (por mil)</td><td class="v">${pdfTextoTasa(tasaUnicaPoliza)}</td></tr>`;
 
-    if (esPolizaPatronal()) {
-        return `<table class="t-planes"><colgroup><col style="width:75%"><col style="width:25%"></colgroup>
-            <tr><td colspan="2" class="titulo">TASA</td></tr>
-            ${filaTasaUnica(2)}
-        </table>`;
-    }
+    if (!esPolizaPatronal()) return '';
 
-    const coberturas = pdfCoberturasResumen(planes);
-    const grupos = pdfDividirEnGrupos(planes, PDF_PLANES_POR_TABLA);
-    const tasa = total => escaparHTML(total ? formatearTasaUnica(total.prima, total.valorAsegurado) : '—');
-    return grupos.map((grupo, indice) => {
-        const esUltimo = indice === grupos.length - 1;
-        const columnas = grupo.length + 1 + (esUltimo ? 1 : 0);
-        const colgroup = pdfColgroup(columnas);
-        const filas = coberturas.map(({ codigo, nombre }) => `<tr><td>${escaparHTML(nombre)}</td>${grupo.map(item => `<td class="v">${tasa(item.totales.get(codigo))}</td>`).join('')}${esUltimo ? `<td class="v">${tasa(totalesPoliza.get(codigo))}</td>` : ''}</tr>`).join('');
-        return `<table class="t-planes">${colgroup}
-            <tr><td colspan="${columnas}" class="titulo">TASAS POR COBERTURA (POR MIL)</td></tr>
-            <tr class="cab"><td>COBERTURA</td>${grupo.map(item => `<td>${escaparHTML(pdfNombrePlan(item.plan))}</td>`).join('')}${esUltimo ? '<td>TODA LA PÓLIZA</td>' : ''}</tr>
-            ${filas}
-            ${esUltimo ? filaTasaUnica(columnas) : ''}
-        </table>`;
-    }).join('');
+    return `<table class="t-planes"><colgroup><col style="width:75%"><col style="width:25%"></colgroup>
+        <tr><td colspan="2" class="titulo">TASA</td></tr>
+        ${filaTasaUnica(2)}
+    </table>`;
 }
 
 function pdfMarca(condicion) {
