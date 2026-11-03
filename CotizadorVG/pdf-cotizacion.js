@@ -111,6 +111,11 @@ function pdfFecha(iso) {
     return coincidencia ? `${coincidencia[3]}/${coincidencia[2]}/${coincidencia[1]}` : '';
 }
 
+function pdfDiaDelMes(iso) {
+    const coincidencia = String(iso || '').match(/^\d{4}-\d{2}-(\d{2})/);
+    return coincidencia ? coincidencia[1] : '';
+}
+
 function pdfFechaHoy() {
     const hoy = new Date();
     const dos = valor => String(valor).padStart(2, '0');
@@ -268,8 +273,9 @@ function pdfMarca(condicion) {
 function construirHtmlCotizacionPdf(resumen) {
     const p = estado.poliza;
     const formaPago = p.formaPago || 'Anual';
+    const diaFacturacion = pdfDiaDelMes(p.fechaCobro);
     const detallePago = obtenerDetalleFraccionamiento();
-    const vigencia = `Desde 24:00 horas del ${pdfFecha(p.vigenciaDesde) || '—'} Hasta 24:00 horas del ${pdfFecha(p.vigenciaHasta) || '—'}`;
+    const vigencia = `Desde ${pdfFecha(p.vigenciaDesde) || '—'} hasta ${pdfFecha(p.vigenciaHasta) || '—'}`;
     const oficina = [p.codigoOficinaAsesor, p.oficinaAsesor].filter(Boolean).join(' – ');
     const identificacion = [p.tipoIdentificacion, p.numeroIdentificacion].filter(Boolean).join(' ');
     const comision = Number.isFinite(Number(p.comision)) ? `${Number(p.comision)}%` : '';
@@ -300,7 +306,7 @@ function construirHtmlCotizacionPdf(resumen) {
     </tr>
     <tr>
       <td colspan="2"><span class="lbl">Actividad</span>${pdfTexto(p.actividad)}</td>
-      <td colspan="2"><span class="lbl">Día de facturación</span>${pdfTexto(pdfFecha(p.fechaCobro))}</td>
+      <td colspan="2"><span class="lbl">Día de facturación</span>${pdfTexto(diaFacturacion)}</td>
     </tr>
   </table>
 
@@ -465,7 +471,7 @@ function construirHtmlCotizacionPdf(resumen) {
   <table class="t-cg">
     <tr><th colspan="4" class="cab1">DATOS DE LAS CONDICIONES GENERALES APLICABLES</th></tr>
     <tr><th class="cab2">Solución</th><th class="cab2">Fecha a partir de la cual se utiliza</th><th class="cab2">Ramo al que pertenece</th><th class="cab2">Identificación de la proforma</th></tr>
-    <tr><td>${pdfTexto('Vida Integral')}</td><td>${pdfTexto(pdfFecha(p.vigenciaDesde))}</td><td>${pdfTexto('083')}</td><td></td></tr>
+    <tr><td>${pdfTexto('Vida Integral')}</td><td>${pdfTexto(pdfFecha(p.vigenciaDesde))}</td><td>${pdfTexto('083')}</td><td>${pdfTexto('La proforma del clausulado')}</td></tr>
   </table>
 
   <h2>Pago de las primas:</h2>
@@ -493,7 +499,7 @@ function construirHtmlCotizacionPdf(resumen) {
           <li>Transferencia</li>
           <li>Financiación (Servicios Financieros)</li>
         </ul>
-        <p class="b" style="margin-top:28px;">Acompañamiento de gestor BST: Sí o No</p>
+        <p class="b" style="margin-top:28px;">Acompañamiento del Ejecutivo Comercial: Sí o No</p>
         <p class="b">¿Tiene ARL SURA?: Sí o No</p>
         <p class="b">¿Tiene recargo por fraccionamiento?: ${detallePago.factor > 0 ? 'Sí' : 'No'}</p>
       </td>
