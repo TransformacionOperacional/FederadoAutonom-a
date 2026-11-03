@@ -56,7 +56,7 @@ const PDF_ESTILOS = `
 .pdf-cot .sep-linea { border:0; border-top:1.5px solid #E3E829; width:78px; margin:4px 0 8px; }
 .pdf-cot p, .pdf-cot li, .pdf-cot h1, .pdf-cot h2, .pdf-cot h3, .pdf-cot tr, .pdf-cot .keep, .pdf-cot .sep-linea,
 .pdf-cot .t-req, .pdf-cot .t-edades, .pdf-cot .t-asesores, .pdf-cot .t-cg, .pdf-cot .t-pago, .pdf-cot .t-turquesa, .pdf-cot .caja-otras { break-inside:avoid; page-break-inside:avoid; }
-.pdf-cot table { border-collapse:collapse; width:100%; margin-bottom:12px; table-layout:fixed; }
+.pdf-cot table { border-collapse:collapse; width:100%; margin-bottom:12px; table-layout:fixed; break-inside:avoid; page-break-inside:avoid; }
 .pdf-cot td, .pdf-cot th { padding:4px 8px; vertical-align:top; text-align:left; font-weight:normal; word-wrap:break-word; overflow-wrap:anywhere; }
 .pdf-cot img { max-width:100%; height:auto; }
 .pdf-cot a { color:#2D6DF6; }
@@ -225,7 +225,7 @@ function pdfTablasPlanes(resumen) {
         return `<table class="t-planes">${colgroup}
             <tr><td colspan="${columnas}" class="titulo">VIDA GRUPO INTEGRAL</td></tr>
             <tr class="cab"><td>PLAN</td>${celdasPlan(item => `<td>${escaparHTML(pdfNombrePlan(item.plan))}</td>`)}${esUltimo ? '<td>TOTAL PÓLIZA</td>' : ''}</tr>
-            ${mostrarDirigidoA ? filaConTotal('Dirigido a', item => `<td class="c">${escaparHTML(pdfDirigidoA(item.plan))}</td>`, '—', '', 'c') : ''}
+            ${mostrarDirigidoA ? filaConTotal('Tipo de asegurado', item => `<td class="c">${escaparHTML(pdfDirigidoA(item.plan))}</td>`, '—', '', 'c') : ''}
             ${filaConTotal('Asegurados Aproximados', item => `<td class="c">${item.cantidadAsegurados.toLocaleString('es-CO')}</td>`, planes.reduce((suma, item) => suma + item.cantidadAsegurados, 0).toLocaleString('es-CO'), '', 'c')}
             ${filaSeccion('VALOR ASEGURADO TOTAL POR COBERTURA')}
             ${filasCoberturas}
@@ -589,7 +589,7 @@ async function descargarCotizacionPdf() {
             image: { type: 'jpeg', quality: 0.95 },
             html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, x: 0, y: 0, width: PDF_ANCHO_PX, windowWidth: PDF_ANCHO_PX },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', 'h1', 'h2', 'h3', 'p', 'li', '.keep'] }
+            pagebreak: { mode: ['css', 'legacy'], avoid: ['table', 'tr', 'h1', 'h2', 'h3', 'p', 'li', '.keep'] }
         }).from(documentoPdf).toPdf().get('pdf').then(pdf => {
             pdf.setPage(1);
             pdf.addImage(PDF_ENCABEZADO_DATA_URI, 'JPEG', 0, 0, PDF_ANCHO_MM, pdfAltoEncabezadoMm());
