@@ -3412,6 +3412,13 @@ function setupEventListeners() {
     document.getElementById('modalConfirmarFormaPago')?.addEventListener('click', evento => {
         if (evento.target.id === 'modalConfirmarFormaPago') cancelarCambioFormaPago();
     });
+    document.addEventListener('click', evento => {
+        const botonRestriccion = evento.target.closest('[data-plan-restriccion]');
+        if (botonRestriccion) abrirModalRestriccionPlan(botonRestriccion.dataset.planRestriccion);
+    });
+    document.getElementById('modalRestriccionPlan')?.addEventListener('click', evento => {
+        if (evento.target.id === 'modalRestriccionPlan') cerrarModalRestriccionPlan();
+    });
     const campoCodigoAsesor = document.getElementById('codigoAsesor');
     campoCodigoAsesor?.addEventListener('input', () => {
         ultimoCodigoAsesorConsultado = '';
@@ -5517,6 +5524,12 @@ function agregarDetalleRestriccionPlan(plan, detalle) {
 }
 
 function renderizarInfoRestriccionesPlan(plan) {
+    const detalles = obtenerDetalleRestriccionesPlan(plan);
+    if (!detalles) return '';
+    return `<button class="plan-restriccion-info" type="button" data-plan-restriccion="${escaparHTML(plan.id)}" aria-label="Consultar por qué se creó ${escaparHTML(obtenerNombreCortoPlan(plan))}">i</button>`;
+}
+
+function obtenerDetalleRestriccionesPlan(plan) {
     let detalleRestricciones = Array.isArray(plan.detalleRestricciones) ? plan.detalleRestricciones : [];
     if (detalleRestricciones.length === 0 && (plan.generadoPorEdad || plan.generadoPorParentesco)) {
         const planBase = estado.planes.find(item => item.id === plan.planBaseId);
@@ -5560,7 +5573,25 @@ function renderizarInfoRestriccionesPlan(plan) {
             : `Restricción por parentesco: ${escaparHTML(nombresParentesco[detalle.parentesco] || detalle.parentesco)}`;
         return `<p><strong>${motivo}.</strong> Coberturas excluidas: ${exclusiones}.${afectados.length ? ` Personas afectadas: ${afectados.length}.` : ''}</p>`;
     }).join('');
-    return `<details class="plan-restriccion-info"><summary aria-label="Consultar por qué se creó ${escaparHTML(obtenerNombreCortoPlan(plan))}">i</summary><div class="plan-restriccion-detalle"><strong>Motivo del nuevo plan</strong>${detalles}</div></details>`;
+    return `<strong>Motivo del nuevo plan</strong>${detalles}`;
+}
+
+function abrirModalRestriccionPlan(planId) {
+    const plan = estado.planes.find(item => item.id === planId);
+    const modal = document.getElementById('modalRestriccionPlan');
+    const contenido = document.getElementById('detalleRestriccionPlan');
+    const titulo = document.getElementById('tituloRestriccionPlan');
+    if (!plan || !modal || !contenido || !titulo) return;
+
+    titulo.textContent = `Motivo del nuevo plan: ${obtenerNombreCortoPlan(plan)}`;
+    contenido.innerHTML = obtenerDetalleRestriccionesPlan(plan);
+    modal.style.display = 'flex';
+    document.getElementById('btnCerrarRestriccionPlan')?.focus();
+}
+
+function cerrarModalRestriccionPlan() {
+    const modal = document.getElementById('modalRestriccionPlan');
+    if (modal) modal.style.display = 'none';
 }
 
 function renderizarAsignacionPlanes() {
@@ -6317,7 +6348,11 @@ function reiniciarAsignacionAutomatica(mostrarConfirmacion = true) {
     });
     estado.planes = estado.planes
         .filter(plan => !esPlanDerivadoDeAsignacion(plan))
-        .map(plan => ({ ...plan, asegurados: [] }));
+        .map(plan => ({
+            ...plan,
+            asegurados: [],
+            ...(mostrarConfirmacion ? { valorDesde: null, valorHasta: null } : {})
+        }));
     const subgruposConPlan = new Set(estado.planes.map(plan => plan.subgrupoId));
     estado.subgrupos = estado.subgrupos
         .filter(subgrupo => subgruposConPlan.has(subgrupo.id))

@@ -826,6 +826,19 @@
         </div>
     </div>
 
+    <div id="modalRestriccionPlan" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloRestriccionPlan">
+        <div class="modal-content modal-restriccion-plan-contenido">
+            <div class="modal-header">
+                <h3 id="tituloRestriccionPlan"></h3>
+                <button class="btn-close" id="btnCerrarRestriccionPlan" type="button" onclick="cerrarModalRestriccionPlan()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body plan-restriccion-detalle" id="detalleRestriccionPlan"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" onclick="cerrarModalRestriccionPlan()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Resumen de cambios aplicados automáticamente -->
     <div id="modalResumenModificaciones" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloResumenModificaciones" aria-describedby="mensajeResumenModificaciones">
         <div class="modal-content resumen-modificaciones-contenido">
