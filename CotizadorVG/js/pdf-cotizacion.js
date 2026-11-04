@@ -264,7 +264,7 @@ function pdfTablasPlanes(resumen) {
             pdfDinero(primaTotalPoliza)
         );
         const filaPrimaPorAsegurado = filaConTotal(
-            'Prima anual por asegurado',
+            `Prima ${escaparHTML(estado.poliza.formaPago || 'Anual')} por asegurado`,
             item => mostrarTasasPorCobertura
                 ? `<td class="m" colspan="2">${formatearPrimaPorAsegurado(item.primaTotal, item.cantidadAsegurados)}</td>`
                 : `<td class="m">${formatearPrimaPorAsegurado(item.primaTotal, item.cantidadAsegurados)}</td>`,

@@ -35,7 +35,7 @@ flowchart LR
 
 Los asegurados sin plan asignado no calculan prima.
 
-La pantalla de cálculos y el PDF muestran además la prima anual promedio por asegurado en cada plan y en toda la póliza. Se obtiene dividiendo la prima anual correspondiente por la cantidad de asegurados asignados a ese plan o a la póliza; es un dato informativo y no altera el cálculo de las primas.
+La pantalla de cálculos y el PDF muestran además la prima por asegurado en cada plan y en toda la póliza, de acuerdo con la forma de pago seleccionada. Se obtiene aplicando a la prima anual el factor y la periodicidad correspondientes, y dividiendo el valor resultante por la cantidad de asegurados asignados; es un dato informativo y no altera el cálculo de las primas.
 
 ## Totales por cobertura
 

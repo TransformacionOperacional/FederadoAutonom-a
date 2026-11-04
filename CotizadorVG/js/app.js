@@ -2649,9 +2649,9 @@ function calcularPrimaPorFormaPago(primaAnual, formaPago = estado.poliza.formaPa
     return Math.round((primaAnual * (1 + factor) / periodos) * 100) / 100;
 }
 
-function formatearPrimaPorAsegurado(primaTotal, cantidadAsegurados) {
-    if (!Number.isFinite(primaTotal) || !Number.isFinite(cantidadAsegurados) || cantidadAsegurados <= 0) return '—';
-    return formatearDinero(primaTotal / cantidadAsegurados);
+function formatearPrimaPorAsegurado(primaAnual, cantidadAsegurados) {
+    if (!Number.isFinite(primaAnual) || !Number.isFinite(cantidadAsegurados) || cantidadAsegurados <= 0) return '—';
+    return formatearDinero(calcularPrimaPorFormaPago(primaAnual) / cantidadAsegurados);
 }
 
 function renderizarOpcionesFraccionamiento(primaAnual) {
@@ -3001,7 +3001,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
                 <div><span class="calculos-plan-secuencia">${secuenciaPlan}</span><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span>${plan ? `<button class="btn btn-outline btn-small calculos-toggle-asegurados" type="button" data-accion-calculos="toggle-asegurados" data-cantidad-asegurados="${asegurados.length}" aria-expanded="false" aria-controls="listado-asegurados-${plan.id}">Ver asegurados (${asegurados.length})</button>` : ''}</div>
                 <div class="calculos-plan-total">
                     <div><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
-                    <div><span>Prima anual por asegurado</span><strong>${plan ? formatearPrimaPorAsegurado(primaTotalPlan, asegurados.length) : '—'}</strong></div>
+                    <div><span>Prima ${estado.poliza.formaPago || 'Anual'} por asegurado</span><strong>${plan ? formatearPrimaPorAsegurado(primaTotalPlan, asegurados.length) : '—'}</strong></div>
                 </div>
             </header>
             ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody id="listado-asegurados-${plan.id}" data-calculos-plan="${plan.id}" hidden></tbody><tfoot>${filaTotalesCobertura}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
@@ -3047,7 +3047,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         <section class="calculos-total-poliza">
             <div class="calculos-total-metrica"><span>Tasa única total de la póliza</span><strong>${tasaUnicaPoliza}</strong></div>
             <div class="calculos-total-metrica"><span>Prima anual de la póliza</span><strong>${formatearDinero(primaTotalPoliza)}</strong></div>
-            <div class="calculos-total-metrica"><span>Prima anual por asegurado</span><strong>${formatearPrimaPorAsegurado(primaTotalPoliza, cantidadAseguradosPoliza)}</strong></div>
+            <div class="calculos-total-metrica"><span>Prima ${estado.poliza.formaPago || 'Anual'} por asegurado</span><strong>${formatearPrimaPorAsegurado(primaTotalPoliza, cantidadAseguradosPoliza)}</strong></div>
         </section>`;
     filasCalculosPorPlan.forEach((_, llave) => renderizarPaginaCalculosPlan(llave));
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
