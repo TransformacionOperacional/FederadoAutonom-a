@@ -282,6 +282,7 @@ let pasoActual = 1;
 let demoData = null;
 let aseguradoEditandoId = null;
 let formaPagoPendiente = null;
+let accionConfirmacionCotizadorPendiente = null;
 
 // Estado del flujo de negocio
 let flujo = {
@@ -310,6 +311,38 @@ function guardarEstado() {
         mostrarToast('Error al guardar: ' + err.message, 'error');
         return false;
     }
+}
+
+function mostrarConfirmacionCotizador({ titulo, mensaje, textoConfirmar, accion, esDestructiva = true }) {
+    const modal = document.getElementById('modalConfirmacionCotizador');
+    const encabezado = document.getElementById('tituloConfirmacionCotizador');
+    const detalle = document.getElementById('mensajeConfirmacionCotizador');
+    const botonConfirmar = document.getElementById('btnAceptarConfirmacionCotizador');
+    if (!modal || !encabezado || !detalle || !botonConfirmar || typeof accion !== 'function') {
+        throw new Error('No fue posible abrir la confirmación de la acción.');
+    }
+
+    accionConfirmacionCotizadorPendiente = accion;
+    encabezado.textContent = titulo;
+    detalle.textContent = mensaje;
+    botonConfirmar.textContent = textoConfirmar;
+    botonConfirmar.classList.toggle('btn-danger', esDestructiva);
+    botonConfirmar.classList.toggle('btn-primary', !esDestructiva);
+    modal.style.display = 'flex';
+    modal.querySelector('button.btn-secondary')?.focus();
+}
+
+function cancelarConfirmacionCotizador() {
+    const modal = document.getElementById('modalConfirmacionCotizador');
+    if (modal) modal.style.display = 'none';
+    accionConfirmacionCotizadorPendiente = null;
+}
+
+function confirmarAccionCotizador() {
+    const accion = accionConfirmacionCotizadorPendiente;
+    cancelarConfirmacionCotizador();
+    if (typeof accion !== 'function') throw new Error('No hay una acción pendiente de confirmación.');
+    accion();
 }
 
 function cargarEstado() {
@@ -383,66 +416,73 @@ function limpiarCamposAdicionalesCotizacion() {
 }
 
 function limpiarEstado() {
-    if (confirm('¿Deseas limpiar todos los datos? Esta acción no se puede deshacer.')) {
-        localStorage.removeItem('cotizadorEstado');
-        localStorage.removeItem('pasoActual');
-        estado = {
-            poliza: {
-                id: generarUUID(),
-                tomador: '',
-                tipoIdentificacion: 'NIT',
-                numeroIdentificacion: '',
-                modalidadPlan: 'Patronal (No Contributiva)',
-                actividad: '',
-                actividadDetalle: null,
-                vigenciaDesde: '',
-                vigenciaHasta: '',
-                oficina: '',
-                formaPago: 'Anual',
-                tipoPagoMensual: 'Vencida',
-                fechaCobro: '',
-                numeroPoliza: '',
-                segmento: '',
-                direccionCorrespondencia: '',
-                validezOferta: '',
-                comision: 20,
-                honorarioPromotora: 10,
-                aplicaCredibilidad: false,
-                valorSiniestrosTotales: 0,
-                anosExposicion: 0,
-                siniestrosPromedio: 0,
-                siniestrosInformados: false,
-                detalleSiniestrosCobertura: false,
-                gruposSiniestrosPoliza: [],
-                siniestrosPorCobertura: [],
-                codigoAsesor: '',
-                asesor: '',
-                regional: '',
-                oficinasAsesor: [],
-                oficinaAsesor: '',
-                codigoOficinaAsesor: '',
-                canalComercial: ''
-            },
-            coberturasCatalogo: crearCatalogoInicial(),
-            tasasPorCoberturaEdad: {},
-            tasasPorCoberturaEdadDeducible: {},
-            porcentajesFactorPorCoberturaEdad: {},
-            valoresMaximosPorCoberturaEdad: {},
-            edadesMaximasPorCobertura: {},
-            asegurados: [],
-            subgrupos: [],
-            planes: [],
-            sugerencias: [],
-            historial: []
-        };
-        pasoActual = 1;
-        flujo = { tipo: null, subtipo: null, polizaSeleccionada: null };
-        limpiarCamposAdicionalesCotizacion();
-        actualizarAplicacionCredibilidad(true);
-        actualizarSiniestralidad(true);
-        mostrarSoloPantalla('pantalla-landing');
-        mostrarToast('Datos limpiados correctamente', 'success');
-    }
+    mostrarConfirmacionCotizador({
+        titulo: 'Limpiar datos',
+        mensaje: '¿Deseas limpiar todos los datos? Esta acción no se puede deshacer.',
+        textoConfirmar: 'Limpiar datos',
+        accion: limpiarEstadoConfirmado
+    });
+}
+
+function limpiarEstadoConfirmado() {
+    localStorage.removeItem('cotizadorEstado');
+    localStorage.removeItem('pasoActual');
+    estado = {
+        poliza: {
+            id: generarUUID(),
+            tomador: '',
+            tipoIdentificacion: 'NIT',
+            numeroIdentificacion: '',
+            modalidadPlan: 'Patronal (No Contributiva)',
+            actividad: '',
+            actividadDetalle: null,
+            vigenciaDesde: '',
+            vigenciaHasta: '',
+            oficina: '',
+            formaPago: 'Anual',
+            tipoPagoMensual: 'Vencida',
+            fechaCobro: '',
+            numeroPoliza: '',
+            segmento: '',
+            direccionCorrespondencia: '',
+            validezOferta: '',
+            comision: 20,
+            honorarioPromotora: 10,
+            aplicaCredibilidad: false,
+            valorSiniestrosTotales: 0,
+            anosExposicion: 0,
+            siniestrosPromedio: 0,
+            siniestrosInformados: false,
+            detalleSiniestrosCobertura: false,
+            gruposSiniestrosPoliza: [],
+            siniestrosPorCobertura: [],
+            codigoAsesor: '',
+            asesor: '',
+            regional: '',
+            oficinasAsesor: [],
+            oficinaAsesor: '',
+            codigoOficinaAsesor: '',
+            canalComercial: ''
+        },
+        coberturasCatalogo: crearCatalogoInicial(),
+        tasasPorCoberturaEdad: {},
+        tasasPorCoberturaEdadDeducible: {},
+        porcentajesFactorPorCoberturaEdad: {},
+        valoresMaximosPorCoberturaEdad: {},
+        edadesMaximasPorCobertura: {},
+        asegurados: [],
+        subgrupos: [],
+        planes: [],
+        sugerencias: [],
+        historial: []
+    };
+    pasoActual = 1;
+    flujo = { tipo: null, subtipo: null, polizaSeleccionada: null };
+    limpiarCamposAdicionalesCotizacion();
+    actualizarAplicacionCredibilidad(true);
+    actualizarSiniestralidad(true);
+    mostrarSoloPantalla('pantalla-landing');
+    mostrarToast('Datos limpiados correctamente', 'success');
 }
 
 /* ============================================================
@@ -752,11 +792,16 @@ function duplicarAsegurado(id) {
 }
 
 function eliminarAsegurado(id) {
-    if (confirm('¿Deseas eliminar este asegurado?')) {
-        estado.asegurados = estado.asegurados.filter(a => a.id !== id);
-        recalcularTodo();
-        mostrarToast('Asegurado eliminado', 'success');
-    }
+    mostrarConfirmacionCotizador({
+        titulo: 'Eliminar asegurado',
+        mensaje: '¿Deseas eliminar este asegurado?',
+        textoConfirmar: 'Eliminar',
+        accion: () => {
+            estado.asegurados = estado.asegurados.filter(a => a.id !== id);
+            recalcularTodo();
+            mostrarToast('Asegurado eliminado', 'success');
+        }
+    });
 }
 
 function validarDocumento(tipoDoc, numeroDoc) {
@@ -1247,16 +1292,21 @@ function eliminarCobertura(codigo) {
         mostrarToast('El amparo Vida debe permanecer configurado.', 'warning');
         return;
     }
-    if (confirm('¿Deseas eliminar esta cobertura? Se eliminará de todos los asegurados.')) {
-        estado.coberturasCatalogo = estado.coberturasCatalogo.filter(c => c.codigo !== codigo);
-        
-        estado.asegurados.forEach(a => {
-            a.coberturas = a.coberturas.filter(c => c.codigo !== codigo);
-        });
-        
-        recalcularTodo();
-        mostrarToast('Cobertura eliminada', 'success');
-    }
+    mostrarConfirmacionCotizador({
+        titulo: 'Eliminar cobertura',
+        mensaje: '¿Deseas eliminar esta cobertura? Se eliminará de todos los asegurados.',
+        textoConfirmar: 'Eliminar',
+        accion: () => {
+            estado.coberturasCatalogo = estado.coberturasCatalogo.filter(c => c.codigo !== codigo);
+
+            estado.asegurados.forEach(a => {
+                a.coberturas = a.coberturas.filter(c => c.codigo !== codigo);
+            });
+
+            recalcularTodo();
+            mostrarToast('Cobertura eliminada', 'success');
+        }
+    });
 }
 
 /* ============================================================
@@ -2599,6 +2649,11 @@ function calcularPrimaPorFormaPago(primaAnual, formaPago = estado.poliza.formaPa
     return Math.round((primaAnual * (1 + factor) / periodos) * 100) / 100;
 }
 
+function formatearPrimaPorAsegurado(primaTotal, cantidadAsegurados) {
+    if (!Number.isFinite(primaTotal) || !Number.isFinite(cantidadAsegurados) || cantidadAsegurados <= 0) return '—';
+    return formatearDinero(primaTotal / cantidadAsegurados);
+}
+
 function renderizarOpcionesFraccionamiento(primaAnual) {
     const formaSeleccionada = estado.poliza.formaPago || 'Anual';
     return `<div class="fraccionamiento-pagos" aria-label="Valores según forma de pago">
@@ -2944,7 +2999,10 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         return `<section class="calculos-plan-card calculos-plan-bloque">
             <header class="calculos-plan-header">
                 <div><span class="calculos-plan-secuencia">${secuenciaPlan}</span><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span>${plan ? `<button class="btn btn-outline btn-small calculos-toggle-asegurados" type="button" data-accion-calculos="toggle-asegurados" data-cantidad-asegurados="${asegurados.length}" aria-expanded="false" aria-controls="listado-asegurados-${plan.id}">Ver asegurados (${asegurados.length})</button>` : ''}</div>
-                <div class="calculos-plan-total"><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
+                <div class="calculos-plan-total">
+                    <div><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
+                    <div><span>Prima anual por asegurado</span><strong>${plan ? formatearPrimaPorAsegurado(primaTotalPlan, asegurados.length) : '—'}</strong></div>
+                </div>
             </header>
             ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody id="listado-asegurados-${plan.id}" data-calculos-plan="${plan.id}" hidden></tbody><tfoot>${filaTotalesCobertura}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
             ${plan && mostrarTasasCobertura ? renderizarTablaTasaPorCobertura(
@@ -2961,6 +3019,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
 
     const totalVidaPoliza = totalesPolizaPorCobertura.get('WET')?.valorAsegurado || 0;
     const tasaUnicaPoliza = formatearTasaUnica(primaTotalPoliza, totalVidaPoliza);
+    const cantidadAseguradosPoliza = resumenPlanes.reduce((total, item) => total + item.cantidadAsegurados, 0);
     const detalleFraccionamiento = obtenerDetalleFraccionamiento();
     const primaSegunFormaPago = calcularPrimaPorFormaPago(primaTotalPoliza);
     if (!esComparativaSinCredibilidad) {
@@ -2986,10 +3045,9 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
             'tabla-tasa-poliza'
         ) : ''}
         <section class="calculos-total-poliza">
-            <span>Tasa única total de la póliza</span>
-            <strong>${tasaUnicaPoliza}</strong>
-            <span>Prima anual de la póliza</span>
-            <strong>${formatearDinero(primaTotalPoliza)}</strong>
+            <div class="calculos-total-metrica"><span>Tasa única total de la póliza</span><strong>${tasaUnicaPoliza}</strong></div>
+            <div class="calculos-total-metrica"><span>Prima anual de la póliza</span><strong>${formatearDinero(primaTotalPoliza)}</strong></div>
+            <div class="calculos-total-metrica"><span>Prima anual por asegurado</span><strong>${formatearPrimaPorAsegurado(primaTotalPoliza, cantidadAseguradosPoliza)}</strong></div>
         </section>`;
     filasCalculosPorPlan.forEach((_, llave) => renderizarPaginaCalculosPlan(llave));
     contenedor.insertAdjacentHTML('beforeend', `<section class="fraccionamiento-resumen">
@@ -3418,6 +3476,15 @@ function setupEventListeners() {
     });
     document.getElementById('modalRestriccionPlan')?.addEventListener('click', evento => {
         if (evento.target.id === 'modalRestriccionPlan') cerrarModalRestriccionPlan();
+    });
+    document.getElementById('modalConfirmacionCotizador')?.addEventListener('click', evento => {
+        if (evento.target.id === 'modalConfirmacionCotizador') cancelarConfirmacionCotizador();
+    });
+    document.addEventListener('keydown', evento => {
+        const modalConfirmacion = document.getElementById('modalConfirmacionCotizador');
+        if (evento.key === 'Escape' && modalConfirmacion?.style.display === 'flex') {
+            cancelarConfirmacionCotizador();
+        }
     });
     const campoCodigoAsesor = document.getElementById('codigoAsesor');
     campoCodigoAsesor?.addEventListener('input', () => {
@@ -4737,9 +4804,19 @@ function eliminarSubgrupo(id) {
     const planes = estado.planes.filter(p => p.subgrupoId === id).length;
 
     if (asignados > 0 || planes > 0) {
-        if (!confirm(`Este subgrupo tiene ${asignados} asegurado(s) y ${planes} plan(es). ¿Eliminar de todas formas? Los asegurados quedarán sin subgrupo.`)) return;
+        mostrarConfirmacionCotizador({
+            titulo: 'Eliminar subgrupo',
+            mensaje: `Este subgrupo tiene ${asignados} asegurado(s) y ${planes} plan(es). ¿Eliminar de todas formas? Los asegurados quedarán sin subgrupo.`,
+            textoConfirmar: 'Eliminar',
+            accion: () => confirmarEliminarSubgrupo(id)
+        });
+        return;
     }
 
+    confirmarEliminarSubgrupo(id);
+}
+
+function confirmarEliminarSubgrupo(id) {
     // Des-asignar asegurados
     estado.asegurados.forEach(a => {
         if (a.subgrupoId === id) { a.subgrupoId = null; a.planId = null; }
@@ -5124,23 +5201,28 @@ function calcularPrimaPlanSincronizado(plan, aseguradosPorId) {
 }
 
 function eliminarPlan(planId) {
-    if (!confirm('¿Eliminar este plan? Los asegurados quedarán sin plan asignado.')) return;
+    mostrarConfirmacionCotizador({
+        titulo: 'Eliminar plan',
+        mensaje: '¿Eliminar este plan? Los asegurados quedarán sin plan asignado.',
+        textoConfirmar: 'Eliminar',
+        accion: () => {
+            const plan = estado.planes.find(p => p.id === planId);
+            if (plan) {
+                plan.asegurados.forEach(asegId => {
+                    const asegurado = estado.asegurados.find(a => a.id === asegId);
+                    if (asegurado) asegurado.planId = null;
+                });
+            }
 
-    const plan = estado.planes.find(p => p.id === planId);
-    if (plan) {
-        plan.asegurados.forEach(asegId => {
-            const asegurado = estado.asegurados.find(a => a.id === asegId);
-            if (asegurado) asegurado.planId = null;
-        });
-    }
-
-    estado.planes = estado.planes.filter(p => p.id !== planId);
-    guardarEstado();
-    renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
-    renderizarTablaCoberturas();
-    renderizarPlanesSubgrupoTabs();
-    renderizarAsignacionPlanes();
-    mostrarToast('Plan eliminado', 'success');
+            estado.planes = estado.planes.filter(p => p.id !== planId);
+            guardarEstado();
+            renderizarPlanesWorkspace(subgrupoActivoEnPlanes);
+            renderizarTablaCoberturas();
+            renderizarPlanesSubgrupoTabs();
+            renderizarAsignacionPlanes();
+            mostrarToast('Plan eliminado', 'success');
+        }
+    });
 }
 
 function abrirAsignadorPlan(planId) {
@@ -6995,55 +7077,63 @@ function actualizarCobertura(idAsegurado, codigo, campo, valor) {
 }
 
 function cargarDemoData() {
-    if (confirm('¿Deseas cargar 15 asegurados de demostración?')) {
-        const demoAsegurados = [
-            { doc: '1001', nombre: 'Juan García', edad: 35, ocupacion: 'Ejecutivo', salario: 5000000 },
-            { doc: '1002', nombre: 'María López', edad: 28, ocupacion: 'Administrativo', salario: 3000000 },
-            { doc: '1003', nombre: 'Carlos Rodríguez', edad: 42, ocupacion: 'Operario', salario: 2500000 },
-            { doc: '1004', nombre: 'Ana Martínez', edad: 31, ocupacion: 'Ejecutivo', salario: 5500000 },
-            { doc: '1005', nombre: 'Felipe Torres', edad: 38, ocupacion: 'Docente', salario: 2800000 },
-            { doc: '1006', nombre: 'Laura Gómez', edad: 25, ocupacion: 'Administrativo', salario: 2200000 },
-            { doc: '1007', nombre: 'Roberto Jiménez', edad: 55, ocupacion: 'Ejecutivo', salario: 6000000 },
-            { doc: '1008', nombre: 'Patricia Fernández', edad: 29, ocupacion: 'Operario', salario: 2400000 },
-            { doc: '1009', nombre: 'Diego Sánchez', edad: 48, ocupacion: 'Médico', salario: 7000000 },
-            { doc: '1010', nombre: 'Elena Díaz', edad: 36, ocupacion: 'Ejecutivo', salario: 5200000 },
-            { doc: '1011', nombre: 'Guillermo Pérez', edad: 32, ocupacion: 'Administrativo', salario: 3100000 },
-            { doc: '1012', nombre: 'Sofía Ramírez', edad: 27, ocupacion: 'Independiente', salario: 3500000 },
-            { doc: '1013', nombre: 'Andrés Castro', edad: 44, ocupacion: 'Operario', salario: 2600000 },
-            { doc: '1014', nombre: 'Verónica López', edad: 39, ocupacion: 'Ejecutivo', salario: 5000000 },
-            { doc: '1015', nombre: 'Héctor Morales', edad: 50, ocupacion: 'Docente', salario: 3000000 }
-        ];
+    mostrarConfirmacionCotizador({
+        titulo: 'Cargar datos de demostración',
+        mensaje: '¿Deseas cargar 15 asegurados de demostración?',
+        textoConfirmar: 'Cargar datos',
+        esDestructiva: false,
+        accion: cargarDemoDataConfirmado
+    });
+}
 
-        demoAsegurados.forEach(d => {
-            const asegurado = {
-                id: generarUUID(),
-                tipoDocumento: 'Cédula',
-                numeroDocumento: d.doc,
-                nombreCompleto: d.nombre,
-                edad: d.edad,
-                sexo: 'Masculino',
-                ocupacion: d.ocupacion,
-                salario: d.salario,
-                coberturas: estado.coberturasCatalogo.map(c => ({
-                    codigo: c.codigo,
-                    codigoAmparo: c.codigoAmparo,
-                    nombre: c.nombre,
-                    activa: c.obligatoria || Math.random() > 0.5,
-                    valorAsegurado: Math.random() > 0.5 ? Math.floor(Math.random() * 5 + 10) * 1000000 : 0,
-                    tasa: c.tasaBase,
-                    prima: 0
-                })),
-                subgrupoId: null,
-                planId: null,
-                primaIndividual: 0
-            };
+function cargarDemoDataConfirmado() {
+    const demoAsegurados = [
+        { doc: '1001', nombre: 'Juan García', edad: 35, ocupacion: 'Ejecutivo', salario: 5000000 },
+        { doc: '1002', nombre: 'María López', edad: 28, ocupacion: 'Administrativo', salario: 3000000 },
+        { doc: '1003', nombre: 'Carlos Rodríguez', edad: 42, ocupacion: 'Operario', salario: 2500000 },
+        { doc: '1004', nombre: 'Ana Martínez', edad: 31, ocupacion: 'Ejecutivo', salario: 5500000 },
+        { doc: '1005', nombre: 'Felipe Torres', edad: 38, ocupacion: 'Docente', salario: 2800000 },
+        { doc: '1006', nombre: 'Laura Gómez', edad: 25, ocupacion: 'Administrativo', salario: 2200000 },
+        { doc: '1007', nombre: 'Roberto Jiménez', edad: 55, ocupacion: 'Ejecutivo', salario: 6000000 },
+        { doc: '1008', nombre: 'Patricia Fernández', edad: 29, ocupacion: 'Operario', salario: 2400000 },
+        { doc: '1009', nombre: 'Diego Sánchez', edad: 48, ocupacion: 'Médico', salario: 7000000 },
+        { doc: '1010', nombre: 'Elena Díaz', edad: 36, ocupacion: 'Ejecutivo', salario: 5200000 },
+        { doc: '1011', nombre: 'Guillermo Pérez', edad: 32, ocupacion: 'Administrativo', salario: 3100000 },
+        { doc: '1012', nombre: 'Sofía Ramírez', edad: 27, ocupacion: 'Independiente', salario: 3500000 },
+        { doc: '1013', nombre: 'Andrés Castro', edad: 44, ocupacion: 'Operario', salario: 2600000 },
+        { doc: '1014', nombre: 'Verónica López', edad: 39, ocupacion: 'Ejecutivo', salario: 5000000 },
+        { doc: '1015', nombre: 'Héctor Morales', edad: 50, ocupacion: 'Docente', salario: 3000000 }
+    ];
 
-            estado.asegurados.push(asegurado);
-        });
+    demoAsegurados.forEach(d => {
+        const asegurado = {
+            id: generarUUID(),
+            tipoDocumento: 'Cédula',
+            numeroDocumento: d.doc,
+            nombreCompleto: d.nombre,
+            edad: d.edad,
+            sexo: 'Masculino',
+            ocupacion: d.ocupacion,
+            salario: d.salario,
+            coberturas: estado.coberturasCatalogo.map(c => ({
+                codigo: c.codigo,
+                codigoAmparo: c.codigoAmparo,
+                nombre: c.nombre,
+                activa: c.obligatoria || Math.random() > 0.5,
+                valorAsegurado: Math.random() > 0.5 ? Math.floor(Math.random() * 5 + 10) * 1000000 : 0,
+                tasa: c.tasaBase,
+                prima: 0
+            })),
+            subgrupoId: null,
+            planId: null,
+            primaIndividual: 0
+        };
 
-        recalcularTodo();
-        mostrarToast('Datos de demostración cargados (15 asegurados)', 'success');
-    }
+        estado.asegurados.push(asegurado);
+    });
+
+    recalcularTodo();
+    mostrarToast('Datos de demostración cargados (15 asegurados)', 'success');
 }
 
 function exportarResumen() {

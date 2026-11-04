@@ -263,6 +263,16 @@ function pdfTablasPlanes(resumen) {
                 : `<td class="m">${pdfDinero(item.primaTotal)}</td>`,
             pdfDinero(primaTotalPoliza)
         );
+        const filaPrimaPorAsegurado = filaConTotal(
+            'Prima anual por asegurado',
+            item => mostrarTasasPorCobertura
+                ? `<td class="m" colspan="2">${formatearPrimaPorAsegurado(item.primaTotal, item.cantidadAsegurados)}</td>`
+                : `<td class="m">${formatearPrimaPorAsegurado(item.primaTotal, item.cantidadAsegurados)}</td>`,
+            formatearPrimaPorAsegurado(
+                primaTotalPoliza,
+                planes.reduce((total, item) => total + item.cantidadAsegurados, 0)
+            )
+        );
         const etiquetaPago = `Prima ${escaparHTML(descripcionPago)}`;
 
         const filasCabecera = mostrarTasasPorCobertura
@@ -284,6 +294,7 @@ function pdfTablasPlanes(resumen) {
                 : ''}
             ${filaSeccion('PRIMAS')}
             ${filaAnual}
+            ${filaPrimaPorAsegurado}
             ${filaConTotal(etiquetaPago, item => mostrarTasasPorCobertura
                 ? `<td class="m" colspan="2">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`
                 : `<td class="m">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`, pdfDinero(calcularPrimaPorFormaPago(primaTotalPoliza)), 'total')}
