@@ -82,6 +82,8 @@ const DEDUCIBLE_RENTA_INCAPACIDAD_POR_DEFECTO = '7-30';
 const API_TASAS_COBERTURAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3bdc2f33585c485f9d394c1d73122c37/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cOMyHLPKcYp9-mpp7gV4VLy7b2TwQAwjN6t-rfVZ73M';
 const API_ACTIVIDADES_ECONOMICAS = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/28/workflows/a8b0296c9f99415d97cdcf35b7c687a6/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=yrpT0ViTVfP0CyV-rvuzActJpjpMjKBnXmyY4CG7-ZI';
 const API_ASESORES = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/10e4ac573ce149bd97fc24395250e74d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=e2rhuYqdrphOVntoVnBjtrNqFTXYrIhAhEaNyfk_onc';
+const API_GUARDAR_COTIZACION = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/19/workflows/dccbecc12dae4476a7c4effd82315fb1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=jnWYN4UWkOdiy9_cj74__FewMOiqG_zNcW2bJ7VAE58';
+const API_CONSULTAR_COTIZACION = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/01/workflows/409bd10cdce94f8ebf8742c8badb6745/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Jhk81ambkYjXS_IizATVmFJUTTueePoD-x0cAaFoQb0';
 const coberturaVidaPredeterminada = {
     codigo: 'WET',
     codigoAmparo: 63717,

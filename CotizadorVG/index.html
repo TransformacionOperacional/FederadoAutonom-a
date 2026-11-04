@@ -46,6 +46,9 @@
                 <span class="card-opcion-cta">Buscar póliza &rarr;</span>
             </div>
         </div>
+        <div class="landing-consulta">
+            <button class="btn btn-outline" type="button" onclick="abrirModalConsultarCotizacion()">Consultar cotización</button>
+        </div>
     </div>
 
     <!-- PANTALLA: Búsqueda de renovación -->
@@ -777,6 +780,25 @@
             <div class="modal-footer">
                 <button class="btn btn-primary" type="button" onclick="guardarAseguradoDesdeModal()">Guardar</button>
                 <button class="btn btn-secondary" type="button" onclick="cerrarModalAsegurado()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Consulta de cotización anterior por ID -->
+    <div id="modalConsultarCotizacion" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloConsultarCotizacion">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 id="tituloConsultarCotizacion">Consultar cotización</h3>
+                <button class="btn-close" type="button" onclick="cerrarModalConsultarCotizacion()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="idCotizacionConsulta">ID de la cotización</label>
+                <input type="text" id="idCotizacionConsulta" class="input-busqueda" placeholder="Ej: 3F2504E0-4F89-11D3-9A0C-0305E82C3301" maxlength="36" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();consultarCotizacionPdf();}">
+                <p id="mensajeConsultarCotizacion" class="info-box" style="display:none;margin-bottom:0;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnConsultarCotizacion" type="button" onclick="consultarCotizacionPdf()">Consultar y descargar PDF</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalConsultarCotizacion()">Cancelar</button>
             </div>
         </div>
     </div>

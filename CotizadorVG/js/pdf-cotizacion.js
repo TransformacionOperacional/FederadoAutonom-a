@@ -579,6 +579,198 @@ function construirHtmlCotizacionPdf(resumen) {
 </div>`;
 }
 
+// Arma el JSON que consume el flujo de Power Automate (usp_CotizacionVG_Guardar / _GuardarPdf).
+// Los campos vacíos se omiten: el esquema del flujo no los exige y así llegan como NULL a SQL.
+function construirPayloadCotizacion(resumen, pdfBase64, nombreArchivo) {
+    const p = estado.poliza;
+    const redondear = (valor, decimales) => Number.isFinite(valor)
+        ? Math.round(valor * 10 ** decimales) / 10 ** decimales
+        : 0;
+    const tasaPorMil = (prima, valorAsegurado) => valorAsegurado > 0 ? redondear(prima / valorAsegurado * 1000, 6) : 0;
+
+    const edades = estado.asegurados.map(asegurado => Number(asegurado.edad)).filter(Number.isFinite);
+    // El esquema del flujo define estos campos como integer: se envían redondeados a entero.
+    const edadPromedio = edades.length ? redondear(edades.reduce((suma, edad) => suma + edad, 0) / edades.length, 0) : 0;
+    // La tasa única de la póliza se calcula sobre el valor asegurado de Vida (WET), igual que en pantalla.
+    const valorAseguradoTotal = resumen.totalesPoliza.get('WET')?.valorAsegurado || 0;
+
+    const payload = {
+        idCotizacion: p.id,
+        tipoNegocio: flujo.tipo,
+        subtipo: flujo.subtipo,
+
+        tipoIdentificacion: p.tipoIdentificacion,
+        numeroIdentificacion: p.numeroIdentificacion,
+        tomador: p.tomador,
+        segmento: p.segmento,
+        direccionCorrespondencia: p.direccionCorrespondencia,
+        actividad: p.actividad,
+
+        numeroPoliza: p.numeroPoliza,
+        modalidadPlan: p.modalidadPlan,
+        formaPago: p.formaPago,
+        tipoPagoMensual: p.formaPago === 'Mensual' ? p.tipoPagoMensual : null,
+        vigenciaDesde: p.vigenciaDesde,
+        vigenciaHasta: p.vigenciaHasta,
+        fechaCobro: p.fechaCobro,
+        validezOferta: p.validezOferta,
+
+        codigoAsesor: p.codigoAsesor,
+        asesor: p.asesor,
+        oficinaAsesor: p.oficinaAsesor,
+        codigoOficinaAsesor: p.codigoOficinaAsesor,
+        canalComercial: p.canalComercial,
+        regional: p.regional,
+        comisionPct: Number(p.comision) || 0,
+        honorarioPromotoraPct: Number(p.honorarioPromotora) || 0,
+        factorGastoPct: redondear(Number(p.factorGasto), 4),
+
+        aplicaCredibilidad: p.aplicaCredibilidad === true,
+        valorSiniestrosTotales: redondear(Number(p.valorSiniestrosTotales), 0),
+        anosExposicion: Number(p.anosExposicion) || 0,
+        siniestrosPromedio: redondear(Number(p.siniestrosPromedio), 0),
+
+        numeroAsegurados: estado.asegurados.length,
+        edadPromedio,
+        valorAseguradoTotal: redondear(valorAseguradoTotal, 0),
+        tasaUnica: tasaPorMil(resumen.primaTotalPoliza, valorAseguradoTotal),
+        primaTotal: redondear(resumen.primaTotalPoliza, 0),
+
+        coberturas: [...resumen.totalesPoliza.entries()].map(([codigo, total]) => ({
+            codigo,
+            nombre: total.nombre || codigo,
+            valorAsegurado: redondear(total.valorAsegurado, 0),
+            tasa: tasaPorMil(total.prima, total.valorAsegurado),
+            prima: redondear(total.prima, 0)
+        })),
+
+        pdfNombreArchivo: nombreArchivo,
+        pdfBase64
+    };
+
+    Object.keys(payload).forEach(clave => {
+        if (payload[clave] === null || payload[clave] === undefined || payload[clave] === '') delete payload[clave];
+    });
+    return payload;
+}
+
+// Envía la cotización y el PDF (base64) a la API. No interrumpe la descarga si falla.
+async function enviarCotizacionApi(resumen, documentoPdf, nombreArchivo) {
+    try {
+        // Base64 sin el prefijo data:application/pdf;...;base64,
+        const pdfBase64 = documentoPdf.output('datauristring').split(',').pop();
+        // Diagnóstico: compara estos valores con LEN(PdfBase64) y RIGHT(PdfBase64, 12) en SQL.
+        console.info(`PDF base64 enviado: ${pdfBase64.length} caracteres, inicio "${pdfBase64.slice(0, 8)}", fin "${pdfBase64.slice(-12)}"`);
+        const respuesta = await fetch(API_GUARDAR_COTIZACION, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(construirPayloadCotizacion(resumen, pdfBase64, nombreArchivo))
+        });
+        if (!respuesta.ok) {
+            const detalle = await respuesta.text().catch(() => '');
+            throw new Error(`La API respondió HTTP ${respuesta.status}. ${detalle}`);
+        }
+        return true;
+    } catch (error) {
+        console.error('No fue posible registrar la cotización:', error);
+        mostrarToast('El PDF se descargó, pero no fue posible registrar la cotización.', 'warning');
+        return false;
+    }
+}
+
+function abrirModalConsultarCotizacion() {
+    const modal = document.getElementById('modalConsultarCotizacion');
+    if (!modal) return;
+    const campo = document.getElementById('idCotizacionConsulta');
+    const mensaje = document.getElementById('mensajeConsultarCotizacion');
+    campo.value = '';
+    mensaje.style.display = 'none';
+    modal.style.display = 'flex';
+    campo.focus();
+}
+
+function cerrarModalConsultarCotizacion() {
+    const modal = document.getElementById('modalConsultarCotizacion');
+    if (modal) modal.style.display = 'none';
+}
+
+// Extrae nombre y contenido base64 de la respuesta del flujo (acepta variantes de nombres de campo).
+function extraerPdfDeRespuesta(datos) {
+    let origen = datos;
+    if (origen && origen.ResultSets && Array.isArray(origen.ResultSets.Table1)) origen = origen.ResultSets.Table1[0];
+    if (Array.isArray(origen)) origen = origen[0];
+    if (!origen || typeof origen !== 'object') return null;
+    const buscar = (...claves) => {
+        const clave = Object.keys(origen).find(k => claves.includes(k.toLowerCase()));
+        return clave ? origen[clave] : null;
+    };
+    const base64 = buscar('pdfbase64', 'contenido', 'base64', 'contenidobase64');
+    const nombre = buscar('nombrearchivo', 'pdfnombrearchivo', 'nombre', 'filename');
+    if (!base64 || typeof base64 !== 'string') return null;
+    return { nombre: nombre || 'Cotizacion.pdf', base64 };
+}
+
+function base64ABlobPdf(base64) {
+    const limpio = base64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+    const binario = atob(limpio);
+    const bytes = new Uint8Array(binario.length);
+    for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+    return new Blob([bytes], { type: 'application/pdf' });
+}
+
+async function consultarCotizacionPdf() {
+    const campo = document.getElementById('idCotizacionConsulta');
+    const mensaje = document.getElementById('mensajeConsultarCotizacion');
+    const boton = document.getElementById('btnConsultarCotizacion');
+    const idCotizacion = campo.value.trim();
+    const mostrarMensaje = texto => {
+        mensaje.textContent = texto;
+        mensaje.style.display = 'block';
+    };
+
+    if (!/^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/.test(idCotizacion)) {
+        mostrarMensaje('Ingresa un ID válido (formato GUID, por ejemplo 3F2504E0-4F89-11D3-9A0C-0305E82C3301).');
+        return;
+    }
+
+    mensaje.style.display = 'none';
+    boton.disabled = true;
+    const textoOriginal = boton.textContent;
+    boton.textContent = 'Consultando...';
+    try {
+        const respuesta = await fetch(API_CONSULTAR_COTIZACION, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ idCotizacion })
+        });
+        if (!respuesta.ok) {
+            const detalle = await respuesta.text().catch(() => '');
+            console.error(`Consulta de cotización HTTP ${respuesta.status}`, detalle);
+            throw new Error(respuesta.status === 400 ? 'La solicitud no es válida.' : 'No se encontró la cotización o el servicio no respondió.');
+        }
+        const pdf = extraerPdfDeRespuesta(await respuesta.json());
+        if (!pdf) throw new Error('La cotización no tiene un PDF almacenado.');
+
+        const url = URL.createObjectURL(base64ABlobPdf(pdf.base64));
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = /\.pdf$/i.test(pdf.nombre) ? pdf.nombre : `${pdf.nombre}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+        cerrarModalConsultarCotizacion();
+        mostrarToast('PDF de la cotización descargado correctamente.', 'success');
+    } catch (error) {
+        console.error('No fue posible consultar la cotización:', error);
+        mostrarMensaje(error.message || 'No fue posible consultar la cotización.');
+    } finally {
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+    }
+}
+
 async function descargarCotizacionPdf() {
     if (typeof html2pdf === 'undefined') {
         mostrarToast('La librería de PDF no está disponible. Verifica tu conexión e inténtalo de nuevo.', 'error');
@@ -622,9 +814,11 @@ async function descargarCotizacionPdf() {
         }));
         pdfMantenerTitulosConContenido(documentoPdf);
         try { await document.fonts.load("9pt 'FS Joey'"); } catch (error) { /* se usa la tipografía de respaldo */ }
+        const nombreArchivo = pdfNombreArchivo();
+        let documentoJsPdf = null;
         await html2pdf().set({
             margin: [PDF_MARGEN_VERTICAL_MM, 0, PDF_MARGEN_VERTICAL_MM, 0],
-            filename: pdfNombreArchivo(),
+            filename: nombreArchivo,
             image: { type: 'jpeg', quality: 0.95 },
             html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, x: 0, y: 0, width: PDF_ANCHO_PX, windowWidth: PDF_ANCHO_PX },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -632,8 +826,12 @@ async function descargarCotizacionPdf() {
         }).from(documentoPdf).toPdf().get('pdf').then(pdf => {
             pdf.setPage(1);
             pdf.addImage(PDF_ENCABEZADO_DATA_URI, 'JPEG', 0, 0, PDF_ANCHO_MM, pdfAltoEncabezadoMm());
+            documentoJsPdf = pdf;
         }).save();
         mostrarToast('Cotización PDF descargada.', 'success');
+
+        // Registra la cotización con el PDF en base64.
+        await enviarCotizacionApi(resumenCotizacion, documentoJsPdf, nombreArchivo);
     } catch (error) {
         console.error('No fue posible generar el PDF:', error);
         mostrarToast('No fue posible generar el PDF de la cotización.', 'error');

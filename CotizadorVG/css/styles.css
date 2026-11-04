@@ -2067,6 +2067,11 @@ textarea {
 }
 
 /* --- CARDS DE OPCIÓN --- */
+.landing-consulta {
+    margin-top: 28px;
+    text-align: center;
+}
+
 .landing-opciones {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
