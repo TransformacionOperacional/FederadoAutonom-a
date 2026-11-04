@@ -347,7 +347,7 @@ function construirHtmlCotizacionPdf(resumen) {
     <tr>
       <td><span class="lbl">Ciudad y fecha de cotización</span>${pdfFechaHoy()}</td>
       <td><span class="lbl">Oficina de radicación</span>${pdfTexto(oficina)}</td>
-      <td><span class="lbl">Número de póliza</span>${pdfTexto(p.numeroPoliza)}</td>
+      <td><span class="lbl">Número de póliza</span></td>
       <td><span class="lbl">Documento de identificación</span>${pdfTexto(p.numeroIdentificacion)}</td>
     </tr>
     <tr>
