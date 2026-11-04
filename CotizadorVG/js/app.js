@@ -2975,7 +2975,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
 
     const avisoComparativa = esComparativaSinCredibilidad
         ? `<section class="comparativa-credibilidad" role="status"><strong>Comparativa sin credibilidad</strong><span>Estos resultados se calculan sin usar la información de siniestros. Los datos de la póliza no se modifican.</span></section>`
-        : renderizarResumenCredibilidad();
+        : '';
 
     contenedor.innerHTML = `${avisoComparativa}${tarjetasPlanes}
         ${mostrarTasasCobertura && resumenTasaUnicaPoliza ? renderizarTablaTasaPorCobertura(
