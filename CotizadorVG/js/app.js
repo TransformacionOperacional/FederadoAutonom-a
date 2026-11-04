@@ -281,7 +281,6 @@ let estado = {
 let pasoActual = 1;
 let demoData = null;
 let aseguradoEditandoId = null;
-let confirmarRecargoAntesDeContinuar = false;
 let formaPagoPendiente = null;
 
 // Estado del flujo de negocio
@@ -1160,7 +1159,6 @@ function actualizarActividadEconomica(indice) {
     if (buscador) buscador.value = actividad.field_1 || actividad.Title || '';
     estado.poliza.actividad = actividad?.field_1 || '';
     estado.poliza.actividadDetalle = actividad;
-    renderizarRecargosActividad();
     actualizarCoberturasPorActividad();
     guardarEstado();
 
@@ -1168,32 +1166,6 @@ function actualizarActividadEconomica(indice) {
         mostrarAlertaRango('La actividad seleccionada no es asegurable.', document.getElementById('actividad'), 'Actividad no asegurable');
     }
     ocultarListaActividades();
-}
-
-function renderizarRecargosActividad() {
-    const contenedor = document.getElementById('recargosActividad');
-    const actividad = estado.poliza.actividadDetalle;
-    if (!contenedor) return;
-    if (!actividad) {
-        contenedor.hidden = true;
-        contenedor.innerHTML = '';
-        return;
-    }
-
-    const coberturas = [
-        ['Vida', 'WET'],
-        ['Invalidez o pérdida por accidente o enfermedad', 'WEZ'],
-        ['Muerte accidental', 'WE1'],
-        ['Invalidez por accidente', 'WEY']
-    ];
-    const coberturasNoAsegurables = coberturas.filter(([, codigo]) => {
-        const campo = CAMPOS_ACTIVIDAD_POR_COBERTURA[codigo];
-        return esNoAsegurableActividad(actividad[campo]);
-    });
-    contenedor.innerHTML = coberturasNoAsegurables
-        .map(([nombre]) => `<div class="recargo-actividad-item"><span>${nombre}</span><strong class="recargo-no-asegurable">No asegurable</strong></div>`)
-        .join('');
-    contenedor.hidden = coberturasNoAsegurables.length === 0;
 }
 
 function actualizarCoberturasPorActividad() {
@@ -1581,39 +1553,6 @@ function obtenerAjustesCredibilidad() {
         cacheCredibilidad.valor = valor;
     }
     return valor;
-}
-
-function mostrarConfirmacionRecargoComercial() {
-    const detalle = obtenerRecargoComercial();
-    const modal = document.getElementById('modalRecargoComercial');
-    const contenido = document.getElementById('detalleRecargoComercial');
-    if (!modal || !contenido) return;
-
-    const filas = [
-        ['Comisión', detalle.comision, 'Variable, diligenciada en la primera pestaña'],
-        ['Honorario promotora', detalle.honorarioPromotora, detalle.esPromotora ? 'Variable, diligenciado en la primera pestaña' : 'No aplica para este canal'],
-        ['Retorno', detalle.retorno, 'Fijo'],
-        ['Costo contrato', detalle.costoContrato, 'Fijo'],
-        ['IVA', detalle.iva, `Calculado: (Comisión + Honorario promotora + Retorno) × 19%`],
-        ['Gasto administrativo', detalle.gastoAdministracion, 'Fijo'],
-        ['Utilidad', detalle.utilidad, 'Fijo']
-    ];
-    contenido.innerHTML = `
-        <p>Canal comercial: <strong>${detalle.canal}</strong>. El recargo se aplicará a la prima base de cada cobertura seleccionada.</p>
-        <table class="tabla-recargo-comercial"><thead><tr><th>Concepto</th><th>Porcentaje</th><th>Cálculo</th></tr></thead>
-        <tbody>${filas.map(([concepto, porcentaje, calculo]) => `<tr><td>${concepto}</td><td>${porcentaje.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>${calculo}</td></tr>`).join('')}</tbody>
-        <tfoot><tr><td>Factor de gasto total</td><td>${detalle.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>Tasa final = Tasa base ÷ (1 − ${(detalle.total / 100).toLocaleString('es-CO', { minimumFractionDigits: 4, maximumFractionDigits: 4 })})</td></tr></tfoot></table>`;
-    modal.style.display = 'flex';
-}
-
-function cancelarConfirmacionRecargoComercial() {
-    document.getElementById('modalRecargoComercial').style.display = 'none';
-}
-
-function confirmarRecargoComercial() {
-    document.getElementById('modalRecargoComercial').style.display = 'none';
-    confirmarRecargoAntesDeContinuar = true;
-    irAlPaso(2);
 }
 
 function calcularPrimaIndividual(asegurado) {
@@ -2764,7 +2703,6 @@ function renderizarResumenCredibilidad() {
 
     // En Patronal solo se muestra la tasa única; el cálculo por cobertura es interno.
     const mostrarTasas = !esPolizaPatronal();
-    const factorGasto = obtenerRecargoComercial().total / 100;
     const encabezadoTasas = mostrarTasas
         ? '<th>Tasa teórica (‰)</th><th>Tasa real (‰)</th><th>Tasa pura con credibilidad (‰)</th><th>Tasa comercial con credibilidad (‰)</th><th>Incremento / disminución</th>'
         : '';
@@ -2782,7 +2720,7 @@ function renderizarResumenCredibilidad() {
         ? 'Siniestralidad detallada por cobertura: cada grupo se distribuye entre sus coberturas según su siniestralidad esperada.'
         : 'Solo siniestralidad total: se distribuye entre Vida, ITP y Enfermedades graves según su siniestralidad esperada; las Rentas conservan el cálculo teórico.';
     const nota = mostrarTasas
-        ? `Tasa comercial = tasa pura con credibilidad ÷ (1 − ${formatearPorcentaje(factorGasto)}). Las coberturas sin credibilidad conservan su tasa teórica.`
+        ? 'Las tasas con credibilidad incluyen el ajuste comercial correspondiente. Las coberturas sin credibilidad conservan su tasa teórica.'
         : 'Los cálculos por cobertura se realizan internamente; en pólizas Patronales solo se presenta la tasa única.';
 
     return `<section class="calculos-plan-card">
@@ -3390,12 +3328,8 @@ function actualizarCamposComerciales() {
 }
 
 function actualizarFactorGasto() {
-    const campo = document.getElementById('factorGasto');
     const detalle = obtenerRecargoComercial();
     estado.poliza.factorGasto = detalle.total;
-    if (campo) {
-        campo.value = `${detalle.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
-    }
     renderizarTablaCalculos();
 }
 
@@ -3413,8 +3347,6 @@ function setupEventListeners() {
             if (i === 1) {
                 if (!validarActividadAsegurable()) return;
                 if (!validarSiniestralidadRequerida()) return;
-                mostrarConfirmacionRecargoComercial();
-                return;
             }
             irAlPaso(i + 1);
         });
@@ -3677,6 +3609,7 @@ function seleccionarTipoNegocio(tipo) {
     if (tipo === 'nuevo') {
         seleccionarSubtipo('cotizacion');
     } else {
+        reiniciarDatosCotizacion();
         mostrarSoloPantalla('pantalla-renovacion');
         document.getElementById('tipoDocBusqueda').value = '';
         document.getElementById('numDocBusqueda').value = '';
@@ -3688,10 +3621,22 @@ function seleccionarTipoNegocio(tipo) {
 
 function seleccionarSubtipo(subtipo) {
     flujo.subtipo = subtipo;
-    // Reiniciar datos cada vez que se inicia un flujo nuevo desde cero
+    reiniciarDatosCotizacion();
+    mostrarWizard();
+    cargarActividadesEconomicas();
+}
+
+function reiniciarDatosCotizacion() {
+    const formulario = document.getElementById('formPoliza');
+    formulario?.reset();
+    formulario?.querySelectorAll('.campo-invalido').forEach(campo => campo.classList.remove('campo-invalido'));
+    consultaAsesorEnCurso++;
+    ultimoCodigoAsesorConsultado = '';
+    pasoActual = 1;
     estado.asegurados = [];
     estado.subgrupos  = [];
     estado.planes     = [];
+    coberturasDisponibles = [...catalogoCoberturasCompleto];
     estado.coberturasCatalogo = crearCatalogoInicial();
     estado.poliza = {
         id: generarUUID(),
@@ -3712,8 +3657,8 @@ function seleccionarSubtipo(subtipo) {
     limpiarDatosAsesor(true);
     actualizarAplicacionCredibilidad(true);
     actualizarSiniestralidad(true);
-    mostrarWizard();
-    cargarActividadesEconomicas();
+    ocultarListaActividades();
+    guardarEstado();
 }
 
 function volverAlLanding() {
@@ -4074,6 +4019,8 @@ function seleccionarPolizaRenovacion(indice) {
 
     // Poblar los campos del formulario DOM con los datos de la póliza seleccionada
     setTimeout(() => {
+        if (flujo.tipo !== 'renovacion' || flujo.polizaSeleccionada !== poliza) return;
+
         const campos = {
             tomador:              estado.poliza.tomador,
             tipoIdentificacion:   estado.poliza.tipoIdentificacion,
@@ -4611,9 +4558,16 @@ async function descargarPlantillaExcel() {
 /* ---- Header: botón Menú Inicio ---- */
 
 function irAlMenuInicio() {
-    if (confirm('¿Deseas volver al menú de inicio? Los datos actuales se conservarán.')) {
-        mostrarSoloPantalla('pantalla-landing');
-    }
+    document.getElementById('modalConfirmarMenuInicio').style.display = 'flex';
+}
+
+function cerrarConfirmacionMenuInicio() {
+    document.getElementById('modalConfirmarMenuInicio').style.display = 'none';
+}
+
+function confirmarMenuInicio() {
+    cerrarConfirmacionMenuInicio();
+    mostrarSoloPantalla('pantalla-landing');
 }
 
 /* ============================================================
@@ -6776,11 +6730,6 @@ function asignarPlanesPorRangoValidado() {
 function irAlPaso(numero) {
     if (numero < 1 || numero > 7) return;
     if (numero === 2 && pasoActual === 1 && !validarSiniestralidadRequerida()) return;
-    if (numero === 2 && pasoActual === 1 && !confirmarRecargoAntesDeContinuar) {
-        mostrarConfirmacionRecargoComercial();
-        return;
-    }
-    confirmarRecargoAntesDeContinuar = false;
     if (numero === 3 && !validarValoresMinimosParaCotizar()) return;
     if (numero === 5 && !validarAseguradosAsignadosParaCalculos()) return;
 
