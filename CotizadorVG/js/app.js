@@ -5436,29 +5436,28 @@ function sumarDiasISO(fechaISO, dias) {
 function sincronizarVigencia(campoModificado, valor) {
     if (!valor) return;
     const esDesde = campoModificado === 'vigenciaDesde';
-    const campoOpuesto = esDesde ? 'vigenciaHasta' : 'vigenciaDesde';
     const hoy = obtenerFechaActualISO();
-
-    if (esDesde && valor < hoy) {
-        const inputDesde = document.getElementById('vigenciaDesde');
-        if (inputDesde) {
-            inputDesde.value = hoy;
-            inputDesde.min = hoy;
-        }
-        estado.poliza.vigenciaDesde = hoy;
-        return;
+    const fechaMinimaDesde = sumarDiasISO(hoy, -60);
+    let fechaDesde = valor;
+    if (!esDesde) {
+        fechaDesde = desplazarAnioFecha(valor, -1);
     }
+    if (fechaDesde < fechaMinimaDesde) fechaDesde = fechaMinimaDesde;
+    const fechaHasta = esDesde ? desplazarAnioFecha(fechaDesde, 1) : valor;
+    if (!fechaDesde || !fechaHasta) return;
 
-    const fechaOpuesta = desplazarAnioFecha(valor, esDesde ? 1 : -1);
-    if (!fechaOpuesta) return;
-
-    const input = document.getElementById(campoOpuesto);
-    if (input) {
-        input.value = fechaOpuesta;
-        input.min = esDesde ? valor : hoy;
+    const inputDesde = document.getElementById('vigenciaDesde');
+    const inputHasta = document.getElementById('vigenciaHasta');
+    if (inputDesde) {
+        inputDesde.min = fechaMinimaDesde;
+        inputDesde.value = fechaDesde;
     }
-    estado.poliza[campoModificado] = valor;
-    estado.poliza[campoOpuesto] = fechaOpuesta;
+    if (inputHasta) {
+        inputHasta.value = fechaHasta;
+        inputHasta.min = fechaDesde;
+    }
+    estado.poliza.vigenciaDesde = fechaDesde;
+    estado.poliza.vigenciaHasta = fechaHasta;
     guardarEstado();
 }
 
@@ -5484,8 +5483,9 @@ function establecerFechasDefault() {
     const inputValidezOferta = document.getElementById('validezOferta');
 
     if (inputDesde) {
-        inputDesde.min = hoje;
-        if (!estado.poliza.vigenciaDesde || estado.poliza.vigenciaDesde < hoje) {
+        const fechaMinimaDesde = sumarDiasISO(hoje, -60);
+        inputDesde.min = fechaMinimaDesde;
+        if (!estado.poliza.vigenciaDesde || estado.poliza.vigenciaDesde < fechaMinimaDesde) {
             inputDesde.value = hoje;
             estado.poliza.vigenciaDesde = hoje;
         } else {

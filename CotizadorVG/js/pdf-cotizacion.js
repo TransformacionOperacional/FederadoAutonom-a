@@ -521,7 +521,7 @@ function construirHtmlCotizacionPdf(resumen) {
   <table class="t-cg">
     <tr><th colspan="4" class="cab1">DATOS DE LAS CONDICIONES GENERALES APLICABLES</th></tr>
     <tr><th class="cab2">Solución</th><th class="cab2">Fecha a partir de la cual se utiliza</th><th class="cab2">Ramo al que pertenece</th><th class="cab2">Identificación de la proforma</th></tr>
-    <tr><td>${pdfTexto('Vida Integral')}</td><td>${pdfTexto(pdfFecha(p.vigenciaDesde))}</td><td>${pdfTexto('083')}</td><td>${pdfTexto('La proforma del clausulado')}</td></tr>
+    <tr><td>${pdfTexto('Vida Integral')}</td><td>${pdfTexto(pdfFecha(p.vigenciaDesde))}</td><td>${pdfTexto('083')}</td><td>${pdfTexto('F-14-11-0083-461')}</td></tr>
   </table>
 
   <h2>Pago de las primas:</h2>
