@@ -4,9 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cotizador Vida Grupo - Seguros SURA</title>
+    <script>document.documentElement.classList.add('auth-pending');</script>
+    <script src="js/auth-guard.js"></script>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- Indicador mientras se valida la sesión -->
+    <div class="auth-loading" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Validando credenciales…</p>
+    </div>
+
     <!-- Header corporativo -->
     <header class="header">
         <div class="header-content">
@@ -16,6 +24,7 @@
             <div class="header-info">
                 <button class="btn-menu-inicio" onclick="irAlMenuInicio()" title="Volver al menú de inicio">&#8962; Inicio</button>
                 <button class="btn-icon" id="btnAyuda" title="Ayuda">?</button>
+                <button class="logout-btn" type="button" onclick="CotizadorVGAuth.cerrarSesion()">Cerrar sesión</button>
                 <img src="assets/images/logo-sura.png" class="header-logo" alt="SURA">
             </div>
         </div>
@@ -29,7 +38,7 @@
     <div id="pantalla-landing" class="pantalla-inicial">
         <div class="landing-hero">
             <img src="assets/images/logo-sura.png" class="landing-logo-img" alt="Seguros SURA">
-            <h1 class="landing-titulo">Cotizador Vida Integral</h1>
+            <h1 class="landing-titulo" id="saludoUsuario">Cotizador Vida Integral</h1>
             <p class="landing-subtitulo">¿Qué tipo de negocio vas a gestionar?</p>
         </div>
         <div class="landing-opciones">

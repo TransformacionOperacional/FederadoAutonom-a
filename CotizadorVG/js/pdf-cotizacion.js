@@ -622,6 +622,7 @@ function construirPayloadCotizacion(resumen, pdfBase64, nombreArchivo) {
         idCotizacion: p.id,
         tipoNegocio: flujo.tipo,
         subtipo: flujo.subtipo,
+        usuarioCreacion: window.CotizadorVGAuth?.obtenerUsuario()?.correo,
 
         tipoIdentificacion: p.tipoIdentificacion,
         numeroIdentificacion: p.numeroIdentificacion,

@@ -51,6 +51,35 @@ html, body {
     height: 100%;
 }
 
+html.auth-pending body {
+    visibility: hidden;
+}
+
+.auth-loading {
+    display: none;
+}
+
+html.auth-pending .auth-loading {
+    visibility: visible;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 12% 10%, rgba(0, 170, 236, .26), transparent 28%), linear-gradient(135deg, #eef5ff, #c8d9f2);
+    color: #406080;
+    font-size: .95rem;
+}
+
+html.auth-pending .auth-loading .spinner {
+    width: 44px;
+    height: 44px;
+    border-color: rgba(45, 109, 246, .2);
+    border-top-color: #2D6DF6;
+}
+
 body {
     font-family: var(--font-family-base);
     font-size: 16px;
@@ -157,6 +186,24 @@ textarea {
 .btn-menu-inicio:focus-visible {
     outline: 3px solid rgba(45, 109, 246, 0.35);
     outline-offset: 3px;
+}
+
+.logout-btn {
+    padding: 0.5rem 0.85rem;
+    border: 1px solid #2D6DF6;
+    border-radius: 9px;
+    color: #2D6DF6;
+    background: #FFFFFF;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.logout-btn:hover {
+    background: #DFEAFF;
+    transform: translateY(-1px);
 }
 
 .header-logo {
