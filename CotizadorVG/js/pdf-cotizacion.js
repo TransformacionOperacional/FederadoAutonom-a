@@ -339,6 +339,10 @@ function construirHtmlCotizacionPdf(resumen) {
     const companiaContinuidad = p.esContinuidad === true
         ? pdfTexto(p.companiaAnterior)
         : 'XXXXXX';
+    const textoCondicionesEspeciales = String(p.condicionesEspeciales || '');
+    const contenidoCondicionesEspeciales = textoCondicionesEspeciales.trim()
+        ? escaparHTML(textoCondicionesEspeciales).replace(/\r\n?|\n/g, '<br>')
+        : '&nbsp;';
     const validezTexto = validez
         ? `la presente cotización tiene validez hasta el ${escaparHTML(validez)}.`
         : 'la presente cotización tiene validez hasta el día XX del mes de XXXX de 20XX.';
@@ -509,7 +513,7 @@ function construirHtmlCotizacionPdf(resumen) {
   <p>ARTÍCULO 1160. IMPOSIBILIDAD DE REDUCCIÓN DEL VALOR DEL SEGURO. Transcurridos dos años en vida del asegurado, desde la fecha del perfeccionamiento del contrato, el valor del seguro de vida no podrá ser reducido por causa de error en la declaración de asegurabilidad.</p>
 
   <h2>Otras condiciones especiales:</h2>
-  <div class="caja-otras">&nbsp;</div>
+  <div class="caja-otras">${contenidoCondicionesEspeciales}</div>
 
   <table class="t-asesores" style="margin-top:24px;">
     <colgroup><col style="width:16%"><col style="width:30%"><col style="width:16%"><col style="width:17%"><col style="width:21%"></colgroup>

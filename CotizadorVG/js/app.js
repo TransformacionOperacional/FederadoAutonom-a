@@ -242,6 +242,7 @@ let estado = {
         oficina: '',
         formaPago: 'Anual',
         tipoPagoMensual: 'Vencida',
+        condicionesEspeciales: '',
         esContinuidad: false,
         numeroPolizaAnterior: '',
         companiaAnterior: '',
@@ -368,6 +369,7 @@ function cargarEstado() {
             estado.poliza.modalidadPlan = estado.poliza.modalidadPlan || 'Voluntaria (Contributiva)';
             estado.poliza.tipoPagoMensual = estado.poliza.tipoPagoMensual
                 || (estado.poliza.pagoMensualAnticipado === true ? 'Anticipada' : 'Vencida');
+            estado.poliza.condicionesEspeciales = String(estado.poliza.condicionesEspeciales || '');
             estado.poliza.esContinuidad = estado.poliza.esContinuidad === true;
             estado.poliza.numeroPolizaAnterior = String(estado.poliza.numeroPolizaAnterior || '');
             estado.poliza.companiaAnterior = String(estado.poliza.companiaAnterior || '');
@@ -2707,6 +2709,15 @@ function renderizarSeccionContinuidad() {
     </section>`;
 }
 
+function renderizarCampoCondicionesEspeciales() {
+    return `<section class="fraccionamiento-resumen condiciones-especiales-resumen" aria-labelledby="tituloCondicionesEspeciales">
+        <header><strong id="tituloCondicionesEspeciales">Condiciones Especiales</strong><span>Registra las condiciones particulares de esta cotización</span></header>
+        <div class="form-group">
+            <textarea id="condicionesEspeciales" aria-label="Condiciones Especiales" rows="4" placeholder="Escribe aquí las condiciones especiales">${escaparHTML(estado.poliza.condicionesEspeciales)}</textarea>
+        </div>
+    </section>`;
+}
+
 function actualizarVisibilidadCamposContinuidad() {
     const visible = estado.poliza.esContinuidad === true;
     const campos = document.getElementById('camposContinuidad');
@@ -3120,6 +3131,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
         <p class="fraccionamiento-resultado">${obtenerDescripcionFormaPago()}: <strong>${formatearDinero(primaSegunFormaPago)}</strong>.</p>
     </section>`);
+    contenedor.insertAdjacentHTML('beforeend', renderizarCampoCondicionesEspeciales());
     contenedor.insertAdjacentHTML('beforeend', renderizarSeccionContinuidad());
     if (estado.poliza.aplicaCredibilidad === true) {
         contenedor.insertAdjacentHTML('beforeend', `<section class="comparativa-credibilidad-acciones">
@@ -3571,6 +3583,11 @@ function setupEventListeners() {
         }
     });
     document.addEventListener('input', evento => {
+        if (evento.target.matches('#condicionesEspeciales')) {
+            estado.poliza.condicionesEspeciales = evento.target.value;
+            guardarEstado();
+            return;
+        }
         if (!evento.target.matches('#numeroPolizaAnterior, #companiaAnterior')) return;
         estado.poliza[evento.target.id] = evento.target.value;
         evento.target.classList.remove('campo-invalido');
@@ -3847,6 +3864,7 @@ function reiniciarDatosCotizacion() {
         modalidadPlan: 'Patronal (No Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         actividadDetalle: null,
         oficina: '', formaPago: 'Anual', tipoPagoMensual: 'Vencida', fechaCobro: '',
+        condicionesEspeciales: '',
         esContinuidad: false, numeroPolizaAnterior: '', companiaAnterior: '',
         numeroPoliza: '', segmento: '', direccionCorrespondencia: '', validezOferta: '',
         comision: 20, retorno: 0, honorarioPromotora: 10,
