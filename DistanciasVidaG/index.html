@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablero Suscripción Vida Grupo | SURA</title>
+  <script>document.documentElement.classList.add('auth-pending');</script>
+  <script src="assets/js/auth-guard.js"></script>
+  
+  <!-- Librerías externas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+  
+  <!-- Estilos locales -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ====== ENCABEZADO ====== -->
+  <div class="top-bar">
+    <button class="logout-btn" type="button" onclick="DistanciasVidaGAuth.cerrarSesion()">Cerrar sesión</button>
+  </div>
+  <div class="hero-card">
+    <img class="hero-logo" src="logo-sura-azul-nuevo.png" alt="SURA">
+    <h1>Tablero Suscripción Vida Grupo</h1>
+    <p>
+      Seguimiento ejecutivo de suficiencia comercial: prima actual, prima sugerida,
+      brecha técnica, tasa comercial promedio y ranking regional.
+    </p>
+    <p id="data-cutoff-date" class="hero-cutoff-date" hidden></p>
+  </div>
+
+  <!-- ====== ESTADO DE CARGA ====== -->
+  <div id="loading" class="alert alert-info" style="text-align: center;">
+    <div class="spinner" style="display: inline-block; margin-right: 0.5rem;"></div>
+    <strong>Consultando información de pólizas vigentes...</strong>
+    <div style="font-size: 0.9rem; margin-top: 0.5rem;">
+      Por favor espera un momento
+    </div>
+  </div>
+
+  <div id="content" style="display: none;">
+
+    <!-- ====== FILTROS ====== -->
+    <div class="filters-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 class="filters-title">Filtros</h2>
+        <div class="filters-actions">
+          <button class="btn btn-reset" onclick="resetFilters()">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-wrap">
+          <label for="filter_poliza">Número de póliza</label>
+          <select id="filter_poliza" multiple placeholder="Selecciona póliza..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_tomador">Tomador</label>
+          <select id="filter_tomador" multiple placeholder="Selecciona tomador..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_exclusion_tomador">Exclusión Tomador</label>
+          <select id="filter_exclusion_tomador" multiple placeholder="Selecciona tomadores a excluir..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_regional">Regional</label>
+          <select id="filter_regional" multiple placeholder="Selecciona regional..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_canal">Canal</label>
+          <select id="filter_canal" multiple placeholder="Selecciona canal..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_clasificacion">Clasificación Asegurados</label>
+          <select id="filter_clasificacion" multiple placeholder="Selecciona clasificación..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_depurar_polizas">Exclusión innominadas</label>
+          <select id="filter_depurar_polizas" multiple placeholder="Excluye por cantidad de asegurados..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_director">Director Comercial</label>
+          <select id="filter_director" multiple placeholder="Selecciona director..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_asesor_corredor">Asesor/Corredor</label>
+          <select id="filter_asesor_corredor" multiple placeholder="Selecciona asesor..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_oficina">Oficina</label>
+          <select id="filter_oficina" multiple placeholder="Selecciona oficina..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_producto">Producto</label>
+          <select id="filter_producto" multiple placeholder="Selecciona producto..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_nueva_o_renovada">Nueva o renovada</label>
+          <select id="filter_nueva_o_renovada" multiple placeholder="Selecciona tipo..."></select>
+        </div>
+        <div class="filter-wrap">
+          <label for="filter_estado_tecnico">Estado Técnico</label>
+          <select id="filter_estado_tecnico" multiple placeholder="Selecciona estado..."></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== GRÁFICO PRINCIPAL Y MÉTRICAS ====== -->
+    <div class="two-col">
+      <div class="card">
+        <h3 class="card-title">Prima actual vs prima sugerida</h3>
+        <p class="card-subtitle">Valores en <span id="unit-label">miles de pesos</span>.</p>
+        <div class="chart-container">
+          <canvas id="chartComparison"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Información general</h3>
+        <p class="card-subtitle">Valores monetarios en <span id="unit-label2">miles de pesos</span>.</p>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Pólizas</div>
+            <div class="metric-value" id="metric-polizas">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Asegurados</div>
+            <div class="metric-value" id="metric-asegurados">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">TC actual prom.</div>
+            <div class="metric-value" id="metric-tc-actual" style="font-size: 1.2rem;">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">TC sugerida prom.</div>
+            <div class="metric-value" id="metric-tc-sugerida" style="font-size: 1.2rem;">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Cumplimiento TC</div>
+            <div class="metric-value" id="metric-cumplimiento-tc" style="font-size: 1.2rem;">0%</div>
+            <div class="metric-caption">TC actual prom. / TC sugerida prom.</div>
+          </div>
+          <div class="metric-card bad" id="metric-brecha-deficit-card">
+            <div class="metric-label">Brecha en déficit</div>
+            <div class="metric-value" id="metric-brecha-deficit">0</div>
+            <div class="metric-caption" id="metric-brecha-deficit-caption">—</div>
+            <div class="metric-caption" id="metric-brecha-deficit-polizas">0 pólizas</div>
+          </div>
+          <div class="metric-card good" id="metric-brecha-superavit-card">
+            <div class="metric-label">Brecha en superávit</div>
+            <div class="metric-value" id="metric-brecha-superavit">0</div>
+            <div class="metric-caption" id="metric-brecha-superavit-caption">—</div>
+            <div class="metric-caption" id="metric-brecha-superavit-polizas">0 pólizas</div>
+          </div>
+          <div class="metric-card" id="metric-brecha-card">
+            <div class="metric-label">Brecha total</div>
+            <div class="metric-value" id="metric-brecha">0</div>
+            <div class="metric-caption" id="metric-brecha-caption">—</div>
+            <div class="metric-caption" id="metric-brecha-polizas">0 pólizas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== RANKINGS ====== -->
+    <div class="card">
+      <h3 class="card-title">Rankings comparativos</h3>
+      <p class="card-subtitle">Ordenados por brecha: prima actual menos prima sugerida. De mejor a peor desempeño.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this, 'regional')">Por Regional</button>
+        <button class="tab-btn" onclick="switchTab(this, 'canal')">Por Canal</button>
+        <button class="tab-btn" onclick="switchTab(this, 'director')">Por Director</button>
+        <button class="tab-btn" onclick="switchTab(this, 'asesor')">Por Asesor/Corredor</button>
+        <button class="tab-btn" onclick="switchTab(this, 'oficina')">Por Oficina</button>
+        <button class="tab-btn" onclick="switchTab(this, 'producto')">Por Producto</button>
+      </div>
+
+      <div id="ranking-regional" class="tab-content active">
+        <div class="table-container">
+          <table id="table-regional">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-canal" class="tab-content">
+        <div class="table-container">
+          <table id="table-canal">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-director" class="tab-content">
+        <div class="table-container">
+          <table id="table-director">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-asesor" class="tab-content">
+        <div class="table-container">
+          <table id="table-asesor">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-oficina" class="tab-content">
+        <div class="table-container">
+          <table id="table-oficina">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ranking-producto" class="tab-content">
+        <div class="table-container">
+          <table id="table-producto">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== EVOLUCIÓN DE TASAS ====== -->
+    <div class="card timeline-card">
+      <div class="timeline-heading">
+        <div>
+          <h3 class="card-title">Evolución de tasas comerciales</h3>
+          <p class="card-subtitle">Comparativo mensual ponderado para el ciclo anual de renovación vigente. Selecciona un punto para filtrar el tablero por mes.</p>
+        </div>
+        <div class="timeline-legend" aria-label="Series de la gráfica">
+          <span><i class="legend-dot actual"></i>TC actual prom.</span>
+          <span><i class="legend-dot sugerida"></i>TC sugerida prom.</span>
+        </div>
+      </div>
+      <div id="timeline-empty" class="timeline-empty" hidden>
+        No hay fecha de inicio de primera vigencia disponible para construir la línea de tiempo.
+      </div>
+      <div id="timeline-chart-container" class="timeline-chart-container">
+        <canvas id="chartRateTimeline"></canvas>
+      </div>
+      <div id="timeline-filter-status" class="timeline-filter-status" hidden>
+        <span id="timeline-filter-label"></span>
+        <button type="button" class="btn btn-reset timeline-reset" onclick="clearTimelineFilter()">Limpiar mes</button>
+      </div>
+    </div>
+
+    <!-- ====== TOP PÓLIZAS ====== -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">
+        <span>Top pólizas con mayor déficit</span>
+        <span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-content">
+        <div style="margin-bottom: 1rem;">
+          <label for="top-n-slider">Número de pólizas a mostrar:</label>
+          <input type="range" id="top-n-slider" min="5" max="50" step="5" value="15" 
+                 oninput="updateTopDeficit(this.value)" style="width: 100%; max-width: 300px;">
+          <span id="top-n-value" style="margin-left: 1rem;">15</span>
+        </div>
+        <div class="table-container">
+          <table id="table-top-deficit">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== DESCARGAR ====== -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">
+        <span>Descargar detalle filtrado</span>
+        <span class="expander-arrow">▼</span>
+      </div>
+      <div class="expander-content">
+        <p style="margin-bottom: 1rem; color: var(--text-muted);">
+          Descarga el detalle completo de los datos filtrados en formato CSV con separador ";" 
+          y punto decimal ",".
+        </p>
+        <button class="btn btn-primary" onclick="downloadCSV()">
+          ⬇️ Descargar detalle filtrado CSV
+        </button>
+        <div class="table-container" style="margin-top: 1rem;">
+          <table id="table-detail-preview">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- fin #content -->
+
+</div> <!-- fin .container -->
+
+<!-- Scripts -->
+<script src="engine.js"></script>
+<script>
+// ====== VARIABLES GLOBALES ====== 
+let filteredData = [];
+let currentMetrics = {};
+let moneyUnit = { divisor: 1000, suffix: " mil", label: "Miles COP", fullLabel: "miles de pesos" };
+let chartComparison = null;
+let chartRateTimeline = null;
+let timelineData = [];
+let selectedTimelinePeriod = null;
+const rankingSortState = {};
+let topDeficitSortState = null;
+
+const comparisonValueLabels = {
+  id: 'comparisonValueLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const dataset = chart.data.datasets[0];
+    const meta = chart.getDatasetMeta(0);
+
+    ctx.save();
+    ctx.fillStyle = '#0033A0';
+    ctx.font = '700 12px Segoe UI, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    meta.data.forEach((bar, index) => {
+      const value = dataset.data[index] || 0;
+      ctx.fillText(
+        window.tableEngine.formatMoney(value * moneyUnit.divisor, moneyUnit),
+        bar.x,
+        bar.y - 8
+      );
+    });
+
+    ctx.restore();
+  },
+};
+
+// ====== INICIALIZACIÓN ====== 
+document.addEventListener('DOMContentLoaded', async () => {
+  const loaded = await window.tableEngine.loadData();
+  
+  if (!loaded) {
+    document.getElementById('loading').innerHTML = 
+      `<div class="alert alert-error">
+        <strong>❌ Error de conexión</strong><br>
+        <div style="margin-top: 0.5rem; font-size: 0.9rem;">
+          No se pudieron cargar los datos desde Power Automate API.<br>
+          <br>
+          <strong>Verifica que:</strong><br>
+          ✓ El servidor está corriendo: <code>python serve.py</code><br>
+          ✓ La API es accesible<br>
+          ✓ Las credenciales son correctas<br>
+          <br>
+          Abre la consola (F12) para ver más detalles del error.
+        </div>
+      </div>`;
+    return;
+  }
+
+  initializeFilters();
+  updateCutoffDate();
+  updateDashboard();
+  
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+});
+
+// ====== FILTROS ====== 
+function initializeFilters() {
+  // Esta función ahora solo se encarga de hacer el llamado a engine.js
+  // engine.js maneja TODO: Tom Select + lógica de filtros
+  console.log("✅ Inicializando sistema de filtros desde index.html...");
+  
+  // No hacer nada más aquí - engine.js ya hizo todo en loadData()
+  console.log("✅ Filtros y listeners listos");
+}
+
+function updateCutoffDate() {
+  const cutoffElement = document.getElementById('data-cutoff-date');
+  const cutoffDate = window.tableEngine?.getLatestCutoffDate?.();
+  if (!cutoffElement || !cutoffDate) return;
+
+  const formattedDate = new Intl.DateTimeFormat('es-CO', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(cutoffDate);
+
+  cutoffElement.textContent = `Información actualizada al ${formattedDate}`;
+  cutoffElement.hidden = false;
+}
+
+function setupFilterListeners() {
+  const filterFields = ['poliza', 'tomador', 'exclusion_tomador', 'regional', 'canal', 'clasificacion', 'depurar_polizas', 'director', 'asesor_corredor', 'oficina', 'producto', 'nueva_o_renovada', 'estado_tecnico'];
+  
+  filterFields.forEach(field => {
+    const select = document.getElementById(`filter_${field}`);
+    if (select) {
+      select.addEventListener('change', updateDashboard);
+    }
+  });
+}
+
+function getFilterSelections() {
+  const getValues = (selectId) => {
+    const select = document.getElementById(selectId);
+    if (!select) return '';
+
+    if (select.tomselect) {
+      return select.tomselect.items.join(',');
+    }
+
+    return select.value || '';
+  };
+
+  return {
+    poliza: getValues('filter_poliza'),
+    tomador: getValues('filter_tomador'),
+    exclusion_tomador: getValues('filter_exclusion_tomador'),
+    regional: getValues('filter_regional'),
+    canal: getValues('filter_canal'),
+    clasificacion: getValues('filter_clasificacion'),
+    depurar_polizas: getValues('filter_depurar_polizas'),
+    director: getValues('filter_director'),
+    asesor_corredor: getValues('filter_asesor_corredor'),
+    oficina: getValues('filter_oficina'),
+    producto: getValues('filter_producto'),
+    nueva_o_renovada: getValues('filter_nueva_o_renovada'),
+    estado_tecnico: getValues('filter_estado_tecnico'),
+  };
+}
+
+function resetFilters() {
+  if (window.tableEngine?.resetFilterSelections) {
+    window.tableEngine.resetFilterSelections();
+  } else {
+    ['poliza', 'tomador', 'exclusion_tomador', 'regional', 'canal', 'clasificacion', 'depurar_polizas', 'director', 'asesor_corredor', 'oficina', 'producto', 'nueva_o_renovada', 'estado_tecnico']
+      .forEach(field => {
+        const select = document.getElementById(`filter_${field}`);
+        if (select) {
+          if (select.tomselect) {
+            select.tomselect.clear(true);
+          } else {
+            select.value = '';
+          }
+          select.dispatchEvent(new Event('change'));
+        }
+      });
+  }
+  updateDashboard();
+}
+
+// ====== ACTUALIZAR DASHBOARD ====== 
+window.updateDashboard = function updateDashboard() {
+  const selections = getFilterSelections();
+  const selectionObj = {
+    poliza: selections.poliza ? selections.poliza.split(',') : [],
+    tomador: selections.tomador ? selections.tomador.split(',') : [],
+    exclusion_tomador: selections.exclusion_tomador ? selections.exclusion_tomador.split(',') : [],
+    regional: selections.regional ? selections.regional.split(',') : [],
+    canal: selections.canal ? selections.canal.split(',') : [],
+    clasificacion: selections.clasificacion ? selections.clasificacion.split(',') : [],
+    depurar_polizas: selections.depurar_polizas ? selections.depurar_polizas.split(',') : [],
+    director: selections.director ? selections.director.split(',') : [],
+    asesor_corredor: selections.asesor_corredor ? selections.asesor_corredor.split(',') : [],
+    oficina: selections.oficina ? selections.oficina.split(',') : [],
+    producto: selections.producto ? selections.producto.split(',') : [],
+    nueva_o_renovada: selections.nueva_o_renovada ? selections.nueva_o_renovada.split(',') : [],
+    estado_tecnico: selections.estado_tecnico ? selections.estado_tecnico.split(',') : [],
+  };
+
+  timelineData = window.tableEngine.filterData(selectionObj);
+
+  if (selectedTimelinePeriod && !timelineData.some(row => row.periodo === selectedTimelinePeriod)) {
+    selectedTimelinePeriod = null;
+  }
+
+  filteredData = selectedTimelinePeriod
+    ? timelineData.filter(row => row.periodo === selectedTimelinePeriod)
+    : timelineData;
+
+  if (filteredData.length === 0) {
+    document.getElementById('content').innerHTML = 
+      '<div class="alert alert-warning"><strong>Sin datos:</strong> Los filtros seleccionados no devuelven resultados.</div>';
+    return;
+  }
+
+  // Cálculos
+  currentMetrics = window.tableEngine.calculateMetrics(filteredData);
+  moneyUnit = window.tableEngine.chooseMoneUnit([
+    currentMetrics.primActualTotal,
+    currentMetrics.primSugeridaTotal,
+    currentMetrics.brechaTotal,
+  ]);
+
+  // Actualizar UI
+  updateMetrics();
+  updateCharts();
+  updateRankings();
+  updateTopDeficit(15);
+};
+
+// ====== MÉTRICAS ====== 
+function updateMetrics() {
+  document.getElementById('metric-polizas').textContent = 
+    window.tableEngine.formatInt(currentMetrics.polizasTotal);
+  document.getElementById('metric-asegurados').textContent = 
+    window.tableEngine.formatInt(currentMetrics.aseguradosTotal);
+  document.getElementById('metric-tc-actual').textContent = 
+    window.tableEngine.formatRate(currentMetrics.tcActualProm);
+  document.getElementById('metric-tc-sugerida').textContent = 
+    window.tableEngine.formatRate(currentMetrics.tcSugeridaProm);
+  document.getElementById('metric-cumplimiento-tc').textContent = 
+    `${window.tableEngine.formatDecimal(currentMetrics.cumplimientoTc * 100, 2)}%`;
+
+  const brechaValue = currentMetrics.brechaTotal;
+  document.getElementById('metric-brecha').textContent = 
+    window.tableEngine.formatMoney(brechaValue, moneyUnit);
+  document.getElementById('metric-brecha-caption').textContent = moneyUnit.fullLabel;
+
+  const brechaCard = document.getElementById('metric-brecha-card');
+  brechaCard.classList.remove('good', 'bad');
+  brechaCard.classList.add(brechaValue >= 0 ? 'good' : 'bad');
+
+  document.getElementById('metric-brecha-deficit').textContent = 
+    window.tableEngine.formatMoney(currentMetrics.brechaDeficit, moneyUnit);
+  document.getElementById('metric-brecha-deficit-caption').textContent = moneyUnit.fullLabel;
+  document.getElementById('metric-brecha-deficit-polizas').textContent = 
+    `${window.tableEngine.formatInt(currentMetrics.polizasDeficit)} pólizas`;
+  document.getElementById('metric-brecha-superavit').textContent = 
+    window.tableEngine.formatMoney(currentMetrics.brechaSuperavit, moneyUnit);
+  document.getElementById('metric-brecha-superavit-caption').textContent = moneyUnit.fullLabel;
+  document.getElementById('metric-brecha-superavit-polizas').textContent = 
+    `${window.tableEngine.formatInt(currentMetrics.polizasSuperavit)} pólizas`;
+  document.getElementById('metric-brecha-polizas').textContent = 
+    `${window.tableEngine.formatInt(currentMetrics.polizasTotal)} pólizas`;
+
+  // Actualizar etiquetas de unidad
+  document.querySelectorAll('#unit-label, #unit-label2, #unit-label3').forEach(el => {
+    el.textContent = moneyUnit.fullLabel;
+  });
+}
+
+// ====== GRÁFICOS ====== 
+// Las líneas guía horizontales solo se muestran mientras el cursor está sobre un punto/barra
+const hoverGridColor = ctx => ctx.chart.$showGrid ? '#E4EAF6' : 'transparent';
+const hoverGridPlugin = {
+  id: 'hoverGrid',
+  afterEvent(chart, args) {
+    const show = args.inChartArea && chart.getActiveElements().length > 0;
+    if (!!chart.$showGrid === show) return;
+    chart.$showGrid = show;
+    chart.update('none');
+  },
+};
+
+function updateCharts() {
+  updateComparisonChart();
+  updateRateTimelineChart();
+}
+
+function updateComparisonChart() {
+  const ctx = document.getElementById('chartComparison')?.getContext('2d');
+  if (!ctx) return;
+
+  if (chartComparison) chartComparison.destroy();
+
+  chartComparison = new Chart(ctx, {
+    type: 'bar',
+    plugins: [comparisonValueLabels, hoverGridPlugin],
+    data: {
+      labels: ['Prima actual', 'Prima sugerida'],
+      datasets: [{
+        label: 'Valor',
+        data: [
+          currentMetrics.primActualTotal / moneyUnit.divisor,
+          currentMetrics.primSugeridaTotal / moneyUnit.divisor,
+        ],
+        backgroundColor: ['#0033A0', '#5B93FF'],
+        borderRadius: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => window.tableEngine.formatMoney(context.parsed.y * moneyUnit.divisor, moneyUnit),
+          },
+        },
+      },
+      scales: {
+        y: {
+          grace: '12%',
+          grid: { color: hoverGridColor },
+          title: { display: true, text: moneyUnit.label },
+          ticks: {
+            callback: (value) => window.tableEngine.formatInt(value),
+          },
+        },
+      },
+    },
+  });
+}
+
+function updateRateTimelineChart() {
+  const chartContainer = document.getElementById('timeline-chart-container');
+  const emptyState = document.getElementById('timeline-empty');
+  const ctx = document.getElementById('chartRateTimeline')?.getContext('2d');
+  if (!chartContainer || !emptyState || !ctx) return;
+
+  const periods = new Map();
+  timelineData.forEach(row => {
+    if (!row.periodo) return;
+    if (!periods.has(row.periodo)) {
+      periods.set(row.periodo, { actualSum: 0, actualWeight: 0, sugeridaSum: 0, sugeridaWeight: 0 });
+    }
+
+    const point = periods.get(row.periodo);
+    const weight = Number(row.valor_asegurado) || 0;
+    if (weight > 0 && Number.isFinite(row.tc_actual)) {
+      point.actualSum += row.tc_actual * weight;
+      point.actualWeight += weight;
+    }
+    if (weight > 0 && Number.isFinite(row.tc6)) {
+      point.sugeridaSum += row.tc6 * weight;
+      point.sugeridaWeight += weight;
+    }
+  });
+
+  const timeline = [...periods.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, values]) => ({
+      period,
+      label: new Intl.DateTimeFormat('es-CO', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+        .format(new Date(`${period}-01T00:00:00Z`)),
+      actual: values.actualWeight ? values.actualSum / values.actualWeight : null,
+      sugerida: values.sugeridaWeight ? values.sugeridaSum / values.sugeridaWeight : null,
+    }));
+
+  if (chartRateTimeline) {
+    chartRateTimeline.destroy();
+    chartRateTimeline = null;
+  }
+
+  const hasTimeline = timeline.length > 0;
+  chartContainer.hidden = !hasTimeline;
+  emptyState.hidden = hasTimeline;
+  updateTimelineFilterStatus(timeline);
+  if (!hasTimeline) return;
+
+  chartRateTimeline = new Chart(ctx, {
+    type: 'line',
+    plugins: [hoverGridPlugin],
+    data: {
+      labels: timeline.map(point => point.label),
+      datasets: [
+        {
+          label: 'TC actual prom.',
+          data: timeline.map(point => point.actual),
+          borderColor: '#0033A0',
+          backgroundColor: 'rgba(0, 51, 160, 0.12)',
+          pointBackgroundColor: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? '#FFE946' : '#0033A0',
+          pointBorderColor: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? '#001F5B' : '#0033A0',
+          pointBorderWidth: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? 3 : 0,
+          pointRadius: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? 7 : 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+          tension: 0.35,
+          spanGaps: true,
+        },
+        {
+          label: 'TC sugerida prom.',
+          data: timeline.map(point => point.sugerida),
+          borderColor: '#5B93FF',
+          backgroundColor: 'rgba(91, 147, 255, 0.12)',
+          pointBackgroundColor: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? '#FFE946' : '#5B93FF',
+          pointBorderColor: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? '#001F5B' : '#5B93FF',
+          pointBorderWidth: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? 3 : 0,
+          pointRadius: context => timeline[context.dataIndex]?.period === selectedTimelinePeriod ? 7 : 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+          tension: 0.35,
+          spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: context => `${context.dataset.label}: ${window.tableEngine.formatRate(context.parsed.y)}`,
+          },
+        },
+      },
+      scales: {
+        y: {
+          grace: '8%',
+          grid: { color: hoverGridColor },
+          title: { display: true, text: 'Tasa comercial' },
+          ticks: { callback: value => window.tableEngine.formatRate(value) },
+        },
+        x: { grid: { display: false } },
+      },
+      onClick: (_event, elements) => {
+        if (!elements.length) return;
+        const period = timeline[elements[0].index]?.period;
+        if (!period) return;
+        selectedTimelinePeriod = selectedTimelinePeriod === period ? null : period;
+        updateDashboard();
+      },
+    },
+  });
+}
+
+function updateTimelineFilterStatus(timeline) {
+  const status = document.getElementById('timeline-filter-status');
+  const label = document.getElementById('timeline-filter-label');
+  if (!status || !label) return;
+
+  const selectedPoint = timeline.find(point => point.period === selectedTimelinePeriod);
+  status.hidden = !selectedPoint;
+  label.textContent = selectedPoint ? `Filtro activo: ${selectedPoint.label}` : '';
+}
+
+function clearTimelineFilter() {
+  if (!selectedTimelinePeriod) return;
+  selectedTimelinePeriod = null;
+  updateDashboard();
+}
+
+// ====== RANKINGS ====== 
+function updateRankings() {
+  ['regional', 'canal', 'director', 'asesor_corredor', 'oficina', 'producto'].forEach((col, idx) => {
+    const nameCol = ['regional_nombre', 'canal_nombre', 'director_nombre', 'asesor_nombre', 'oficina_nombre', null][idx];
+    const ranking = window.tableEngine.buildRankingTable(filteredData, col, 
+      ['Regional', 'Canal', 'Director', 'Asesor/Corredor', 'Oficina', 'Producto'][idx], nameCol);
+    renderRankingTable(`table-${['regional', 'canal', 'director', 'asesor', 'oficina', 'producto'][idx]}`, ranking, moneyUnit);
+  });
+}
+
+function renderEstadoBadge(estado) {
+  const ok = estado === 'Suficiente';
+  const icon = ok
+    ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19L12 3.5z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
+  return `<span class="estado-badge ${ok ? 'estado-ok' : 'estado-bad'}">${icon}${estado}</span>`;
+}
+
+function renderRankingTable(tableId, ranking, unit) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  // Detectar si hay columna de nombre
+  const hasNameCol = ranking.length > 0 && Object.keys(ranking[0]).some(k => k.includes('(Nombre)'));
+  const groupKey = Object.keys(ranking[0]).find(k => !['posicion', 'estado', 'polizas', 'asegurados', 'primActual', 'primSugerida', 'tcActualProm', 'tcSugeridaProm', 'ajusteTasa', 'brecha', 'cumplimiento'].includes(k) && !k.includes('(Nombre)'));
+  const nameKey = hasNameCol ? Object.keys(ranking[0]).find(k => k.includes('(Nombre)')) : null;
+  
+  const headers = [
+    { label: 'Posición' },
+    { label: 'Estado' },
+    { label: hasNameCol ? `${groupKey} (Nombre)` : groupKey },
+    { label: 'Pólizas', key: 'polizas' },
+    { label: 'Asegurados', key: 'asegurados' },
+    { label: 'Tasa actual', key: 'tcActualProm' },
+    { label: 'Tasa objetivo', key: 'tcSugeridaProm' },
+    { label: '% ajuste tasa', key: 'ajusteTasa' },
+    { label: 'Prima actual', key: 'primActual' },
+    { label: 'Prima sugerida', key: 'primSugerida' },
+    { label: 'Brecha', key: 'brecha' },
+    { label: 'Cumplimiento', key: 'cumplimiento' }
+  ];
+
+  const sortState = rankingSortState[tableId];
+  const sortedRanking = [...ranking];
+  if (sortState) {
+    sortedRanking.sort((a, b) => (Number(a[sortState.key]) - Number(b[sortState.key])) * sortState.direction);
+  }
+  
+  table.querySelector('thead').innerHTML = `<tr>${headers.map(header => {
+    if (!header.key) return `<th>${header.label}</th>`;
+    const indicator = sortState?.key === header.key ? (sortState.direction === 1 ? ' ▲' : ' ▼') : ' ↕';
+    return `<th><button type="button" class="ranking-sort" data-sort-key="${header.key}" aria-label="Ordenar por ${header.label}">${header.label}${indicator}</button></th>`;
+  }).join('')}</tr>`;
+  
+  table.querySelector('tbody').innerHTML = sortedRanking.map((row, index) => `
+    <tr>
+      <td>${sortState ? index + 1 : row.posicion}</td>
+      <td>${renderEstadoBadge(row.estado)}</td>
+      <td><strong>${hasNameCol && nameKey ? row[nameKey] : row[groupKey]}</strong></td>
+      <td>${window.tableEngine.formatInt(row.polizas)}</td>
+      <td>${window.tableEngine.formatInt(row.asegurados)}</td>
+      <td>${window.tableEngine.formatRate(row.tcActualProm)}</td>
+      <td>${window.tableEngine.formatRate(row.tcSugeridaProm)}</td>
+      <td class="${row.ajusteTasa < 0 ? 'good' : row.ajusteTasa > 0 ? 'bad' : ''}">${window.tableEngine.formatRateAdjustment(row.ajusteTasa)}</td>
+      <td>${window.tableEngine.formatMoney(row.primActual, unit)}</td>
+      <td>${window.tableEngine.formatMoney(row.primSugerida, unit)}</td>
+      <td class="${row.brecha > 0 ? 'good' : row.brecha < 0 ? 'bad' : ''}">${window.tableEngine.formatMoney(row.brecha, unit)}</td>
+      <td>${window.tableEngine.formatDecimal(row.cumplimiento * 100, 2)}%</td>
+    </tr>
+  `).join('');
+
+  table.querySelectorAll('.ranking-sort').forEach(button => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.sortKey;
+      const current = rankingSortState[tableId];
+      rankingSortState[tableId] = {
+        key,
+        direction: current?.key === key && current.direction === 1 ? -1 : 1
+      };
+      renderRankingTable(tableId, ranking, unit);
+    });
+  });
+}
+
+// ====== TOP PÓLIZAS ====== 
+function updateTopDeficit(n) {
+  document.getElementById('top-n-value').textContent = n;
+  const topDeficit = [...filteredData]
+    .sort((a, b) => a.brecha_prima - b.brecha_prima)
+    .slice(0, parseInt(n));
+
+  const sorted = [...topDeficit];
+  if (topDeficitSortState) {
+    const { key, direction } = topDeficitSortState;
+    sorted.sort((a, b) => {
+      const valueA = a[key];
+      const valueB = b[key];
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return (valueA - valueB) * direction;
+      }
+      return String(valueA ?? '').localeCompare(String(valueB ?? ''), 'es') * direction;
+    });
+  }
+  
+  const table = document.getElementById('table-top-deficit');
+  const headers = [
+    { label: 'Póliza' },
+    { label: 'Regional' },
+    { label: 'Canal' },
+    { label: 'Clasificación' },
+    { label: 'Tomador' },
+    { label: 'Director' },
+    { label: 'Asesor' },
+    { label: 'Oficina' },
+    { label: 'Asegurados', key: 'cant_asegurados' },
+    { label: 'Tasa actual', key: 'tc_actual' },
+    { label: 'Tasa objetivo', key: 'tc6' },
+    { label: '% ajuste tasa', key: 'ajuste_tasa' },
+    { label: 'Prima actual', key: 'prima_actual' },
+    { label: 'Prima sugerida', key: 'prima_sugerida' },
+    { label: 'Brecha', key: 'brecha_prima' },
+    { label: 'Cumplimiento', key: 'cumplimiento_prima' }
+  ];
+  
+  table.querySelector('thead').innerHTML = `<tr>${headers.map(header => {
+    if (!header.key) {
+      return `<th>${header.label}</th>`;
+    }
+    const indicator = topDeficitSortState?.key === header.key
+      ? (topDeficitSortState.direction === 1 ? ' ▲' : ' ▼')
+      : ' ↕';
+    return `<th><button type="button" class="ranking-sort" data-top-sort-key="${header.key}" aria-label="Ordenar por ${header.label}">${header.label}${indicator}</button></th>`;
+  }).join('')}</tr>`;
+  table.querySelector('tbody').innerHTML = sorted.map(row => `
+    <tr>
+      <td>${row.poliza}</td>
+      <td>${row.regional_nombre || row.regional}</td>
+      <td>${row.canal_nombre || row.canal}</td>
+      <td>${row.clasificacion}</td>
+      <td>${row.nombre_tomador}</td>
+      <td>${row.director_nombre || row.director}</td>
+      <td>${row.asesor_nombre || row.asesor_corredor}</td>
+      <td>${row.oficina_nombre || row.oficina}</td>
+      <td>${window.tableEngine.formatInt(row.cant_asegurados)}</td>
+      <td>${window.tableEngine.formatRate(row.tc_actual)}</td>
+      <td>${window.tableEngine.formatRate(row.tc6)}</td>
+      <td class="${row.ajuste_tasa < 0 ? 'good' : row.ajuste_tasa > 0 ? 'bad' : ''}">${window.tableEngine.formatRateAdjustment(row.ajuste_tasa)}</td>
+      <td>${window.tableEngine.formatMoney(row.prima_actual, moneyUnit)}</td>
+      <td>${window.tableEngine.formatMoney(row.prima_sugerida, moneyUnit)}</td>
+      <td class="${row.brecha_prima > 0 ? 'good' : row.brecha_prima < 0 ? 'bad' : ''}">${window.tableEngine.formatMoney(row.brecha_prima, moneyUnit)}</td>
+      <td>${window.tableEngine.formatDecimal(row.cumplimiento_prima * 100, 2)}%</td>
+    </tr>
+  `).join('');
+
+  table.querySelectorAll('[data-top-sort-key]').forEach(button => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.topSortKey;
+      topDeficitSortState = {
+        key,
+        direction: topDeficitSortState?.key === key && topDeficitSortState.direction === 1 ? -1 : 1
+      };
+      updateTopDeficit(n);
+    });
+  });
+}
+
+// ====== EXPORTAR CSV ====== 
+function downloadCSV() {
+  window.tableEngine.exportToCSV(filteredData, 'detalle_tablero_vida_grupo.csv');
+}
+
+// ====== EXPANDIBLES Y TABS ====== 
+function toggleExpander(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+function switchTab(btn, tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`ranking-${tab}`).classList.add('active');
+}
+</script>
+
+</body>
+</html>
