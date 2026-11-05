@@ -242,6 +242,9 @@ let estado = {
         oficina: '',
         formaPago: 'Anual',
         tipoPagoMensual: 'Vencida',
+        esContinuidad: false,
+        numeroPolizaAnterior: '',
+        companiaAnterior: '',
         fechaCobro: '',
         numeroPoliza: '',
         segmento: '',
@@ -365,6 +368,9 @@ function cargarEstado() {
             estado.poliza.modalidadPlan = estado.poliza.modalidadPlan || 'Voluntaria (Contributiva)';
             estado.poliza.tipoPagoMensual = estado.poliza.tipoPagoMensual
                 || (estado.poliza.pagoMensualAnticipado === true ? 'Anticipada' : 'Vencida');
+            estado.poliza.esContinuidad = estado.poliza.esContinuidad === true;
+            estado.poliza.numeroPolizaAnterior = String(estado.poliza.numeroPolizaAnterior || '');
+            estado.poliza.companiaAnterior = String(estado.poliza.companiaAnterior || '');
             delete estado.poliza.pagoMensualAnticipado;
             estado.poliza.canalComercial = normalizarCanalComercial(estado.poliza.canalComercial);
             estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
@@ -443,6 +449,9 @@ function limpiarEstadoConfirmado() {
             oficina: '',
             formaPago: 'Anual',
             tipoPagoMensual: 'Vencida',
+            esContinuidad: false,
+            numeroPolizaAnterior: '',
+            companiaAnterior: '',
             fechaCobro: '',
             numeroPoliza: '',
             segmento: '',
@@ -2676,6 +2685,59 @@ function renderizarOpcionesFraccionamiento(primaAnual) {
     </div>`;
 }
 
+function renderizarSeccionContinuidad() {
+    const esContinuidad = estado.poliza.esContinuidad === true;
+    return `<section class="fraccionamiento-resumen continuidad-resumen" aria-labelledby="tituloContinuidad">
+        <header><strong id="tituloContinuidad">Continuidad</strong><span>Indica si esta cotización da continuidad a una póliza anterior</span></header>
+        <div class="continuidad-opciones" role="radiogroup" aria-labelledby="preguntaContinuidad">
+            <span id="preguntaContinuidad">¿Es una continuidad?</span>
+            <label class="continuidad-opcion"><input type="radio" name="esContinuidad" value="no"${esContinuidad ? '' : ' checked'}><span>No</span></label>
+            <label class="continuidad-opcion"><input type="radio" name="esContinuidad" value="si"${esContinuidad ? ' checked' : ''}><span>Sí</span></label>
+        </div>
+        <div class="continuidad-campos" id="camposContinuidad" ${esContinuidad ? '' : 'hidden'}>
+            <div class="form-group">
+                <label for="numeroPolizaAnterior">Número de póliza anterior</label>
+                <input type="text" id="numeroPolizaAnterior" maxlength="30" autocomplete="off" value="${escaparHTML(estado.poliza.numeroPolizaAnterior)}"${esContinuidad ? ' required' : ''}>
+            </div>
+            <div class="form-group">
+                <label for="companiaAnterior">Nombre de la compañía anterior</label>
+                <input type="text" id="companiaAnterior" maxlength="120" autocomplete="organization" value="${escaparHTML(estado.poliza.companiaAnterior)}"${esContinuidad ? ' required' : ''}>
+            </div>
+        </div>
+    </section>`;
+}
+
+function actualizarVisibilidadCamposContinuidad() {
+    const visible = estado.poliza.esContinuidad === true;
+    const campos = document.getElementById('camposContinuidad');
+    if (!campos) return;
+    campos.hidden = !visible;
+    campos.querySelectorAll('input').forEach(campo => {
+        campo.required = visible;
+        campo.classList.remove('campo-invalido');
+        campo.setCustomValidity('');
+    });
+}
+
+function validarDatosContinuidad(mostrarMensaje = false) {
+    if (estado.poliza.esContinuidad !== true) return true;
+    const campos = [
+        { id: 'numeroPolizaAnterior', nombre: 'el número de póliza anterior' },
+        { id: 'companiaAnterior', nombre: 'el nombre de la compañía anterior' }
+    ];
+    const campoIncompleto = campos.find(({ id }) =>
+        !String(estado.poliza[id] || '').trim()
+    );
+    if (!campoIncompleto) return true;
+    const campo = document.getElementById(campoIncompleto.id);
+    campo?.classList.add('campo-invalido');
+    if (mostrarMensaje) {
+        campo?.focus();
+        mostrarToast(`Completa ${campoIncompleto.nombre} para indicar la continuidad.`, 'warning');
+    }
+    return false;
+}
+
 function solicitarCambioFormaPago(formaPago) {
     const formaPagoActual = estado.poliza.formaPago || 'Anual';
     if (!formaPago || formaPago === formaPagoActual) return;
@@ -3058,6 +3120,7 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         ${renderizarOpcionesFraccionamiento(primaTotalPoliza)}
         <p class="fraccionamiento-resultado">${obtenerDescripcionFormaPago()}: <strong>${formatearDinero(primaSegunFormaPago)}</strong>.</p>
     </section>`);
+    contenedor.insertAdjacentHTML('beforeend', renderizarSeccionContinuidad());
     if (estado.poliza.aplicaCredibilidad === true) {
         contenedor.insertAdjacentHTML('beforeend', `<section class="comparativa-credibilidad-acciones">
             <div><strong>${esComparativaSinCredibilidad ? '¿Deseas volver al cálculo con credibilidad?' : '¿Deseas revisar el cálculo sin credibilidad?'}</strong><span>${esComparativaSinCredibilidad ? 'Se volverán a mostrar los resultados que utilizan la información de siniestros.' : 'Podrás comparar los resultados sin usar la información de siniestros, sin alterar la cotización actual.'}</span></div>
@@ -3492,7 +3555,26 @@ function setupEventListeners() {
     document.addEventListener('change', evento => {
         if (evento.target.matches('[data-tipo-pago-mensual]')) {
             actualizarTipoPagoMensual(evento.target.value);
+            return;
         }
+        if (evento.target.matches('input[name="esContinuidad"]')) {
+            estado.poliza.esContinuidad = evento.target.value === 'si';
+            actualizarVisibilidadCamposContinuidad();
+            guardarEstado();
+            return;
+        }
+        if (evento.target.matches('#numeroPolizaAnterior, #companiaAnterior')) {
+            const campo = evento.target.id;
+            estado.poliza[campo] = evento.target.value;
+            evento.target.classList.remove('campo-invalido');
+            guardarEstado();
+        }
+    });
+    document.addEventListener('input', evento => {
+        if (!evento.target.matches('#numeroPolizaAnterior, #companiaAnterior')) return;
+        estado.poliza[evento.target.id] = evento.target.value;
+        evento.target.classList.remove('campo-invalido');
+        guardarEstado();
     });
     document.getElementById('btnConfirmarFormaPago')?.addEventListener('click', confirmarCambioFormaPago);
     document.getElementById('btnCancelarCambioFormaPago')?.addEventListener('click', cancelarCambioFormaPago);
@@ -3765,6 +3847,7 @@ function reiniciarDatosCotizacion() {
         modalidadPlan: 'Patronal (No Contributiva)', actividad: '', vigenciaDesde: '', vigenciaHasta: '',
         actividadDetalle: null,
         oficina: '', formaPago: 'Anual', tipoPagoMensual: 'Vencida', fechaCobro: '',
+        esContinuidad: false, numeroPolizaAnterior: '', companiaAnterior: '',
         numeroPoliza: '', segmento: '', direccionCorrespondencia: '', validezOferta: '',
         comision: 20, retorno: 0, honorarioPromotora: 10,
         aplicaCredibilidad: false,
@@ -6898,6 +6981,7 @@ function asignarPlanesPorRangoValidado() {
 function irAlPaso(numero) {
     if (numero < 1 || numero > 7) return;
     if (numero > pasoActual && pasoActual === 1 && !validarComisionRetorno(true)) return;
+    if (numero > pasoActual && pasoActual === 5 && !validarDatosContinuidad(true)) return;
     if (numero === 2 && pasoActual === 1 && !validarSiniestralidadRequerida()) return;
     if (numero === 3 && !validarValoresMinimosParaCotizar()) return;
     if (numero === 5 && !validarAseguradosAsignadosParaCalculos()) return;

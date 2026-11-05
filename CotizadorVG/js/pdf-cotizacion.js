@@ -333,6 +333,12 @@ function construirHtmlCotizacionPdf(resumen) {
         ? Number(p.retorno).toLocaleString('es-CO', { maximumFractionDigits: 1 })
         : '0';
     const validez = pdfFecha(p.validezOferta);
+    const numeroPolizaContinuidad = p.esContinuidad === true
+        ? pdfTexto(p.numeroPolizaAnterior)
+        : 'XXXXXX';
+    const companiaContinuidad = p.esContinuidad === true
+        ? pdfTexto(p.companiaAnterior)
+        : 'XXXXXX';
     const validezTexto = validez
         ? `la presente cotización tiene validez hasta el ${escaparHTML(validez)}.`
         : 'la presente cotización tiene validez hasta el día XX del mes de XXXX de 20XX.';
@@ -480,9 +486,9 @@ function construirHtmlCotizacionPdf(resumen) {
   </ul>
 
   <h2>Continuidad:</h2>
-  <p>Seguros de Vida Suramericana S.A. amparará a las personas que venían aseguradas en la póliza <span class="pdf-campo-pendiente">XXXXXX</span> de la Compañía <span class="pdf-campo-pendiente">XXXXXX</span>. Lo que significa que acepta dichos riesgos en el estado en que se encuentran, otorgando cobertura solamente a aquellas preexistencias que hubieran sido cubiertas por la anterior compañía/póliza. Las extra primas y limitaciones de cobertura que hayan sido impuestas en la póliza anterior regirán para este contrato sin perjuicio de aquellas que puedan ser impuestas por esta aseguradora. Se aplicarán para la presente póliza, las manifestaciones o declaraciones de asegurabilidad realizadas para la póliza anterior. Los nuevos asegurados deben cumplir con los requisitos de asegurabilidad exigidos por SURAMERICANA.</p>
+  <p>Seguros de Vida Suramericana S.A. amparará a las personas que venían aseguradas en la póliza <span class="pdf-campo-pendiente">${numeroPolizaContinuidad}</span> de la Compañía <span class="pdf-campo-pendiente">${companiaContinuidad}</span>. Lo que significa que acepta dichos riesgos en el estado en que se encuentran, otorgando cobertura solamente a aquellas preexistencias que hubieran sido cubiertas por la anterior compañía/póliza. Las extra primas y limitaciones de cobertura que hayan sido impuestas en la póliza anterior regirán para este contrato sin perjuicio de aquellas que puedan ser impuestas por esta aseguradora. Se aplicarán para la presente póliza, las manifestaciones o declaraciones de asegurabilidad realizadas para la póliza anterior. Los nuevos asegurados deben cumplir con los requisitos de asegurabilidad exigidos por SURAMERICANA.</p>
   <p>El Tomador de la póliza certifica que no tiene conocimiento de asegurados con enfermedades graves o procesos de invalidez en curso.</p>
-  <p class="b">CONDICIONES PÓLIZA <span class="pdf-campo-pendiente">XXXXXX</span>, COMPAÑÍA <span class="pdf-campo-pendiente">XXXXX</span></p>
+  <p class="b">CONDICIONES PÓLIZA <span class="pdf-campo-pendiente">${numeroPolizaContinuidad}</span>, COMPAÑÍA <span class="pdf-campo-pendiente">${companiaContinuidad}</span></p>
   <p>La anterior continuidad se otorgará solamente con respecto a los amparos y valores asegurados que tenga en la otra compañía/póliza, bajo las definiciones que para dichas coberturas tiene Suramericana. <b>“Se deben relacionar las coberturas que incluye la póliza a la cual se quiere dar continuidad”</b></p>
 
   <h2>Honorarios por administración y recaudo:</h2>
