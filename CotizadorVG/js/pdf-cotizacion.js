@@ -257,14 +257,14 @@ function pdfTablasPlanes(resumen) {
         )).join('');
 
         const filaAnual = esAnual ? '' : filaConTotal(
-            'Prima anual',
+            'Prima anual total por plan',
             item => mostrarTasasPorCobertura
                 ? `<td class="m" colspan="2">${pdfDinero(item.primaTotal)}</td>`
                 : `<td class="m">${pdfDinero(item.primaTotal)}</td>`,
             pdfDinero(primaTotalPoliza)
         );
         const filaPrimaPorAsegurado = filaConTotal(
-            `Prima ${escaparHTML(estado.poliza.formaPago || 'Anual')} por asegurado`,
+            `Prima ${escaparHTML(estado.poliza.formaPago || 'Anual').toLocaleLowerCase('es-CO')} por asegurado`,
             item => mostrarTasasPorCobertura
                 ? `<td class="m" colspan="2">${formatearPrimaPorAsegurado(item.primaTotal, item.cantidadAsegurados)}</td>`
                 : `<td class="m">${formatearPrimaPorAsegurado(item.primaTotal, item.cantidadAsegurados)}</td>`,
@@ -294,10 +294,10 @@ function pdfTablasPlanes(resumen) {
                 : ''}
             ${filaSeccion('PRIMAS')}
             ${filaAnual}
-            ${filaPrimaPorAsegurado}
             ${filaConTotal(etiquetaPago, item => mostrarTasasPorCobertura
                 ? `<td class="m" colspan="2">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`
                 : `<td class="m">${pdfDinero(calcularPrimaPorFormaPago(item.primaTotal))}</td>`, pdfDinero(calcularPrimaPorFormaPago(primaTotalPoliza)), 'total')}
+            ${filaPrimaPorAsegurado}
         </table>`;
     }).join('');
 }
