@@ -205,8 +205,8 @@ textarea {
     content: '';
     position: absolute;
     top: 32px;
-    left: calc(100% / 14);
-    right: calc(100% / 14);
+    left: calc(100% / 10);
+    right: calc(100% / 10);
     height: 3px;
     background: var(--color-gray-light);
     z-index: 0;
@@ -215,7 +215,7 @@ textarea {
 .progress-fill {
     position: absolute;
     top: 32px;
-    left: calc(100% / 14);
+    left: calc(100% / 10);
     width: 0;
     height: 3px;
     background: var(--color-primary);

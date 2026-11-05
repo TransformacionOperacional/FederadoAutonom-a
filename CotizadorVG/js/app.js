@@ -376,7 +376,7 @@ function cargarEstado() {
             delete estado.poliza.pagoMensualAnticipado;
             estado.poliza.canalComercial = normalizarCanalComercial(estado.poliza.canalComercial);
             estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
-            estado.poliza.retorno = Math.min(Math.max(Number(estado.poliza.retorno) || 0, 0), 30);
+            estado.poliza.retorno = Math.min(Math.max(Number(estado.poliza.retorno) || 0, 0), Math.min(30, 40 - estado.poliza.comision));
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
             if (!esCanalPromotora(estado.poliza.canalComercial)) estado.poliza.honorarioPromotora = 0;
             estado.poliza.aplicaCredibilidad = estado.poliza.aplicaCredibilidad === true;
@@ -400,7 +400,7 @@ function cargarEstado() {
         }
         
         if (pasoGuardado) {
-            pasoActual = JSON.parse(pasoGuardado);
+            pasoActual = Math.min(Math.max(Number(JSON.parse(pasoGuardado)) || 1, 1), 5);
         }
         
         return true;
@@ -2974,6 +2974,33 @@ function renderizarTablaTasaPorCobertura(filas, alcance, titulo, descripcion, cl
     return `<section class="calculos-plan-card tabla-tasa-card ${clase}"><header class="calculos-plan-header"><div>${alcance ? `<span class="tabla-tasa-alcance">${alcance}</span>` : ''}<strong>${titulo}</strong>${descripcion ? `<span>${descripcion}</span>` : ''}</div></header><div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Cobertura</th><th>Valor asegurado total</th><th>Tasa por cobertura</th><th>Prima total</th></tr></thead><tbody>${filas}</tbody></table></div></section>`;
 }
 
+const NOMBRES_COMERCIALES_COBERTURA = {
+    WEP: 'Aux. repatriación',
+    WEO: 'Aux. matern./patern.',
+    WEQ: 'Bono canasta',
+    WEN: 'Bono funerario',
+    WES: 'Bono adec. hogar',
+    WER: 'Bono educación',
+    WEU: 'Enferm. graves',
+    WEV: 'Enferm. graves indep.',
+    WEW: 'Gastos curación',
+    WEZ: 'Inval. acc./enferm.',
+    WEY: 'Inval. accidente',
+    WE0: 'Inval. enfermedad',
+    WE1: 'Muerte accidental',
+    WE6: 'Pérdida parc. capacidad',
+    WE7: 'Renta hospitalización',
+    WE8: 'Renta hosp. UCI',
+    WE9: 'Renta incap. accidente',
+    WFA: 'Renta incap. acc./enferm.',
+    WET: 'Vida'
+};
+
+// Solo para mostrar en la pantalla de cálculos; no altera la lógica ni los datos.
+function obtenerNombreComercialCobertura(codigo) {
+    return NOMBRES_COMERCIALES_COBERTURA[String(codigo || '').toUpperCase()] || codigo;
+}
+
 function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
     const contenedor = document.querySelector('.calculos-container');
     if (!contenedor) return;
@@ -3074,13 +3101,13 @@ function renderizarTablaCalculos(mostrarSinCredibilidad = false) {
         }).join('')}</tr>`;
         return `<section class="calculos-plan-card calculos-plan-bloque">
             <header class="calculos-plan-header">
-                <div><span class="calculos-plan-secuencia">${secuenciaPlan}</span><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => cobertura.codigo).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span>${plan ? `<button class="btn btn-outline btn-small calculos-toggle-asegurados" type="button" data-accion-calculos="toggle-asegurados" data-cantidad-asegurados="${asegurados.length}" aria-expanded="false" aria-controls="listado-asegurados-${plan.id}">Ver asegurados (${asegurados.length})</button>` : ''}</div>
+                <div><span class="calculos-plan-secuencia">${secuenciaPlan}</span><strong>${plan?.nombre || 'Sin plan asignado'}</strong><span>${plan ? `${asegurados.length} asegurado(s) · ${coberturas.map(cobertura => obtenerNombreComercialCobertura(cobertura.codigo)).join(', ')}` : 'Asigna estos asegurados a un plan para calcular sus coberturas.'}</span>${plan ? `<button class="btn btn-outline btn-small calculos-toggle-asegurados" type="button" data-accion-calculos="toggle-asegurados" data-cantidad-asegurados="${asegurados.length}" aria-expanded="false" aria-controls="listado-asegurados-${plan.id}">Ver asegurados (${asegurados.length})</button>` : ''}</div>
                 <div class="calculos-plan-total">
                     <div><span>Prima total del plan</span><strong>${plan ? formatearDinero(primaTotalPlan) : '—'}</strong></div>
                     <div><span>Prima ${estado.poliza.formaPago || 'Anual'} por asegurado</span><strong>${plan ? formatearPrimaPorAsegurado(primaTotalPlan, asegurados.length) : '—'}</strong></div>
                 </div>
             </header>
-            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Valor aseg. ${cobertura.codigo}</th><th>Prima ${cobertura.codigo}</th>`).join('')}</tr></thead><tbody id="listado-asegurados-${plan.id}" data-calculos-plan="${plan.id}" hidden></tbody><tfoot>${filaTotalesCobertura}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
+            ${plan ? `<div style="overflow-x:auto;"><table class="table-editable tabla-calculos"><thead><tr><th>Documento</th><th>Edad</th>${coberturas.map(cobertura => `<th>Valor aseg. ${obtenerNombreComercialCobertura(cobertura.codigo)}</th><th>Prima ${obtenerNombreComercialCobertura(cobertura.codigo)}</th>`).join('')}</tr></thead><tbody id="listado-asegurados-${plan.id}" data-calculos-plan="${plan.id}" hidden></tbody><tfoot>${filaTotalesCobertura}<tr><td colspan="${columnas - 1}"><strong>Prima total ${plan.nombre}</strong></td><td><strong>${formatearDinero(primaTotalPlan)}</strong></td></tr></tfoot></table></div>${renderizarBarraPaginacionCalculos(plan.id)}` : ''}
             ${plan && mostrarTasasCobertura ? renderizarTablaTasaPorCobertura(
                 renderizarFilasTasaPorCobertura(totalesPlanPorCobertura),
                 '',
@@ -3353,13 +3380,17 @@ function renderizarDashboard() {
     if (totalSubgrupos > 4 || totalPlanes > 10) complejidad = 'Alto';
     else if (totalSubgrupos > 2 || totalPlanes > 5) complejidad = 'Medio';
 
-    document.getElementById('totalAsegurados').textContent = totalAsegurados;
-    document.getElementById('totalSubgrupos').textContent = totalSubgrupos;
-    document.getElementById('totalPlanes').textContent = totalPlanes;
-    document.getElementById('nivelComplejidad').textContent = complejidad;
-    document.getElementById('primaAnual').textContent = formatearDinero(primaAnual);
-    document.getElementById('primaFormaPago').textContent = formatearDinero(primaSegunFormaPago);
-    document.getElementById('etiquetaPrimaFormaPago').textContent = `${obtenerDescripcionFormaPago()} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`;
+    const asignarTexto = (id, texto) => {
+        const elemento = document.getElementById(id);
+        if (elemento) elemento.textContent = texto;
+    };
+    asignarTexto('totalAsegurados', totalAsegurados);
+    asignarTexto('totalSubgrupos', totalSubgrupos);
+    asignarTexto('totalPlanes', totalPlanes);
+    asignarTexto('nivelComplejidad', complejidad);
+    asignarTexto('primaAnual', formatearDinero(primaAnual));
+    asignarTexto('primaFormaPago', formatearDinero(primaSegunFormaPago));
+    asignarTexto('etiquetaPrimaFormaPago', `${obtenerDescripcionFormaPago()} · ${detalleFraccionamiento.periodos} ${detalleFraccionamiento.periodos === 1 ? 'pago' : 'pagos'}`);
 
     // Métricas y póliza en el resumen
     const infoPoliza = document.getElementById('infoPolizaResumen');
@@ -3461,6 +3492,26 @@ function actualizarCamposComerciales() {
     if (!esPromotora) estado.poliza.honorarioPromotora = 0;
     actualizarFactorGasto();
     guardarEstado();
+}
+
+function obtenerRetornoMaximo() {
+    const comision = Number(document.getElementById('comision')?.value);
+    const disponible = Number.isFinite(comision) ? 40 - comision : 30;
+    return Math.max(0, Math.min(30, Math.round(disponible * 10) / 10));
+}
+
+function ajustarRetornoAlLimite() {
+    const campoRetorno = document.getElementById('retorno');
+    if (!campoRetorno) return;
+    const maximo = obtenerRetornoMaximo();
+    campoRetorno.max = String(maximo);
+    if (campoRetorno.value === '') return;
+    const retorno = Number(campoRetorno.value);
+    if (Number.isFinite(retorno) && retorno > maximo) {
+        campoRetorno.value = String(maximo);
+        estado.poliza.retorno = maximo;
+        mostrarToast(`El retorno se ajustó a ${maximo}% para que comisión + retorno no supere 40% ni el retorno supere 30%.`, 'info');
+    }
 }
 
 function validarComisionRetorno(mostrarMensaje = false) {
@@ -3675,20 +3726,23 @@ function setupEventListeners() {
                 mostrarToast(`${nombre} debe ser un número entero entre ${minimo}% y ${maximo}%.`, 'warning');
             }
             estado.poliza[campo] = valor;
+            if (campo === 'comision') ajustarRetornoAlLimite();
             validarComisionRetorno(false);
             actualizarFactorGasto();
             guardarEstado();
         });
     });
     document.getElementById('retorno')?.addEventListener('input', () => {
+        ajustarRetornoAlLimite();
         validarComisionRetorno(false);
     });
     document.getElementById('retorno')?.addEventListener('change', evento => {
         const retornoIngresado = evento.target.value === '' ? 0 : Number(evento.target.value);
         const retorno = Number.isFinite(retornoIngresado) ? retornoIngresado : 0;
-        const valor = Math.min(Math.max(Math.round(retorno * 10) / 10, 0), 30);
+        const maximo = obtenerRetornoMaximo();
+        const valor = Math.min(Math.max(Math.round(retorno * 10) / 10, 0), maximo);
         if (valor !== retorno) {
-            mostrarToast('El retorno debe ser un valor entre 0% y 30%.', 'warning');
+            mostrarToast(`El retorno se ajustó a ${valor}% (máximo permitido: ${maximo}%).`, 'warning');
         }
         evento.target.value = valor;
         estado.poliza.retorno = valor;
@@ -4790,6 +4844,17 @@ function cerrarConfirmacionMenuInicio() {
 
 function confirmarMenuInicio() {
     cerrarConfirmacionMenuInicio();
+    reiniciarDatosCotizacion();
+    flujo = { tipo: null, subtipo: null, polizaSeleccionada: null };
+    ['tipoDocBusqueda', 'numDocBusqueda', 'numPolizaBusqueda'].forEach(id => {
+        const campo = document.getElementById(id);
+        if (campo) campo.value = '';
+    });
+    ['resultadosBusqueda', 'loadingBusqueda', 'errorBusqueda'].forEach(id => {
+        const contenedor = document.getElementById(id);
+        if (contenedor) contenedor.style.display = 'none';
+    });
+    cambiarModoBusquedaRenovacion('tomador');
     mostrarSoloPantalla('pantalla-landing');
 }
 
@@ -5542,6 +5607,7 @@ function inicializar() {
     cargarEstado();
     const campoRetorno = document.getElementById('retorno');
     if (campoRetorno) campoRetorno.value = String(estado.poliza.retorno ?? 0);
+    ajustarRetornoAlLimite();
     validarComisionRetorno(false);
     establecerFechasDefault();
     setupEventListeners();
@@ -5696,10 +5762,10 @@ function pasosNavegacion() {
     });
 
     // Actualizar barra de progreso (entre el centro del primer y último paso)
-    const progreso = (pasoActual - 1) / 6;
+    const progreso = (pasoActual - 1) / 4;
     const progressFill = document.querySelector('.progress-fill');
     if (progressFill) {
-        progressFill.style.width = `calc((100% - 100% / 7) * ${progreso})`;
+        progressFill.style.width = `calc((100% - 100% / 5) * ${progreso})`;
     }
 
     // Mostrar/ocultar botones de navegación apropiados
@@ -6997,7 +7063,7 @@ function asignarPlanesPorRangoValidado() {
 }
 
 function irAlPaso(numero) {
-    if (numero < 1 || numero > 7) return;
+    if (numero < 1 || numero > 5) return;
     if (numero > pasoActual && pasoActual === 1 && !validarComisionRetorno(true)) return;
     if (numero > pasoActual && pasoActual === 5 && !validarDatosContinuidad(true)) return;
     if (numero === 2 && pasoActual === 1 && !validarSiniestralidadRequerida()) return;

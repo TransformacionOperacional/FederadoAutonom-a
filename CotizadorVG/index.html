@@ -129,16 +129,6 @@
                     <span class="step-label">Cálculos</span>
                     <span class="step-estado">Pendiente</span>
                 </div>
-                <div class="step" data-step="6">
-                    <span class="step-number"><svg class="step-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg><svg class="step-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
-                    <span class="step-label">Planes</span>
-                    <span class="step-estado">Pendiente</span>
-                </div>
-                <div class="step" data-step="7">
-                    <span class="step-number"><svg class="step-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 14l2 2 4-4"/></svg><svg class="step-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
-                    <span class="step-label">Resumen</span>
-                    <span class="step-estado">Pendiente</span>
-                </div>
             </div>
         </div>
 
@@ -556,7 +546,7 @@
             <!-- PASO 5: Tasas y primas por asegurado -->
             <section class="step-section" id="step5">
                 <h2>Cálculos de Tasas y Primas</h2>
-                <p class="info-box">Verifica las tasas y primas calculadas para cada asegurado. Cuando estén listas, continúa al siguiente paso.</p>
+                <p class="info-box">Verifica las tasas y primas calculadas para cada asegurado y descarga la cotización.</p>
                 <div class="calculos-container">
                     <table class="table-editable tabla-calculos" id="tablaCalculos">
                         <thead id="thead-calculos"></thead>
@@ -566,93 +556,6 @@
                 <div class="button-group">
                     <button class="btn btn-outline" id="btnAtras4">← Atrás</button>
                     <button class="btn btn-success" id="btnDescargarPdfCalculos" type="button">⬇ Descargar cotización PDF</button>
-                    <button class="btn btn-primary" id="btnSiguiente5">Configurar planes →</button>
-                </div>
-            </section>
-
-            <!-- PASO 6: Planes y valores asegurados -->
-            <section class="step-section" id="step6">
-                <h2>Planes y Valores Asegurados</h2>
-                <p class="info-box">Dentro de cada subgrupo puedes definir uno o varios <strong>planes</strong> con distintos valores asegurados. Un subgrupo = mismas coberturas; un plan = mismos valores.</p>
-
-                <!-- Tabs de subgrupos -->
-                <div id="planesSubgrupoTabs" class="planes-subgrupo-tabs">
-                    <!-- Se genera dinámicamente -->
-                </div>
-
-                <!-- Workspace del subgrupo seleccionado -->
-                <div id="planesWorkspace" class="planes-workspace">
-                    <div class="planes-workspace-header">
-                        <div>
-                            <div class="planes-workspace-titulo" id="planesWorkspaceTitulo">Selecciona un subgrupo</div>
-                            <div class="planes-workspace-sub" id="planesWorkspaceSub"></div>
-                        </div>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="btn btn-secondary btn-small" onclick="abrirModalPlanSalario()" id="btnPlanPorSalario" style="display:none;">Por rango de valor asegurado</button>
-                            <button class="btn btn-accent btn-small" onclick="agregarPlanAlSubgrupo()" id="btnAgregarPlan" style="display:none;">+ Agregar plan</button>
-                        </div>
-                    </div>
-
-                    <div id="planesTablaContainer">
-                        <p style="color:var(--color-gray);text-align:center;padding:32px;">Selecciona un subgrupo para configurar sus planes y valores asegurados</p>
-                    </div>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn btn-outline" id="btnAtras5">&larr; Atr&aacute;s</button>
-                    <button class="btn btn-success" id="btnExportarCSVPlanes">Exportar CSV</button>
-                    <button class="btn btn-primary" id="btnSiguiente6">Siguiente &rarr;</button>
-                </div>
-            </section>
-
-            <!-- PASO 7: Resumen de cotización -->
-            <section class="step-section" id="step7">
-                <h2>Resumen de Cotización</h2>
-
-                <div class="dashboard">
-                    <div class="card-stat">
-                        <div class="stat-numero" id="totalAsegurados">0</div>
-                        <div class="stat-label">Asegurados</div>
-                    </div>
-                    <div class="card-stat">
-                        <div class="stat-numero" id="totalSubgrupos">0</div>
-                        <div class="stat-label">Subgrupos</div>
-                    </div>
-                    <div class="card-stat">
-                        <div class="stat-numero" id="totalPlanes">0</div>
-                        <div class="stat-label">Planes</div>
-                    </div>
-                    <div class="card-stat">
-                        <div class="stat-numero" id="nivelComplejidad">-</div>
-                        <div class="stat-label">Complejidad</div>
-                    </div>
-                    <div class="card-stat card-stat-large">
-                        <div class="stat-numero" id="primaAnual">$0</div>
-                        <div class="stat-label">Prima Anual</div>
-                    </div>
-                    <div class="card-stat card-stat-large">
-                        <div class="stat-numero" id="primaFormaPago">$0</div>
-                        <div class="stat-label" id="etiquetaPrimaFormaPago">Valor por pago</div>
-                    </div>
-                </div>
-
-                <div class="resumen-details">
-                    <div class="detail-card">
-                        <h4>Información de la Póliza</h4>
-                        <div id="infoPolizaResumen"></div>
-                    </div>
-                    <div class="detail-card">
-                        <h4>Métricas Generales</h4>
-                        <div id="metricsResumen"></div>
-                    </div>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn btn-success" id="btnExportarJSONResumen">📄 Guardar JSON</button>
-                    <button class="btn btn-primary" id="btnDescargarPdfResumen" type="button">⬇ Descargar cotización PDF</button>
-                    <button class="btn btn-secondary" id="btnExportarAseguradosFinal">⬇ Asegurados CSV</button>
-                    <button class="btn btn-outline" id="btnAtras5">← Atrás</button>
-                    <button class="btn btn-danger" id="btnLimpiarTodo">🗑 Limpiar Todo</button>
                 </div>
             </section>
         </main>
@@ -887,7 +790,7 @@
                 <button class="btn-close" type="button" onclick="cerrarConfirmacionMenuInicio()" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
-                <p id="mensajeConfirmarMenuInicio">¿Quieres volver al menú de inicio?</p>
+                <p id="mensajeConfirmarMenuInicio">¿Quieres volver al menú de inicio? Los campos se reiniciarán a sus valores iniciales y se perderá la información diligenciada.</p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" type="button" onclick="confirmarMenuInicio()">Volver al inicio</button>
