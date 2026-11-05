@@ -17,7 +17,7 @@ Si $FG \ge 1$ no se aplica el ajuste y se devuelve la tasa pura.
 |----------|-------|-------|
 | Comisión | Variable | Se redondea y se limita entre **10 y 30** (si falta, 10) |
 | Honorario promotora | Variable | Entre 0 y 10; **solo** si el canal es `PROMOTORAS`, en otro caso 0 |
-| Retorno | 0 | Fijo |
+| Retorno | Variable | Entre 0 y 30; se incorpora al factor de gasto. Comisión + retorno no puede superar 40% |
 | Costo de contrato | 1,64 | Fijo |
 | IVA | Calculado | $(\text{Comisión} + \text{Honorario} + \text{Retorno}) \times 19\%$ |
 | Gasto administrativo | 8 o 13 | 8 para `PROMOTORAS`; 13 para los demás canales |
@@ -26,6 +26,8 @@ Si $FG \ge 1$ no se aplica el ajuste y se devuelve la tasa pura.
 $$
 FG_{\%} = Comisión + Honorario + Retorno + CostoContrato + IVA + GastoAdmin + Utilidad
 $$
+
+El valor de Retorno se suma al factor de gasto y participa en el cálculo del IVA. La validación del formulario limita Retorno a 30% y Comisión + Retorno a 40%.
 
 ## Canal comercial
 

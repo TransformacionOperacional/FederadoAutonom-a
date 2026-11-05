@@ -248,6 +248,7 @@ let estado = {
         direccionCorrespondencia: '',
         validezOferta: '',
         comision: 20,
+        retorno: 0,
         honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0,
@@ -367,6 +368,7 @@ function cargarEstado() {
             delete estado.poliza.pagoMensualAnticipado;
             estado.poliza.canalComercial = normalizarCanalComercial(estado.poliza.canalComercial);
             estado.poliza.comision = Math.min(Math.max(Math.round(Number(estado.poliza.comision) || 10), 10), 30);
+            estado.poliza.retorno = Math.min(Math.max(Number(estado.poliza.retorno) || 0, 0), 30);
             estado.poliza.honorarioPromotora = Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10);
             if (!esCanalPromotora(estado.poliza.canalComercial)) estado.poliza.honorarioPromotora = 0;
             estado.poliza.aplicaCredibilidad = estado.poliza.aplicaCredibilidad === true;
@@ -447,6 +449,7 @@ function limpiarEstadoConfirmado() {
             direccionCorrespondencia: '',
             validezOferta: '',
             comision: 20,
+            retorno: 0,
             honorarioPromotora: 10,
             aplicaCredibilidad: false,
             valorSiniestrosTotales: 0,
@@ -1342,7 +1345,7 @@ function obtenerRecargoComercial() {
     const honorarioPromotora = esPromotora
         ? Math.min(Math.max(Number(estado.poliza.honorarioPromotora) || 0, 0), 10)
         : 0;
-    const retorno = 0;
+    const retorno = Math.min(Math.max(Number(estado.poliza.retorno) || 0, 0), 30);
     const costoContrato = 1.64;
     const gastoAdministracion = esPromotora ? 8 : 13;
     const utilidad = 1.6;
@@ -3385,6 +3388,32 @@ function actualizarCamposComerciales() {
     guardarEstado();
 }
 
+function validarComisionRetorno(mostrarMensaje = false) {
+    const campoComision = document.getElementById('comision');
+    const campoRetorno = document.getElementById('retorno');
+    if (!campoComision || !campoRetorno) return true;
+
+    const comision = Number(campoComision.value);
+    const retorno = Number(campoRetorno.value);
+    let mensaje = '';
+    if (campoRetorno.value === '' || !Number.isFinite(retorno) || retorno < 0 || retorno > 30) {
+        mensaje = 'El retorno debe ser un valor entre 0% y 30%.';
+    } else if (Number.isFinite(comision) && comision + retorno > 40) {
+        mensaje = 'La suma de comisión y retorno no puede superar 40%.';
+    } else if (campoRetorno.validity.stepMismatch) {
+        mensaje = 'El retorno debe ingresarse en incrementos de 0,1%.';
+    }
+
+    campoRetorno.setCustomValidity(mensaje);
+    campoRetorno.classList.toggle('campo-invalido', Boolean(mensaje));
+    campoRetorno.setAttribute('aria-invalid', String(Boolean(mensaje)));
+    if (mostrarMensaje && mensaje) {
+        campoRetorno.reportValidity();
+        return false;
+    }
+    return !mensaje;
+}
+
 function actualizarFactorGasto() {
     const detalle = obtenerRecargoComercial();
     estado.poliza.factorGasto = detalle.total;
@@ -3546,9 +3575,26 @@ function setupEventListeners() {
                 mostrarToast(`${nombre} debe ser un número entero entre ${minimo}% y ${maximo}%.`, 'warning');
             }
             estado.poliza[campo] = valor;
+            validarComisionRetorno(false);
             actualizarFactorGasto();
             guardarEstado();
         });
+    });
+    document.getElementById('retorno')?.addEventListener('input', () => {
+        validarComisionRetorno(false);
+    });
+    document.getElementById('retorno')?.addEventListener('change', evento => {
+        const retornoIngresado = evento.target.value === '' ? 0 : Number(evento.target.value);
+        const retorno = Number.isFinite(retornoIngresado) ? retornoIngresado : 0;
+        const valor = Math.min(Math.max(Math.round(retorno * 10) / 10, 0), 30);
+        if (valor !== retorno) {
+            mostrarToast('El retorno debe ser un valor entre 0% y 30%.', 'warning');
+        }
+        evento.target.value = valor;
+        estado.poliza.retorno = valor;
+        validarComisionRetorno(false);
+        actualizarFactorGasto();
+        guardarEstado();
     });
     actualizarCamposComerciales();
     document.getElementById('aplicaCredibilidad')?.addEventListener('change', () => actualizarAplicacionCredibilidad());
@@ -3719,13 +3765,14 @@ function reiniciarDatosCotizacion() {
         actividadDetalle: null,
         oficina: '', formaPago: 'Anual', tipoPagoMensual: 'Vencida', fechaCobro: '',
         numeroPoliza: '', segmento: '', direccionCorrespondencia: '', validezOferta: '',
-        comision: 20, honorarioPromotora: 10,
+        comision: 20, retorno: 0, honorarioPromotora: 10,
         aplicaCredibilidad: false,
         valorSiniestrosTotales: 0, anosExposicion: 0, siniestrosPromedio: 0,
         siniestrosInformados: false, detalleSiniestrosCobertura: false, gruposSiniestrosPoliza: [], siniestrosPorCobertura: [],
         codigoAsesor: '', asesor: '', regional: '', oficinasAsesor: [], oficinaAsesor: '', codigoOficinaAsesor: '',
         canalComercial: ''
     };
+    validarComisionRetorno(false);
     limpiarCamposAdicionalesCotizacion();
     establecerFechasDefault();
     limpiarDatosAsesor(true);
@@ -5391,6 +5438,9 @@ function ejecutarPlanPorSalario() {
 
 function inicializar() {
     cargarEstado();
+    const campoRetorno = document.getElementById('retorno');
+    if (campoRetorno) campoRetorno.value = String(estado.poliza.retorno ?? 0);
+    validarComisionRetorno(false);
     establecerFechasDefault();
     setupEventListeners();
     actualizarAplicacionCredibilidad(true);
@@ -6846,6 +6896,7 @@ function asignarPlanesPorRangoValidado() {
 
 function irAlPaso(numero) {
     if (numero < 1 || numero > 7) return;
+    if (numero > pasoActual && pasoActual === 1 && !validarComisionRetorno(true)) return;
     if (numero === 2 && pasoActual === 1 && !validarSiniestralidadRequerida()) return;
     if (numero === 3 && !validarValoresMinimosParaCotizar()) return;
     if (numero === 5 && !validarAseguradosAsignadosParaCalculos()) return;

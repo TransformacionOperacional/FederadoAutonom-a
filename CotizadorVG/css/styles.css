@@ -3242,6 +3242,12 @@ textarea {
     grid-column: 1 / -1;
 }
 
+.comisiones-columna {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+}
+
 .comisiones-grid.solo-comision {
     grid-template-columns: 1fr;
 }

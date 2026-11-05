@@ -329,6 +329,9 @@ function construirHtmlCotizacionPdf(resumen) {
     const oficina = [p.codigoOficinaAsesor, p.oficinaAsesor].filter(Boolean).join(' – ');
     const identificacion = [p.tipoIdentificacion, p.numeroIdentificacion].filter(Boolean).join(' ');
     const comision = Number.isFinite(Number(p.comision)) ? `${Number(p.comision)}%` : '';
+    const retorno = Number.isFinite(Number(p.retorno))
+        ? Number(p.retorno).toLocaleString('es-CO', { maximumFractionDigits: 1 })
+        : '0';
     const validez = pdfFecha(p.validezOferta);
     const validezTexto = validez
         ? `la presente cotización tiene validez hasta el ${escaparHTML(validez)}.`
@@ -483,7 +486,7 @@ function construirHtmlCotizacionPdf(resumen) {
   <p>La anterior continuidad se otorgará solamente con respecto a los amparos y valores asegurados que tenga en la otra compañía/póliza, bajo las definiciones que para dichas coberturas tiene Suramericana. <b>“Se deben relacionar las coberturas que incluye la póliza a la cual se quiere dar continuidad”</b></p>
 
   <h2>Honorarios por administración y recaudo:</h2>
-  <p>Se entregará al tomador un <span class="pdf-campo-pendiente">XXX %</span> de las primas pagadas a SURAMERICANA, como aporte por concepto de Honorarios por Administración y Recaudo. Para ello, el Tomador debe enviar una factura de venta o documento equivalente a Suramericana por el monto correspondiente al honorario por la administración de seguros. Una vez realice el proceso de causación de la factura, la compañía procederá a realizar el pago.</p>
+  <p>Se entregará al tomador un <span class="pdf-campo-pendiente">${pdfTexto(retorno)} %</span> de las primas pagadas a SURAMERICANA, como aporte por concepto de Honorarios por Administración y Recaudo. Para ello, el Tomador debe enviar una factura de venta o documento equivalente a Suramericana por el monto correspondiente al honorario por la administración de seguros. Una vez realice el proceso de causación de la factura, la compañía procederá a realizar el pago.</p>
 
   <h2>Bono por siniestralidad:</h2>
   <p>El bono por siniestralidad se debe calcular tres meses posteriores a la terminación de la vigencia y se liquida a través de una factura de cobro (incluye IVA) que el tomador debe generar, por lo que no afecta la comisión del intermediario. El bono por siniestralidad se establece para esta póliza de la siguiente forma:</p>
