@@ -3408,7 +3408,8 @@ function validarComisionRetorno(mostrarMensaje = false) {
     campoRetorno.classList.toggle('campo-invalido', Boolean(mensaje));
     campoRetorno.setAttribute('aria-invalid', String(Boolean(mensaje)));
     if (mostrarMensaje && mensaje) {
-        campoRetorno.reportValidity();
+        campoRetorno.focus();
+        mostrarToast(mensaje, 'warning');
         return false;
     }
     return !mensaje;
