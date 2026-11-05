@@ -855,7 +855,9 @@ async function descargarCotizacionPdf() {
         }).save();
         mostrarToast('Cotización PDF descargada.', 'success');
 
-        // Registra la cotización con el PDF en base64.
+        // Registra la cotización con el PDF en base64; el indicador sigue visible hasta que termine.
+        const mensajeCarga = document.getElementById('cargandoMensaje');
+        if (mensajeCarga) mensajeCarga.textContent = 'PDF descargado. Registrando la cotización, por favor espera...';
         await enviarCotizacionApi(resumenCotizacion, documentoJsPdf, nombreArchivo);
     } catch (error) {
         console.error('No fue posible generar el PDF:', error);
