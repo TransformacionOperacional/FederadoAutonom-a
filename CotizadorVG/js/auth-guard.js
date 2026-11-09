@@ -12,6 +12,22 @@
         window.location.replace(LOGIN_PAGE);
     }
 
+    function solicitarCerrarSesion() {
+        const modal = document.getElementById('modalConfirmarCerrarSesion');
+        if (!modal) throw new Error('No fue posible abrir la confirmación para cerrar sesión.');
+        modal.style.display = 'flex';
+        modal.querySelector('.btn-secondary')?.focus();
+    }
+
+    function cancelarCerrarSesion() {
+        const modal = document.getElementById('modalConfirmarCerrarSesion');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function confirmarCerrarSesion() {
+        cerrarSesion();
+    }
+
     async function validarToken(token) {
         try {
             const response = await fetch(VALIDAR_TOKEN_URL, {
@@ -90,7 +106,11 @@
         document.documentElement.classList.remove('auth-pending');
     }
 
-    window.CotizadorVGAuth = { cerrarSesion, obtenerUsuario };
+    window.CotizadorVGAuth = { cerrarSesion, solicitarCerrarSesion, cancelarCerrarSesion, confirmarCerrarSesion, obtenerUsuario };
     protegerPagina();
     document.addEventListener('DOMContentLoaded', mostrarSaludo);
+    document.addEventListener('keydown', evento => {
+        const modal = document.getElementById('modalConfirmarCerrarSesion');
+        if (evento.key === 'Escape' && modal?.style.display === 'flex') cancelarCerrarSesion();
+    });
 })();

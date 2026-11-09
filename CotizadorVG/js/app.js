@@ -3554,6 +3554,12 @@ function setupEventListeners() {
     });
 
     // Botones de acción generales
+    document.getElementById('btnVolverLanding')?.addEventListener('click', volverAlLanding);
+    document.getElementById('btnLimpiar')?.addEventListener('click', () => {
+        limpiarDatosGeneralesPoliza();
+        mostrarToast('Se limpiaron los datos de esta sección. El resto de la cotización se conservó.', 'success');
+    });
+
     // Navegación por botones de siguiente en cada paso
     for (let i = 1; i <= 6; i++) {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => {
@@ -3898,6 +3904,65 @@ function seleccionarSubtipo(subtipo) {
     reiniciarDatosCotizacion();
     mostrarWizard();
     cargarActividadesEconomicas();
+}
+
+function limpiarDatosGeneralesPoliza() {
+    const formulario = document.getElementById('formPoliza');
+    if (!formulario) throw new Error('No fue posible limpiar los datos generales de la póliza.');
+
+    consultaAsesorEnCurso++;
+    ultimoCodigoAsesorConsultado = '';
+    formulario.reset();
+    formulario.querySelectorAll('.campo-invalido').forEach(campo => {
+        campo.classList.remove('campo-invalido');
+        campo.removeAttribute('aria-invalid');
+        if (typeof campo.setCustomValidity === 'function') campo.setCustomValidity('');
+    });
+
+    Object.assign(estado.poliza, {
+        tomador: '',
+        tipoIdentificacion: 'NIT',
+        numeroIdentificacion: '',
+        modalidadPlan: 'Patronal (No Contributiva)',
+        actividad: '',
+        actividadDetalle: null,
+        vigenciaDesde: '',
+        vigenciaHasta: '',
+        formaPago: 'Anual',
+        tipoPagoMensual: 'Vencida',
+        fechaCobro: '',
+        numeroPoliza: '',
+        segmento: '',
+        direccionCorrespondencia: '',
+        validezOferta: '',
+        comision: 20,
+        retorno: 0,
+        honorarioPromotora: 10,
+        aplicaCredibilidad: false,
+        valorSiniestrosTotales: 0,
+        anosExposicion: 0,
+        siniestrosPromedio: 0,
+        siniestrosInformados: false,
+        detalleSiniestrosCobertura: false,
+        gruposSiniestrosPoliza: [],
+        siniestrosPorCobertura: [],
+        codigoAsesor: '',
+        asesor: '',
+        regional: '',
+        oficinasAsesor: [],
+        oficinaAsesor: '',
+        codigoOficinaAsesor: '',
+        canalComercial: ''
+    });
+
+    validarComisionRetorno(false);
+    limpiarCamposAdicionalesCotizacion();
+    establecerFechasDefault();
+    limpiarDatosAsesor(true);
+    actualizarCampoPagoMensual();
+    actualizarAplicacionCredibilidad(true);
+    ocultarListaActividades();
+    recalcularTodo();
 }
 
 function reiniciarDatosCotizacion() {
