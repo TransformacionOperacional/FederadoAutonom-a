@@ -3554,6 +3554,12 @@ function setupEventListeners() {
     });
 
     // Botones de acción generales
+    document.getElementById('btnVolverLanding')?.addEventListener('click', volverAlLanding);
+    document.getElementById('btnLimpiar')?.addEventListener('click', () => {
+        reiniciarDatosCotizacion();
+        mostrarToast('Se reiniciaron los datos de la cotización.', 'success');
+    });
+
     // Navegación por botones de siguiente en cada paso
     for (let i = 1; i <= 6; i++) {
         document.getElementById(`btnSiguiente${i}`)?.addEventListener('click', () => {
