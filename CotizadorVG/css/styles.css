@@ -123,6 +123,110 @@ textarea {
     display: flex;
     align-items: center;
     gap: 15px;
+    position: relative;
+}
+
+.btn-hamburguesa {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+}
+
+.btn-hamburguesa span {
+    display: block;
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-primary);
+    transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-hamburguesa:hover span {
+    background: var(--color-primary-dark);
+}
+
+.btn-hamburguesa:focus-visible {
+    outline: 3px solid rgba(45, 109, 246, 0.35);
+    outline-offset: 2px;
+}
+
+.btn-hamburguesa[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.btn-hamburguesa[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+}
+
+.btn-hamburguesa[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
+.menu-principal-separador {
+    margin: 6px 8px;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+}
+
+.menu-principal {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 0;
+    z-index: 110;
+    min-width: 260px;
+    padding: 8px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+}
+
+.menu-principal[hidden] {
+    display: none;
+}
+
+.menu-principal-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-primary-dark);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.menu-principal-item svg {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.menu-principal-item:hover,
+.menu-principal-item:focus-visible {
+    background: var(--color-blue-light);
+    outline: none;
 }
 
 .logo {
@@ -1975,6 +2079,17 @@ textarea {
         gap: 10px;
     }
 
+    .logo-area {
+        position: static;
+        width: 100%;
+    }
+
+    .menu-principal {
+        left: 12px;
+        right: 12px;
+        min-width: 0;
+    }
+
     .progress-steps {
         flex-direction: column;
         gap: 10px;
@@ -2199,11 +2314,6 @@ textarea {
 }
 
 /* --- CARDS DE OPCIÓN --- */
-.landing-consulta {
-    margin-top: 28px;
-    text-align: center;
-}
-
 .landing-opciones {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

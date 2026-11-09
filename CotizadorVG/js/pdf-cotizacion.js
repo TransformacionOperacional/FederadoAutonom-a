@@ -703,21 +703,126 @@ async function enviarCotizacionApi(resumen, documentoPdf, nombreArchivo) {
     }
 }
 
-function abrirModalConsultarCotizacion() {
+function mostrarCargandoConsultaCotizacion(visible) {
+    document.getElementById('cargandoCotizacionesUsuario').style.display = visible ? 'block' : 'none';
+}
+
+function mostrarMensajeConsultaCotizacion(texto) {
+    const mensaje = document.getElementById('mensajeConsultarCotizacion');
+    if (!texto) {
+        mensaje.style.display = 'none';
+        return;
+    }
+    mensaje.textContent = texto;
+    mensaje.style.display = 'block';
+}
+
+// Normaliza la respuesta del flujo a un arreglo de filas.
+function extraerFilasCotizaciones(datos) {
+    let origen = datos;
+    if (origen && origen.ResultSets && Array.isArray(origen.ResultSets.Table1)) origen = origen.ResultSets.Table1;
+    else if (origen && Array.isArray(origen.value)) origen = origen.value;
+    else if (origen && Array.isArray(origen.body)) origen = origen.body;
+    return Array.isArray(origen) ? origen.filter(fila => fila && typeof fila === 'object') : [];
+}
+
+function formatearFechaCreacionCotizacion(valor) {
+    if (!valor) return '—';
+    const fecha = new Date(valor);
+    if (Number.isNaN(fecha.getTime())) return escaparHTML(valor);
+    return fecha.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderizarCotizacionesUsuario(filas) {
+    const contenedor = document.getElementById('listaCotizacionesUsuario');
+    const ordenadas = [...filas].sort((a, b) => new Date(b.FechaCreacion) - new Date(a.FechaCreacion));
+    const celdas = ordenadas.map(fila => {
+        const prima = Number(fila.PrimaTotal);
+        return `<tr>
+            <td>${escaparHTML(fila.TipoIdentificacion)}</td>
+            <td>${escaparHTML(fila.NumeroIdentificacion)}</td>
+            <td>${escaparHTML(fila.Tomador) || '—'}</td>
+            <td>${Number.isFinite(prima) ? formatearDinero(prima) : '—'}</td>
+            <td>${escaparHTML(fila.NumeroAsegurados ?? '—')}</td>
+            <td>${formatearFechaCreacionCotizacion(fila.FechaCreacion)}</td>
+            <td class="col-accion"><button class="btn btn-primary btn-small" type="button" data-id-cotizacion="${escaparHTML(fila.IdCotizacion)}">Descargar PDF</button></td>
+        </tr>`;
+    }).join('');
+    contenedor.innerHTML = `<table class="tabla-polizas-resultados">
+        <thead><tr><th>Tipo documento</th><th>Número documento</th><th>Cliente</th><th>Prima total</th><th>Asegurados</th><th>Fecha creación</th><th></th></tr></thead>
+        <tbody>${celdas}</tbody>
+    </table>`;
+    contenedor.style.display = 'block';
+    contenedor.querySelectorAll('button[data-id-cotizacion]').forEach(boton => {
+        boton.addEventListener('click', () => consultarCotizacionPdf(boton.dataset.idCotizacion, boton));
+    });
+}
+
+async function abrirModalConsultarCotizacion() {
     const modal = document.getElementById('modalConsultarCotizacion');
     if (!modal) return;
-    const campo = document.getElementById('idCotizacionConsulta');
-    const mensaje = document.getElementById('mensajeConsultarCotizacion');
-    campo.value = '';
-    mensaje.style.display = 'none';
+    const lista = document.getElementById('listaCotizacionesUsuario');
+    lista.style.display = 'none';
+    lista.innerHTML = '';
     modal.style.display = 'flex';
-    campo.focus();
+
+    const correo = window.CotizadorVGAuth?.obtenerUsuario()?.correo;
+    if (!correo) {
+        mostrarMensajeConsultaCotizacion('No fue posible identificar al usuario de la sesión. Inicia sesión nuevamente.');
+        return;
+    }
+
+    mostrarMensajeConsultaCotizacion('');
+    mostrarCargandoConsultaCotizacion(true);
+    try {
+        const respuesta = await fetch(API_COTIZACIONES_USUARIO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ UsuarioCreacion: correo })
+        });
+        if (!respuesta.ok) {
+            const detalle = await respuesta.text().catch(() => '');
+            console.error(`Consulta de cotizaciones del usuario HTTP ${respuesta.status}`, detalle);
+            throw new Error('No fue posible consultar tus cotizaciones. Inténtalo de nuevo.');
+        }
+        const filas = extraerFilasCotizaciones(await respuesta.json()).filter(fila => fila.IdCotizacion);
+        if (filas.length === 0) {
+            mostrarMensajeConsultaCotizacion('No tienes cotizaciones registradas.');
+            return;
+        }
+        mostrarMensajeConsultaCotizacion('');
+        renderizarCotizacionesUsuario(filas);
+    } catch (error) {
+        console.error('No fue posible listar las cotizaciones del usuario:', error);
+        mostrarMensajeConsultaCotizacion(error.message || 'No fue posible consultar tus cotizaciones.');
+    } finally {
+        mostrarCargandoConsultaCotizacion(false);
+    }
 }
 
 function cerrarModalConsultarCotizacion() {
     const modal = document.getElementById('modalConsultarCotizacion');
     if (modal) modal.style.display = 'none';
 }
+
+// Menú desplegable (hamburguesa) del encabezado.
+function alternarMenuPrincipal(abrir) {
+    const menu = document.getElementById('menuPrincipal');
+    const boton = document.getElementById('btnMenuPrincipal');
+    if (!menu || !boton) return;
+    const mostrar = typeof abrir === 'boolean' ? abrir : menu.hidden;
+    menu.hidden = !mostrar;
+    boton.setAttribute('aria-expanded', String(mostrar));
+    boton.setAttribute('aria-label', mostrar ? 'Cerrar menú' : 'Abrir menú');
+}
+
+document.addEventListener('click', evento => {
+    if (!evento.target.closest('.logo-area')) alternarMenuPrincipal(false);
+});
+
+document.addEventListener('keydown', evento => {
+    if (evento.key === 'Escape') alternarMenuPrincipal(false);
+});
 
 // Extrae nombre y contenido base64 de la respuesta del flujo (acepta variantes de nombres de campo).
 function extraerPdfDeRespuesta(datos) {
@@ -743,22 +848,16 @@ function base64ABlobPdf(base64) {
     return new Blob([bytes], { type: 'application/pdf' });
 }
 
-async function consultarCotizacionPdf() {
-    const campo = document.getElementById('idCotizacionConsulta');
-    const mensaje = document.getElementById('mensajeConsultarCotizacion');
-    const boton = document.getElementById('btnConsultarCotizacion');
-    const idCotizacion = campo.value.trim();
-    const mostrarMensaje = texto => {
-        mensaje.textContent = texto;
-        mensaje.style.display = 'block';
-    };
+async function consultarCotizacionPdf(idCotizacion, boton) {
+    const mostrarMensaje = mostrarMensajeConsultaCotizacion;
 
-    if (!/^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/.test(idCotizacion)) {
-        mostrarMensaje('Ingresa un ID válido (formato GUID, por ejemplo 3F2504E0-4F89-11D3-9A0C-0305E82C3301).');
+    if (!/^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/.test(String(idCotizacion || '').trim())) {
+        mostrarMensaje('La cotización seleccionada no tiene un ID válido.');
         return;
     }
+    idCotizacion = String(idCotizacion).trim();
 
-    mensaje.style.display = 'none';
+    mostrarMensaje('');
     boton.disabled = true;
     const textoOriginal = boton.textContent;
     boton.textContent = 'Consultando...';

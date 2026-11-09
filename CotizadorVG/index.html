@@ -19,12 +19,29 @@
     <header class="header">
         <div class="header-content">
             <div class="logo-area">
+                <button class="btn-hamburguesa" id="btnMenuPrincipal" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="menuPrincipal" onclick="alternarMenuPrincipal()">
+                    <span></span><span></span><span></span>
+                </button>
                 <h1>Cotizador Vida Grupo</h1>
+                <nav class="menu-principal" id="menuPrincipal" aria-label="Menú principal" hidden>
+                    <button class="menu-principal-item" type="button" onclick="alternarMenuPrincipal(false);abrirModalConsultarCotizacion()">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+                        <span>Consultar cotización</span>
+                    </button>
+                    <button class="menu-principal-item" type="button" onclick="alternarMenuPrincipal(false)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+                        <span>Tablero de seguimiento</span>
+                    </button>
+                    <hr class="menu-principal-separador">
+                    <button class="menu-principal-item" type="button" onclick="alternarMenuPrincipal(false);CotizadorVGAuth.solicitarCerrarSesion()">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                        <span>Cerrar sesión</span>
+                    </button>
+                </nav>
             </div>
             <div class="header-info">
                 <button class="btn-menu-inicio" onclick="irAlMenuInicio()" title="Volver al menú de inicio">&#8962; Inicio</button>
                 <button class="btn-icon" id="btnAyuda" title="Ayuda">?</button>
-                <button class="logout-btn" type="button" onclick="CotizadorVGAuth.solicitarCerrarSesion()">Cerrar sesión</button>
                 <img src="assets/images/logo-sura.png" class="header-logo" alt="SURA">
             </div>
         </div>
@@ -54,9 +71,6 @@
                 <p class="card-opcion-desc">Actualiza o renueva una póliza existente. Búscala por la identificación del tomador.</p>
                 <span class="card-opcion-cta">Buscar póliza &rarr;</span>
             </div>
-        </div>
-        <div class="landing-consulta">
-            <button class="btn btn-outline" type="button" onclick="abrirModalConsultarCotizacion()">Consultar cotización</button>
         </div>
     </div>
 
@@ -697,21 +711,23 @@
         </div>
     </div>
 
-    <!-- Consulta de cotización anterior por ID -->
+    <!-- Consulta de cotizaciones anteriores del usuario logueado -->
     <div id="modalConsultarCotizacion" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tituloConsultarCotizacion">
-        <div class="modal-content" style="max-width:480px;">
+        <div class="modal-content" style="max-width:900px;">
             <div class="modal-header">
                 <h3 id="tituloConsultarCotizacion">Consultar cotización</h3>
                 <button class="btn-close" type="button" onclick="cerrarModalConsultarCotizacion()" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
-                <label for="idCotizacionConsulta">ID de la cotización</label>
-                <input type="text" id="idCotizacionConsulta" class="input-busqueda" placeholder="Ej: 3F2504E0-4F89-11D3-9A0C-0305E82C3301" maxlength="36" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();consultarCotizacionPdf();}">
-                <p id="mensajeConsultarCotizacion" class="info-box" style="display:none;margin-bottom:0;"></p>
+                <div id="cargandoCotizacionesUsuario" class="loading-busqueda" style="display:none;" role="status" aria-live="polite">
+                    <div class="spinner" aria-hidden="true"></div>
+                    <p>Consultando tus cotizaciones...</p>
+                </div>
+                <p id="mensajeConsultarCotizacion" class="info-box" style="display:none;margin-top:0;"></p>
+                <div id="listaCotizacionesUsuario" class="tabla-polizas-contenedor" style="display:none;max-height:60vh;overflow-y:auto;"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="btnConsultarCotizacion" type="button" onclick="consultarCotizacionPdf()">Consultar y descargar PDF</button>
-                <button class="btn btn-secondary" type="button" onclick="cerrarModalConsultarCotizacion()">Cancelar</button>
+                <button class="btn btn-secondary" type="button" onclick="cerrarModalConsultarCotizacion()">Cerrar</button>
             </div>
         </div>
     </div>
