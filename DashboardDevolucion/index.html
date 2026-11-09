@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Devoluciones - Seguros SURA</title>
+    <link rel="icon" type="image/x-icon" href="https://sucursal.segurossura.com.co/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-area">
+                <h1>Tablero de Devoluciones</h1>
+            </div>
+            <div class="header-info">
+                <button class="btn-header" id="btnActualizar" type="button" title="Volver a leer data/Devolucion.csv">&#8635; Actualizar</button>
+                <button class="btn-header" id="btnCargar" type="button" title="Cargar un archivo CSV manualmente">Cargar CSV</button>
+                <input type="file" id="inputArchivo" accept=".csv,text/csv" hidden>
+                <img src="assets/images/logo-sura.png" class="header-logo" alt="SURA">
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <p class="estado-datos" id="estadoDatos" role="status" aria-live="polite">Cargando datos...</p>
+
+        <section class="panel-vacio" id="panelVacio" hidden>
+            <h2>No se encontraron datos</h2>
+            <p id="mensajeVacio">Guarda el resultado del query como <strong>data/Devolucion.csv</strong> y abre el tablero desde un servidor local, o carga el archivo manualmente.</p>
+            <button class="btn btn-primary" id="btnCargarVacio" type="button">Cargar CSV</button>
+        </section>
+
+        <div id="contenido" hidden>
+            <section class="toolbar" aria-label="Filtros">
+                <div class="filtro">
+                    <label for="filtroBusqueda">Buscar</label>
+                    <input class="search-input" id="filtroBusqueda" type="search" placeholder="Póliza, siniestro, asegurado, DNI o agente" autocomplete="off">
+                </div>
+                <div class="filtro">
+                    <label for="filtroDesde">Apertura desde</label>
+                    <input class="campo" id="filtroDesde" type="date">
+                </div>
+                <div class="filtro">
+                    <label for="filtroHasta">Apertura hasta</label>
+                    <input class="campo" id="filtroHasta" type="date">
+                </div>
+                <div class="filtro">
+                    <label for="filtroPlan">Plan</label>
+                    <select class="campo" id="filtroPlan"></select>
+                </div>
+                <button class="btn btn-secondary btn-small" id="btnLimpiar" type="button">Limpiar filtros</button>
+            </section>
+
+            <div class="chip-agente" id="chipAgente" hidden>
+                <span id="chipAgenteTexto"></span>
+                <button type="button" id="chipAgenteQuitar" aria-label="Quitar filtro de agente">&times;</button>
+            </div>
+
+            <section class="dashboard" aria-label="Indicadores">
+                <div class="card-stat"><div class="stat-numero" id="kpiSiniestros">0</div><div class="stat-label">Siniestros</div></div>
+                <div class="card-stat"><div class="stat-numero" id="kpiPolizas">0</div><div class="stat-label">Pólizas</div></div>
+                <div class="card-stat"><div class="stat-numero" id="kpiAsegurados">0</div><div class="stat-label">Asegurados</div></div>
+                <div class="card-stat"><div class="stat-numero" id="kpiAgentes">0</div><div class="stat-label">Agentes</div></div>
+                <div class="card-stat"><div class="stat-numero" id="kpiAntiguedad">-</div><div class="stat-label">Antigüedad prom. de la póliza</div></div>
+            </section>
+
+            <section class="graficos">
+                <article class="panel panel-ancho">
+                    <h2>Siniestros por mes de apertura</h2>
+                    <div class="grafico-meses" id="graficoMeses"></div>
+                </article>
+                <article class="panel">
+                    <h2>Antigüedad de la póliza al abrir el siniestro</h2>
+                    <div class="barras" id="graficoAntiguedad"></div>
+                </article>
+                <article class="panel">
+                    <h2>Top 10 agentes <small>(clic para filtrar)</small></h2>
+                    <div class="barras" id="graficoAgentes"></div>
+                </article>
+            </section>
+
+            <section class="panel">
+                <h2>Detalle <small id="resumenTabla"></small></h2>
+                <div class="tabla-contenedor">
+                    <table class="tabla" id="tabla">
+                        <thead id="tablaCabecera"></thead>
+                        <tbody id="tablaCuerpo"></tbody>
+                    </table>
+                </div>
+                <div class="paginacion">
+                    <button class="btn btn-secondary btn-small" id="btnAnterior" type="button">&laquo; Anterior</button>
+                    <span id="textoPagina"></span>
+                    <button class="btn btn-secondary btn-small" id="btnSiguiente" type="button">Siguiente &raquo;</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

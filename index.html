@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerencias de Autonomía y Diseño - Seguros SURA</title>
+    <link rel="icon" type="image/x-icon" href="https://sucursal.segurossura.com.co/favicon.ico">
+    <style>
+        :root {
+            --font-family-base: Arial, Helvetica, sans-serif;
+            --color-primary-dark: #0033A0;
+            --color-primary: #2D6DF6;
+            --color-secondary: #E3E829;
+            --color-secondary-light: #F9FAE1;
+            --color-aqua: #00AEC7;
+            --color-aqua-light: #D5F5F8;
+            --color-blue-light: #DFEAFF;
+            --color-blue-soft: #81B1FF;
+            --color-light: #F8F8F8;
+            --color-white: #ffffff;
+            --color-gray-dark: #1A2E4A;
+            --color-gray: #888B8D;
+            --color-gray-light: #E5E9EA;
+            --color-border: #B4B4B5;
+            --shadow-sm: 0 1px 4px rgba(0, 51, 160, 0.08);
+            --shadow-md: 0 4px 12px rgba(0, 51, 160, 0.13);
+            --shadow-lg: 0 8px 24px rgba(0, 51, 160, 0.18);
+            --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family-base);
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--color-gray-dark);
+            background-color: var(--color-light);
+        }
+
+        .header {
+            background: var(--color-blue-light);
+            color: var(--color-primary);
+            padding: 8px 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-content {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; }
+
+        .header-logo {
+            height: 56px;
+            width: auto;
+            mix-blend-mode: multiply;
+            object-fit: contain;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+            color: var(--color-white);
+            text-align: center;
+            padding: 64px 20px 72px;
+        }
+
+        .hero-etiqueta {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 999px;
+            background: var(--color-secondary);
+            color: var(--color-primary-dark);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 18px;
+        }
+
+        .hero h2 { font-size: 38px; line-height: 1.2; margin-bottom: 14px; }
+        .hero p { max-width: 720px; margin: 0 auto; font-size: 18px; opacity: 0.95; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 20px 48px; }
+
+        .propositos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: -36px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, var(--color-light) 0%, var(--color-white) 100%);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+
+        .card h4 { font-size: 18px; color: var(--color-primary-dark); margin-bottom: 8px; }
+        .card p { font-size: 14px; color: var(--color-gray-dark); }
+
+        @media (max-width: 700px) {
+            .header h1 { font-size: 18px; }
+            .header-logo { height: 40px; }
+            .hero { padding: 44px 20px 60px; }
+            .hero h2 { font-size: 28px; }
+            .hero p { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>Gerencias de Autonomía y Diseño</h1>
+            <img src="CotizadorVG/assets/images/logo-sura.png" class="header-logo" alt="SURA">
+        </div>
+    </header>
+
+    <section class="hero">
+        <span class="hero-etiqueta">Repositorio institucional</span>
+        <h2>Este repositorio es propiedad de las gerencias de Autonomía y Diseño</h2>
+        <p>Reúne las herramientas de contingencia y continuidad del negocio, junto con implementaciones piloto desarrolladas por las gerencias.</p>
+    </section>
+
+    <main class="container">
+        <section class="propositos" aria-label="Propósito del repositorio">
+            <article class="card">
+                <h4>Propiedad</h4>
+                <p>El contenido pertenece a las gerencias de Autonomía y Diseño. Su uso, modificación y distribución deben estar autorizados por ellas.</p>
+            </article>
+            <article class="card">
+                <h4>Contingencia y continuidad</h4>
+                <p>Se utiliza para mantener la operación y la continuidad del negocio cuando los canales habituales no están disponibles.</p>
+            </article>
+            <article class="card">
+                <h4>Pilotos</h4>
+                <p>Incluye implementaciones piloto que permiten probar y validar nuevas soluciones antes de su adopción.</p>
+            </article>
+        </section>
+    </main>
+</body>
+</html>
