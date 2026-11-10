@@ -6360,8 +6360,10 @@ function sincronizarDetalleSiniestrosUI() {
     const selectDetalle = document.getElementById('detalleSiniestrosCobertura');
     const bloque = document.getElementById('bloqueSiniestrosCobertura');
     const campoTotal = document.getElementById('valorSiniestrosTotales');
+    const notaCoberturasBasicas = document.getElementById('notaSiniestralidadCoberturasBasicas');
     if (selectDetalle) selectDetalle.value = usaDetalle ? 'si' : 'no';
     if (bloque) bloque.hidden = !usaDetalle;
+    if (notaCoberturasBasicas) notaCoberturasBasicas.hidden = usaDetalle;
     if (campoTotal) {
         campoTotal.readOnly = usaDetalle;
         campoTotal.setAttribute('aria-readonly', String(usaDetalle));

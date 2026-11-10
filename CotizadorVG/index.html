@@ -32,6 +32,10 @@
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
                         <span>Tablero de seguimiento</span>
                     </button>
+                    <button class="menu-principal-item" id="btnAyuda" type="button" title="Ayuda" onclick="alternarMenuPrincipal(false)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1 .9-1.8 1.2-1.8 2.7M12 17h.01"/></svg>
+                        <span>Agente Especialista Vida Grupo</span>
+                    </button>
                     <hr class="menu-principal-separador">
                     <button class="menu-principal-item" type="button" onclick="alternarMenuPrincipal(false);CotizadorVGAuth.solicitarCerrarSesion()">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -41,7 +45,6 @@
             </div>
             <div class="header-info">
                 <button class="btn-menu-inicio" onclick="irAlMenuInicio()" title="Volver al menú de inicio">&#8962; Inicio</button>
-                <button class="btn-icon" id="btnAyuda" title="Ayuda">?</button>
                 <img src="assets/images/logo-sura.png" class="header-logo" alt="SURA">
             </div>
         </div>
@@ -315,6 +318,7 @@
                                 <option value="no" selected>No, ingresar el total general</option>
                                 <option value="si">Sí, detallar por cobertura</option>
                             </select>
+                            <small id="notaSiniestralidadCoberturasBasicas">Aplicaría siniestralidad a las coberturas básicas Vida, Enfermedades graves e ITP.</small>
                         </div>
                         <div class="siniestros-detalle siniestros-full" id="bloqueSiniestrosCobertura" hidden>
                             <div class="siniestros-agrupaciones-acciones">
@@ -326,6 +330,7 @@
                         <div class="form-group">
                             <label for="valorSiniestrosTotales">Valor de siniestros totales</label>
                             <input type="text" id="valorSiniestrosTotales" inputmode="numeric" placeholder="$ 0" autocomplete="off">
+                            <small>Ingresa el valor en pesos colombianos (COP).</small>
                         </div>
                         <div class="form-group">
                             <label for="anosExposicion">Cantidad de a&ntilde;os de exposici&oacute;n</label>
