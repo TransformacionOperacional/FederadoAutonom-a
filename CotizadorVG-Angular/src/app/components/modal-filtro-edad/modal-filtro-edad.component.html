@@ -1,0 +1,33 @@
+@let a = asignacion;
+<div id="modalFiltroEdad" class="modal" [style.display]="a.modalFiltroEdadVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloFiltroEdad">
+    <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+            <h3 id="tituloFiltroEdad">Filtrar por edad</h3>
+            <button class="btn-close" type="button" (click)="a.cerrarModalFiltroEdad()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label for="edadFiltroExacta">Edad específica</label>
+                <input #campoExacta type="number" id="edadFiltroExacta" min="0" max="100" step="1" placeholder="Ej: 35" [disabled]="a.edadFiltroUsarRango" [(ngModel)]="a.edadFiltroExacta" (keydown.enter)="$event.preventDefault(); a.aplicarFiltroEdad()">
+            </div>
+            <label class="filtro-edad-usar-rango">
+                <input type="checkbox" id="edadFiltroUsarRango" [(ngModel)]="a.edadFiltroUsarRango" (ngModelChange)="a.alternarModoFiltroEdad()">
+                Buscar por rango de edad
+            </label>
+            <p id="ayudaFiltroEdadRango" style="color:var(--color-gray);margin:10px 0 16px;font-size:14px;">Desliza las barras para ajustar el rango. Por ejemplo, con máximo en 100 se muestran los asegurados de 0 a 100 años.</p>
+            <div class="filtro-edad-slider" [class.deshabilitado]="!a.edadFiltroUsarRango">
+                <label for="edadFiltroMin">Edad mínima: <strong id="edadFiltroMinValor">{{ a.edadFiltroMin }}</strong></label>
+                <input #campoMin type="range" id="edadFiltroMin" min="0" max="100" step="1" [disabled]="!a.edadFiltroUsarRango" [(ngModel)]="a.edadFiltroMin" (ngModelChange)="a.actualizarSlidersFiltroEdad('min')">
+            </div>
+            <div class="filtro-edad-slider" [class.deshabilitado]="!a.edadFiltroUsarRango">
+                <label for="edadFiltroMax">Edad máxima: <strong id="edadFiltroMaxValor">{{ a.edadFiltroMax }}</strong></label>
+                <input type="range" id="edadFiltroMax" min="0" max="100" step="1" [disabled]="!a.edadFiltroUsarRango" [(ngModel)]="a.edadFiltroMax" (ngModelChange)="a.actualizarSlidersFiltroEdad('max')">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" type="button" (click)="a.aplicarFiltroEdad()">Aplicar</button>
+            <button class="btn btn-outline" type="button" (click)="a.quitarFiltroEdad()">Quitar filtro</button>
+            <button class="btn btn-secondary" type="button" (click)="a.cerrarModalFiltroEdad()">Cancelar</button>
+        </div>
+    </div>
+</div>

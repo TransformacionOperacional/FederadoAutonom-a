@@ -1,0 +1,19 @@
+<div id="modalRestriccionPlan" class="modal" [style.display]="asignacion.modalRestriccionPlanVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloRestriccionPlan" (click)="alClicFondo($event)">
+    <div class="modal-content modal-restriccion-plan-contenido">
+        <div class="modal-header">
+            <h3 id="tituloRestriccionPlan">{{ asignacion.tituloRestriccionPlan }}</h3>
+            <button #btnCerrar class="btn-close" id="btnCerrarRestriccionPlan" type="button" (click)="asignacion.cerrarModalRestriccionPlan()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-body plan-restriccion-detalle" id="detalleRestriccionPlan">
+            @if (asignacion.detalleRestriccionPlan.length > 0) {
+                <strong>Motivo del nuevo plan</strong>
+                @for (item of asignacion.detalleRestriccionPlan; track $index) {
+                    <p><strong>{{ item.motivo }}.</strong> {{ item.detalle }}</p>
+                }
+            }
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" type="button" (click)="asignacion.cerrarModalRestriccionPlan()">Entendido</button>
+        </div>
+    </div>
+</div>

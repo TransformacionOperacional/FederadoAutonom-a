@@ -1,0 +1,240 @@
+<!-- Paso 5: Cálculos de tasas y primas (<section id="step5">) -->
+<ng-template #tablaTasaTpl let-tabla>
+    <section [class]="'calculos-plan-card tabla-tasa-card ' + tabla.clase">
+        <header class="calculos-plan-header">
+            <div>
+                @if (tabla.alcance) { <span class="tabla-tasa-alcance">{{ tabla.alcance }}</span> }
+                <strong>{{ tabla.titulo }}</strong>
+                @if (tabla.descripcion) { <span>{{ tabla.descripcion }}</span> }
+            </div>
+        </header>
+        <div style="overflow-x:auto;">
+            <table class="table-editable tabla-calculos">
+                <thead>
+                    <tr>
+                        @for (encabezado of tabla.encabezados; track $index) { <th>{{ encabezado }}</th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (fila of tabla.filas; track fila.codigo) {
+                        <tr>
+                            <td>{{ fila.etiqueta }}</td>
+                            <td>{{ fila.valorAsegurado }}</td>
+                            <td><strong>{{ fila.tasaUnica }}</strong></td>
+                            <td>{{ fila.prima }}</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</ng-template>
+
+<section class="step-section active" id="step5">
+    <h2>Cálculos de Tasas y Primas</h2>
+    <p class="info-box">Verifica las tasas y primas calculadas para cada asegurado y descarga la cotización.</p>
+
+    <div class="calculos-container">
+        @if (modelo) {
+            @if (modelo.vacio) {
+                <p class="calculos-vacio">{{ modelo.mensajeVacio }}</p>
+            } @else {
+                @if (modelo.esComparativaSinCredibilidad && modelo.avisoComparativa) {
+                    <section class="comparativa-credibilidad" role="status">
+                        <strong>{{ modelo.avisoComparativa.titulo }}</strong>
+                        <span>{{ modelo.avisoComparativa.texto }}</span>
+                    </section>
+                }
+
+                @for (tarjeta of modelo.planes; track tarjeta.llave) {
+                    @let pagina = calculo.obtenerPaginaCalculosPlan(tarjeta.llave);
+                    <section class="calculos-plan-card calculos-plan-bloque">
+                        <header class="calculos-plan-header">
+                            <div>
+                                <span class="calculos-plan-secuencia">{{ tarjeta.secuencia }}</span>
+                                <strong>{{ tarjeta.titulo }}</strong>
+                                <span>{{ tarjeta.descripcion }}</span>
+                                @if (tarjeta.tieneTabla) {
+                                    <button class="btn btn-outline btn-small calculos-toggle-asegurados" type="button"
+                                            [attr.aria-expanded]="pagina.listadoVisible"
+                                            [attr.aria-controls]="tarjeta.idListado"
+                                            (click)="alternarListado(tarjeta.llave)">
+                                        {{ pagina.listadoVisible ? tarjeta.textoBotonOcultar : tarjeta.textoBotonVer }}
+                                    </button>
+                                }
+                            </div>
+                            <div class="calculos-plan-total">
+                                <div><span>Prima total del plan</span><strong>{{ tarjeta.primaTotalPlanTexto }}</strong></div>
+                                <div><span>{{ tarjeta.etiquetaPrimaPorAsegurado }}</span><strong>{{ tarjeta.primaPorAsegurado }}</strong></div>
+                            </div>
+                        </header>
+
+                        @if (tarjeta.tieneTabla) {
+                            <div style="overflow-x:auto;">
+                                <table class="table-editable tabla-calculos">
+                                    <thead>
+                                        <tr>
+                                            <th>Documento</th>
+                                            <th>Edad</th>
+                                            @for (cobertura of tarjeta.coberturas; track cobertura.codigo) {
+                                                <th>{{ cobertura.encabezadoValor }}</th>
+                                                <th>{{ cobertura.encabezadoPrima }}</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody [id]="tarjeta.idListado">
+                                        @if (pagina.listadoVisible) {
+                                            @for (fila of pagina.filas; track $index) {
+                                                <tr>
+                                                    <td>{{ fila.documento }}</td>
+                                                    <td>{{ fila.edad }}</td>
+                                                    @for (celda of fila.celdas; track $index) {
+                                                        <td>{{ celda.valorAsegurado }}</td>
+                                                        <td>{{ celda.prima }}</td>
+                                                    }
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="tasa-unica-row">
+                                            <td colspan="2"><strong>{{ tarjeta.etiquetaTotalesCobertura }}</strong></td>
+                                            @for (total of tarjeta.totalesCobertura; track $index) {
+                                                <td><strong>{{ total.valorAsegurado }}</strong></td>
+                                                <td><strong>{{ total.prima }}</strong></td>
+                                            }
+                                        </tr>
+                                        <tr>
+                                            <td [attr.colspan]="tarjeta.colspanPrimaTotal"><strong>{{ tarjeta.etiquetaPrimaTotal }}</strong></td>
+                                            <td><strong>{{ tarjeta.primaTotalPlanTexto }}</strong></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            @if (pagina.listadoVisible && pagina.mostrarBarra) {
+                                <div class="paginacion-asegurados">
+                                    <div class="paginacion-info" aria-live="polite">{{ pagina.textoInfo }}</div>
+                                    <div class="paginacion-opciones">
+                                        <label>Registros por página (10-100)
+                                            <input type="number" min="10" max="100" step="1"
+                                                   [value]="pagina.registrosPorPagina"
+                                                   (change)="alCambiarRegistrosPorPagina($any($event.target))">
+                                        </label>
+                                    </div>
+                                    <div class="paginacion-controles">
+                                        <button class="btn btn-secondary btn-small" type="button" aria-label="Primera página"
+                                                [disabled]="pagina.enPrimera" (click)="calculo.cambiarPaginaCalculos(tarjeta.llave, 'primera')">&laquo;</button>
+                                        <button class="btn btn-secondary btn-small" type="button"
+                                                [disabled]="pagina.enPrimera" (click)="calculo.cambiarPaginaCalculos(tarjeta.llave, 'anterior')">&lsaquo; Anterior</button>
+                                        <span class="paginacion-pagina">{{ pagina.textoPagina }}</span>
+                                        <button class="btn btn-secondary btn-small" type="button"
+                                                [disabled]="pagina.enUltima" (click)="calculo.cambiarPaginaCalculos(tarjeta.llave, 'siguiente')">Siguiente &rsaquo;</button>
+                                        <button class="btn btn-secondary btn-small" type="button" aria-label="Última página"
+                                                [disabled]="pagina.enUltima" (click)="calculo.cambiarPaginaCalculos(tarjeta.llave, 'ultima')">&raquo;</button>
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                        @if (tarjeta.tablaTasas) {
+                            <ng-container *ngTemplateOutlet="tablaTasaTpl; context: { $implicit: tarjeta.tablaTasas }" />
+                        }
+                    </section>
+                }
+
+                @if (modelo.tablaTasasPoliza) {
+                    <ng-container *ngTemplateOutlet="tablaTasaTpl; context: { $implicit: modelo.tablaTasasPoliza }" />
+                }
+
+                <section class="calculos-total-poliza">
+                    <div class="calculos-total-metrica"><span>Tasa única total de la póliza</span><strong>{{ modelo.totalesPoliza.tasaUnica }}</strong></div>
+                    <div class="calculos-total-metrica"><span>Prima anual de la póliza</span><strong>{{ modelo.totalesPoliza.primaTotalPolizaTexto }}</strong></div>
+                    <div class="calculos-total-metrica"><span>{{ modelo.totalesPoliza.etiquetaPrimaPorAsegurado }}</span><strong>{{ modelo.totalesPoliza.primaPorAsegurado }}</strong></div>
+                </section>
+
+                <section class="fraccionamiento-resumen">
+                    <header><strong>{{ modelo.fraccionamiento.titulo }}</strong><span>{{ modelo.fraccionamiento.subtitulo }}</span></header>
+                    <div class="fraccionamiento-pagos" aria-label="Valores según forma de pago">
+                        @for (opcion of modelo.fraccionamiento.opciones; track opcion.formaPago) {
+                            <div class="fraccionamiento-opcion" [class.seleccionada]="opcion.seleccionada"
+                                 [attr.data-forma-pago]="opcion.formaPago" role="button"
+                                 [attr.tabindex]="opcion.seleccionada ? -1 : 0" [attr.aria-pressed]="opcion.seleccionada"
+                                 (click)="alClicOpcionFormaPago($event, opcion.formaPago)"
+                                 (keydown.enter)="alTeclaOpcionFormaPago($event, opcion.formaPago)"
+                                 (keydown.space)="alTeclaOpcionFormaPago($event, opcion.formaPago)">
+                                <span>{{ opcion.etiqueta }}</span>
+                                <strong>{{ opcion.valorTexto }}</strong>
+                                <small>{{ opcion.detalle }}</small>
+                                @if (opcion.mostrarSelectorTipoPagoMensual) {
+                                    <div class="fraccionamiento-tipo-mensual">
+                                        <label for="tipoPagoMensualResumen">Pago</label>
+                                        <select id="tipoPagoMensualResumen" data-tipo-pago-mensual
+                                                (change)="catalogo.actualizarTipoPagoMensual($any($event.target).value)">
+                                            <option value="Anticipada" [selected]="(poliza.tipoPagoMensual || 'Vencida') === 'Anticipada'">Anticipada</option>
+                                            <option value="Vencida" [selected]="(poliza.tipoPagoMensual || 'Vencida') === 'Vencida'">Vencida</option>
+                                        </select>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <p class="fraccionamiento-resultado">{{ modelo.fraccionamiento.descripcionFormaPago }}: <strong>{{ modelo.fraccionamiento.valorSegunFormaPago }}</strong>.</p>
+                </section>
+
+                <section class="fraccionamiento-resumen condiciones-especiales-resumen" aria-labelledby="tituloCondicionesEspeciales">
+                    <header><strong id="tituloCondicionesEspeciales">Condiciones Especiales</strong><span>Registra las condiciones particulares de esta cotización</span></header>
+                    <div class="form-group">
+                        <textarea id="condicionesEspeciales" aria-label="Condiciones Especiales" rows="4"
+                                  placeholder="Escribe aquí las condiciones especiales"
+                                  [ngModel]="poliza.condicionesEspeciales"
+                                  (ngModelChange)="catalogo.actualizarCondicionesEspeciales($event)"></textarea>
+                    </div>
+                </section>
+
+                <section class="fraccionamiento-resumen continuidad-resumen" aria-labelledby="tituloContinuidad">
+                    <header><strong id="tituloContinuidad">Continuidad</strong><span>Indica si esta cotización da continuidad a una póliza anterior</span></header>
+                    <div class="continuidad-opciones" role="radiogroup" aria-labelledby="preguntaContinuidad">
+                        <span id="preguntaContinuidad">¿Es una continuidad?</span>
+                        <label class="continuidad-opcion"><input type="radio" name="esContinuidad" value="no"
+                                [checked]="poliza.esContinuidad !== true" (change)="catalogo.cambiarEsContinuidad(false)"><span>No</span></label>
+                        <label class="continuidad-opcion"><input type="radio" name="esContinuidad" value="si"
+                                [checked]="poliza.esContinuidad === true" (change)="catalogo.cambiarEsContinuidad(true)"><span>Sí</span></label>
+                    </div>
+                    <div class="continuidad-campos" id="camposContinuidad" [hidden]="poliza.esContinuidad !== true">
+                        <div class="form-group">
+                            <label for="numeroPolizaAnterior">Número de póliza anterior</label>
+                            <input type="text" id="numeroPolizaAnterior" maxlength="30" autocomplete="off"
+                                   [ngModel]="poliza.numeroPolizaAnterior"
+                                   (ngModelChange)="catalogo.actualizarCampoContinuidad('numeroPolizaAnterior', $event)"
+                                   [required]="poliza.esContinuidad === true"
+                                   [class.campo-invalido]="catalogo.invalidos['numeroPolizaAnterior']">
+                        </div>
+                        <div class="form-group">
+                            <label for="companiaAnterior">Nombre de la compañía anterior</label>
+                            <input type="text" id="companiaAnterior" maxlength="120" autocomplete="organization"
+                                   [ngModel]="poliza.companiaAnterior"
+                                   (ngModelChange)="catalogo.actualizarCampoContinuidad('companiaAnterior', $event)"
+                                   [required]="poliza.esContinuidad === true"
+                                   [class.campo-invalido]="catalogo.invalidos['companiaAnterior']">
+                        </div>
+                    </div>
+                </section>
+
+                @if (modelo.comparativa) {
+                    <section class="comparativa-credibilidad-acciones">
+                        <div><strong>{{ modelo.comparativa.titulo }}</strong><span>{{ modelo.comparativa.descripcion }}</span></div>
+                        <button class="btn btn-outline" type="button"
+                                (click)="alternarComparativa(modelo.comparativa.mostrarSinCredibilidadAlPulsar)">{{ modelo.comparativa.textoBoton }}</button>
+                    </section>
+                }
+            }
+        }
+    </div>
+
+    <div class="button-group">
+        <button class="btn btn-outline" id="btnAtras4" type="button" (click)="atras()">← Atrás</button>
+        <button class="btn btn-success" id="btnDescargarPdfCalculos" type="button"
+                [disabled]="pdf.generandoPdf" (click)="descargarPdf()">⬇ Descargar cotización PDF</button>
+    </div>
+</section>

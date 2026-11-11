@@ -1,0 +1,24 @@
+<!-- ===== MODAL: Deducible de renta por incapacidad ===== -->
+<div id="modalDeducibleRentaIncapacidad" class="modal" [style.display]="plan.modalDeducibleRentaIncapacidadVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloDeducibleRentaIncapacidad">
+    <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+            <h3 id="tituloDeducibleRentaIncapacidad">Deducible de la cobertura</h3>
+            <button class="btn-close" type="button" (click)="plan.cancelarDeducibleRentaIncapacidad()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">Selecciona el deducible para <strong>Renta por incapacidad por accidente y enfermedad</strong>. El primer valor corresponde a los días mínimos y el segundo a los días máximos. Esta elección determina la tasa que se aplicará.</p>
+            <div class="form-group">
+                <label for="deducibleRentaIncapacidad">Deducible *</label>
+                <select id="deducibleRentaIncapacidad" required [(ngModel)]="plan.deducibleRentaIncapacidad">
+                    @for (opcion of plan.opcionesDeduciblePlan; track opcion.valor) {
+                        <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-accent" type="button" (click)="plan.confirmarDeducibleRentaIncapacidad()">Continuar</button>
+            <button class="btn btn-secondary" type="button" (click)="plan.cancelarDeducibleRentaIncapacidad()">Cancelar</button>
+        </div>
+    </div>
+</div>

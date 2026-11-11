@@ -1,0 +1,54 @@
+﻿# Contrato de migración CotizadorVG (JS) -> Angular
+
+Origen (solo lectura): `C:\Repogerencia\FederadoAutonom-a\CotizadorVG\` (`index.html`, `js/app.js` ~7450 líneas, `js/pdf-cotizacion.js`, `js/pdf-encabezado-data.js`, `css/styles.css`).
+Destino: `C:\Repogerencia\FederadoAutonom-a\CotizadorVG-Angular\src\app\`. Angular 22, standalone, zone.js, TypeScript NO estricto (`strict:false`).
+
+## Principios
+1. **Paridad funcional**: misma lógica de negocio, mismas fórmulas, mismos textos, mismas validaciones, mismas APIs. No "mejorar" ni simplificar reglas de cálculo. Al portar una función, copiar su lógica y solo adaptar el acceso al estado/DOM.
+2. **Mismos nombres**: cada función `miFuncion()` de app.js se convierte en método `miFuncion()` del servicio que la posee (tabla de abajo). Nombres de variables en español, idénticos.
+3. **Sin DOM imperativo**: no usar `document.getElementById`, `innerHTML`, `style.display`. Las funciones `renderizar*` desaparecen: su HTML pasa a la plantilla del componente (`@if`, `@for`, `[(ngModel)]`, `(click)`). Si una `renderizar*` contiene lógica de cálculo (filas, totales, paginación) esa lógica queda como método/getter del servicio o componente que la plantilla consume.
+   Los `onclick="fn()"` del HTML pasan a `(click)="servicio.fn()"`; los `oninput/onchange` a `(input)/(change)`/`ngModel`.
+4. **Estado**: se usa `CotizadorStore` (`core/cotizador.store.ts`): `store.estado`, `store.pasoActual`, `store.flujo`, `store.gruposSalariales`, `store.coberturasDisponibles`, `store.catalogoCoberturasCompleto`, `store.actividadesEconomicas`, `store.resumenCotizacion`, `store.guardarEstado()`. `estado` puede ser reemplazado por completo => nunca guardar referencias a `estado`/`estado.poliza` en campos; leer siempre `this.store.estado`. En los servicios: `private store = inject(CotizadorStore)` y para que el código portado quede casi igual, definir `private get estado() { return this.store.estado; }`.
+5. **UI transversal** (`core/ui.service.ts`): `ui.mostrarToast(msg,tipo)`, `ui.mostrarConfirmacionCotizador({titulo,mensaje,textoConfirmar,accion,esDestructiva})`, `ui.mostrarCargando()/ocultarCargando()`, `ui.ejecutarConCarga(total, mensaje, fn, {forzar})`. El componente raíz pinta toast / confirmación / overlay de carga (no repetirlos).
+6. **Utilidades puras** (`core/utils.ts`) y **constantes** (`core/config.ts`, ya portadas: CONFIG, TASA_BASE_SISTEMA, Z6_CREDIBILIDAD, AMPAROS_RESUMIDOS_DEFINITIVOS, AGRUPACIONES_SINIESTROS, PLANES_SUGERIDOS, GRUPOS_COBERTURAS_EXCLUYENTES, etc.). Constantes definidas más adelante en app.js (p. ej. `NOMBRES_COMERCIALES_COBERTURA`, `SMMLV`, `REGISTROS_POR_PAGINA_*`, `CLAVE_POLIZA_RENOVACION`, `TIPO_IDENTIFICACION_POR_PREFIJO`) se agregan a `core/config.ts` al final del archivo (sección con el nombre de la tarea) o se dejan como constantes del servicio que las usa si solo las usa él.
+   URLs de APIs y credenciales: `environment.apis.*`, `environment.apiUsuario`, `environment.apiContrasena` (`src/environments/environment.ts`). Nunca hardcodear URLs/credenciales en servicios.
+7. **Variables `let` de módulo** de app.js que son estado de UI (`paginaAsegurados`, `filtroAsegurados`, `planEditandoId`, `seleccionAsignacionIds`, etc.) pasan a propiedades del servicio/componente que las usa; si las leen varios componentes, a una propiedad pública del servicio dueño.
+8. **Dependencias circulares**: toda referencia de un servicio a OTRO servicio se hace perezosa para evitar ciclos de DI:
+   ```ts
+   private injector = inject(Injector);
+   private get calculo() { return this.injector.get(CalculoService); }
+   ```
+9. **Cambio detectado**: componentes con `ChangeDetectionStrategy.Default`. Después de operaciones asíncronas no hace falta nada especial (zone.js). Para listas grandes (miles de asegurados) conservar la paginación original.
+10. **Estilos**: se usa el CSS original tal cual (`src/styles.css`, global). Mantener los mismos `class` e `id` del HTML original (los `id` solo si el CSS/JS los necesita). No crear CSS de componente salvo imprescindible. Imágenes: `public/assets/images/...` (referenciar como `assets/images/...` relativo, sin `/` inicial).
+11. **Archivos**: servicios en `src/app/services/*.service.ts` (singleton `providedIn: 'root'`), componentes standalone en `src/app/pages/<nombre>/` o `src/app/components/<nombre>/` con `templateUrl` separado (`.html`). Nombres de selector con prefijo `app-`.
+12. Comentarios: conservar los comentarios de negocio del original; no agregar comentarios de relleno.
+13. Compilar para verificar: `cd CotizadorVG-Angular; npx tsc --noEmit -p tsconfig.app.json` (rápido) y, cuando proceda, `npx ng build --configuration development`. Los errores en archivos de OTRAS tareas que aún no existen se ignoran; los propios se corrigen.
+
+## Propiedad de funciones (app.js, números de línea aproximados)
+
+| Servicio / unidad | Líneas / funciones de app.js |
+|---|---|
+| **CalculoService** `services/calculo.service.ts` | 1331-1966 (calcularPrimaCobertura… detectarCoberturasPocFrecuentes: tasas, recargos, credibilidad, calcularPrimaIndividual/Total, factores, identificarSubgrupos/Planes, complejidad, reglas, sugerencias), 2618-2670 (obtenerTasaPorEdad, calcularValorAseguradoCobertura, formatearTasa, obtenerDetalleFraccionamiento, calcularPrimaPorFormaPago, formatearPrimaPorAsegurado…), 2822-3170 solo la LÓGICA de renderizarResumenCredibilidad / renderizarTablaCalculos / paginación de cálculos (producir modelos de datos para la plantilla), 7177 recalcularTodo, 1599 cacheCredibilidad |
+| **CatalogoService** `services/catalogo.service.ts` | 862-1030 (editarCobertura, agregarCobertura, consultarTasasCoberturas, actualizarDatosTasasDesdeFilas, consultarTasasEnApi, cargarActividadesEconomicas), 1043-1330 (asesor/oficina, actividad económica, validarActividadAsegurable, validarSiniestralidadRequerida, obtenerRecargoPorActividad, eliminarCobertura) sin `render*`, 2230-2253, 2978-3004 (NOMBRES_COMERCIALES_COBERTURA / obtenerNombreComercialCobertura), 3469-3550 (comisión/retorno/factor gasto), 4043-4149 (cargarCatalogoCoberturas), 6323-6360 y 6417-6570 (credibilidad/siniestralidad: lógica), 2734-2821 (continuidad, forma de pago, tipo pago mensual) |
+| **AseguradoService** `services/asegurado.service.ts` | 507-861 (agregar/guardar/editar/duplicar/eliminar asegurado, validaciones, límites voluntaria, resumen de modificaciones, omitidos), 3205-3310 (filtro + paginación de asegurados), 7221-7235, 7283-7426 (generarCoberturasPorDefecto, modal de coberturas, toggle/actualizarCobertura, cargarDemoData) |
+| **ImportacionService** `services/importacion.service.ts` | 1967-2135 (importarCSV, exportar*, plantilla CSV, descargarCSV), 4400-4938 (grupos salariales, generarSimulacion, limpiarSimulados, salarioAOcupacion…, importarExcel, descargarPlantillaExcel). Usar `exceljs` (npm) en lugar de SheetJS/XLSX para leer y escribir (carga dinámica `await import('exceljs')`). |
+| **PlanService** `services/plan.service.ts` | 2254-2617 (planes sugeridos, crear/editar plan, deducible, enfermedades graves, excluyentes), 4939-5670 (subgrupos, planes por subgrupo, asignación por salario, plan por salario) |
+| **AsignacionService** `services/asignacion.service.ts` | 5848-6307 (asignación de planes: filtros, selección, paginación, restricciones, reasignación), 6605-7132 (validar rangos, asignarPlanAAsegurado, planes filtrados por parentesco/edad, asignarPlanesPorRango*, reiniciarAsignacionAutomatica) |
+| **CotizacionApiService / PdfService** `services/cotizacion-api.service.ts`, `services/pdf.service.ts` | js/pdf-cotizacion.js completo, js/pdf-encabezado-data.js, 7427-fin (exportarResumen y lo que construya `resumenCotizacion`), guardar/consultar cotizaciones |
+| **FlujoService** `services/flujo.service.ts` | 3822-4042 (pantallas/landing/wizard/badge), 4150-4399 (renovación: normalizarPolizaRenovacion, buscarPolizasRenovacion, seleccionarPolizaRenovacion), 4903-4938 (menú inicio), 5672-5847 (inicializar, fechas por defecto, sincronizarVigencia, sincronizarFechaCobro, pasosNavegacion), 7133-7176 (irAlPaso), 3910-4013 (limpiarDatosGeneralesPoliza, reiniciarDatosCotizacion, volverAlLanding), 414-506 (limpiarCamposAdicionalesCotizacion, limpiarEstado/Confirmado), 3551-3821 setupEventListeners: su lógica se reparte en los componentes (los listeners pasan a bindings) |
+
+Métodos que cualquier tarea puede asumir que existen (con la firma original) aunque aún no estén escritos:
+- `FlujoService`: `irAlPaso(n)`, `mostrarWizard()`, `volverAlLanding()`, `sincronizarVigencia(campo, valor)`, `sincronizarFechaCobro()`, propiedad `pantalla: 'landing'|'renovacion'|'wizard'` (señal o propiedad simple).
+- `CalculoService`: `recalcularTodo()`, `calcularPrimaTotal()`, `calcularPrimaIndividual(asegurado)`, `obtenerCalculoCredibilidad()`, `identificarSubgrupos()`, `identificarPlanes()`, `generarSugerencias()`.
+- `CatalogoService`: `consultarTasasCoberturas()`, `cargarCatalogoCoberturas()`, `cargarActividadesEconomicas()`, `consultarAsesorPorCodigo()`, `actualizarSiniestralidad(forzar?)`, `actualizarAplicacionCredibilidad(forzar?)`.
+- `AseguradoService`: `agregarAsegurado()`, `obtenerAseguradosFiltrados()`, `limitarValorAseguradoParaModalidad(v)`, `generarCoberturasPorDefecto(v)`.
+- `PlanService`: `crearPlanConCoberturas(...)`, `obtenerCoberturasPlan(plan)`, `sincronizarCoberturasPlan`.
+- `AsignacionService`: `asignarPlanesPorRango()`, `validarRangosPlanes()`, `validarAseguradosAsignadosParaCalculos()`.
+
+## Componentes (standalone)
+- `pages/login` (ruta `/login`): ver `Login.html` + `js/login.js` -> `AuthService.iniciarSesion`.
+- `pages/cotizador` (ruta `''`, `canActivate: [authGuard]`): shell del cotizador; muestra según `flujo.pantalla` landing / renovación / wizard; pinta cabecera, saludo (`AuthService.obtenerUsuario`), modal cerrar sesión, `ui-overlays` (toast, confirmación, carga) y todos los modales globales.
+- `components/landing`, `components/renovacion`, `components/wizard-nav` (pasos 1-5).
+- `components/paso1-datos-poliza` (index.html #step1), `components/paso2-asegurados` (#step2), `components/paso3-planes` (#step3: coberturas/planes), `components/paso4-asignacion` (#step4: asignación de planes a asegurados), `components/paso5-resumen` (#step5: cálculos/resumen/guardar/PDF).
+  Numeración funcional (`pasoActual` 1..5, ver `irAlPaso` y `pasosNavegacion` en app.js): 1 datos póliza, 2 asegurados (`renderizarTablaAsegurados`), 3 planes (valida `validarValoresMinimosParaCotizar`), 4 asignación (`renderizarAsignacionPlanes`), 5 cálculos (`renderizarTablaCalculos`). En index.html la sección #step3 aparece antes que #step2; es solo orden en el archivo. Los pasos 6 y 7 que menciona `irAlPaso` son código heredado sin pantalla: ignorar.
+- Cada modal de index.html pertenece al componente del paso que lo usa (ver la tarea de cada paso); los modales compartidos (confirmación, cerrar sesión, menú inicio) van en el shell.

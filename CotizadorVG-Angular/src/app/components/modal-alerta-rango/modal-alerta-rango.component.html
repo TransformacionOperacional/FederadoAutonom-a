@@ -1,0 +1,11 @@
+<!-- Alerta de validación parametrizable -->
+<div id="modalAlertaRango" class="modal modal-alerta-rango" [style.display]="asignacion.modalAlertaRangoVisible ? 'flex' : 'none'" role="alertdialog" aria-modal="true" aria-labelledby="tituloAlertaRango">
+    <div class="modal-content alerta-rango-contenido">
+        <div class="alerta-rango-icono">!</div>
+        <h3 id="tituloAlertaRango">{{ asignacion.tituloAlertaRango }}</h3>
+        <p id="mensajeAlertaRango">{{ asignacion.mensajeAlertaRango }}</p>
+        <div class="modal-footer alerta-rango-footer">
+            <button #btnAceptar class="btn btn-primary" type="button" id="btnAceptarAlertaRango" (click)="asignacion.cerrarAlertaRango()">Entendido</button>
+        </div>
+    </div>
+</div>

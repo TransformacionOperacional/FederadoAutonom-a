@@ -1,0 +1,42 @@
+<!-- ===== MODAL: Agregar plan por rango de valor asegurado ===== -->
+<div id="modalPlanSalario" class="modal" [style.display]="plan.modalPlanSalarioVisible ? 'flex' : 'none'">
+    <div class="modal-content" style="max-width:680px;">
+        <div class="modal-header">
+            <h3>Definir planes por rango de valor asegurado</h3>
+            <button class="btn-close" type="button" (click)="plan.cerrarModalPlanSalario()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
+                Define los valores asegurados para cada rango de valor asegurado. El sistema crear&aacute; un plan por cada rango y asignar&aacute; autom&aacute;ticamente a los asegurados del subgrupo.
+            </p>
+            <div id="planSalarioFilas">
+                <table class="tabla-planes-valores" id="tablaPlanSalario">
+                    <thead>
+                        <tr>
+                            <th>Rango de valor asegurado (hasta COP)</th>
+                            @for (cod of plan.coberturasPlanSalario; track cod) {
+                                <th style="text-align:center;">{{ cod }}</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-plan-salario">
+                        @for (fila of plan.filasPlanSalario; track fila; let i = $index) {
+                            <tr>
+                                <td><input type="number" class="valor-aseg-input" placeholder="Ej: 50000000" step="1000000" [(ngModel)]="fila.maxValorAsegurado"></td>
+                                @for (cod of plan.coberturasPlanSalario; track cod) {
+                                    <td><input type="number" class="valor-aseg-input" placeholder="0" min="0" step="1000000" [(ngModel)]="fila.valores[cod]"></td>
+                                }
+                                <td><button class="btn btn-small btn-danger" type="button" (click)="plan.quitarFilaPlanSalario(i)">✕</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn btn-secondary btn-small" type="button" (click)="plan.agregarFilaPlanSalario()">+ Agregar rango</button>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-accent" type="button" (click)="plan.ejecutarPlanPorSalario()">Crear planes</button>
+            <button class="btn btn-secondary" type="button" (click)="plan.cerrarModalPlanSalario()">Cancelar</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,30 @@
+<div id="toast" [class]="'toast ' + (ui.toast().visible ? 'show ' : '') + (ui.toast().tipo || '')">{{ ui.toast().mensaje }}</div>
+
+<div id="cargandoOverlay" class="cargando-overlay" role="status" aria-live="polite" [hidden]="!ui.cargando().visible">
+  <div class="cargando-contenido">
+    <div class="cargando-spinner" aria-hidden="true"></div>
+    <p id="cargandoMensaje" class="cargando-mensaje">{{ ui.cargando().mensaje }}</p>
+  </div>
+</div>
+
+<div id="modalConfirmacionCotizador" class="modal" role="alertdialog" aria-modal="true"
+     aria-labelledby="tituloConfirmacionCotizador" aria-describedby="mensajeConfirmacionCotizador"
+     [style.display]="ui.confirmacion() ? 'flex' : 'none'"
+     (click)="$event.target === $event.currentTarget && ui.cancelarConfirmacionCotizador()">
+  <div class="modal-content modal-confirmacion-cotizador">
+    <div class="modal-header">
+      <h3 id="tituloConfirmacionCotizador">{{ ui.confirmacion()?.titulo }}</h3>
+      <button class="btn-close" type="button" aria-label="Cerrar" (click)="ui.cancelarConfirmacionCotizador()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="mensajeConfirmacionCotizador">{{ ui.confirmacion()?.mensaje }}</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="btnAceptarConfirmacionCotizador" type="button"
+              [class.btn-danger]="ui.confirmacion()?.esDestructiva"
+              [class.btn-primary]="!ui.confirmacion()?.esDestructiva"
+              (click)="ui.confirmarAccionCotizador()">{{ ui.confirmacion()?.textoConfirmar }}</button>
+      <button class="btn btn-secondary" type="button" (click)="ui.cancelarConfirmacionCotizador()">Cancelar</button>
+    </div>
+  </div>
+</div>

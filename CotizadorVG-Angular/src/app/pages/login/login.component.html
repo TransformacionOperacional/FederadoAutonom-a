@@ -1,0 +1,20 @@
+<main class="login-card">
+  <div class="brand"><img src="assets/images/logo-sura.png" alt="SURA"></div>
+  <h1>Cotizador Vida Grupo</h1>
+  <form id="formulario" (ngSubmit)="enviar()">
+    <label for="Correo">Correo electrónico</label>
+    <input id="Correo" name="correo" type="email" autocomplete="username" required
+           [(ngModel)]="correo" [class.campo-invalido]="invalido">
+
+    <label for="Clave">Contraseña</label>
+    <input id="Clave" name="clave" type="password" autocomplete="current-password" required
+           [(ngModel)]="clave" [class.campo-invalido]="invalido">
+
+    <button id="login-button" type="submit" [disabled]="cargando">Iniciar sesión</button>
+    <a class="btn-permisos"
+       href="https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=_tQLPBERE02ODHwzuet1gVRVQwqrmS9JpIXrln2IQlJURUNNU1Y2VEEyU00wVkVGTzhNVDhIU1ZXWi4u"
+       target="_blank" rel="noopener noreferrer">Solicitar permisos</a>
+    <p class="message" id="respuesta" role="alert">{{ mensaje }}</p>
+    <p class="loading" [class.show]="cargando" id="pantallaCarga">Validando credenciales…</p>
+  </form>
+</main>

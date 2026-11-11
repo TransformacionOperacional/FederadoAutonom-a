@@ -1,0 +1,55 @@
+<!-- Consulta de cotizaciones anteriores del usuario logueado -->
+<div id="modalConsultarCotizacion" class="modal" [style.display]="api.modalConsultarVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloConsultarCotizacion">
+    <div class="modal-content" style="max-width:900px;">
+        <div class="modal-header">
+            <h3 id="tituloConsultarCotizacion">Consultar cotización</h3>
+            <button class="btn-close" type="button" (click)="api.cerrarModalConsultarCotizacion()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="cargandoCotizacionesUsuario" class="loading-busqueda" [style.display]="api.cargandoCotizaciones ? 'block' : 'none'" role="status" aria-live="polite">
+                <div class="spinner" aria-hidden="true"></div>
+                <p>Consultando tus cotizaciones...</p>
+            </div>
+            <p id="mensajeConsultarCotizacion" class="info-box" style="margin-top:0;" [style.display]="api.mensajeConsulta ? 'block' : 'none'">{{ api.mensajeConsulta }}</p>
+            <div id="listaCotizacionesUsuario" class="tabla-polizas-contenedor" style="max-height:60vh;overflow-y:auto;" [style.display]="api.filasCotizaciones.length ? 'block' : 'none'">
+                @if (api.filasCotizaciones.length) {
+                    <table class="tabla-polizas-resultados">
+                        <thead>
+                            <tr>
+                                <th>Tipo documento</th>
+                                <th>Número documento</th>
+                                <th>Cliente</th>
+                                <th>Prima total</th>
+                                <th>Asegurados</th>
+                                <th>Fecha creación</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (fila of api.filasCotizaciones; track fila.IdCotizacion) {
+                                <tr>
+                                    <td>{{ fila.TipoIdentificacion }}</td>
+                                    <td>{{ fila.NumeroIdentificacion }}</td>
+                                    <td>{{ fila.Tomador || '—' }}</td>
+                                    <td>{{ primaTexto(fila) }}</td>
+                                    <td>{{ fila.NumeroAsegurados ?? '—' }}</td>
+                                    <td>{{ api.formatearFechaCreacionCotizacion(fila.FechaCreacion) }}</td>
+                                    <td class="col-accion">
+                                        <button class="btn btn-primary btn-small" type="button"
+                                                [disabled]="api.idCotizacionConsultando === fila.IdCotizacion"
+                                                (click)="api.consultarCotizacionPdf(fila.IdCotizacion)">
+                                            {{ api.idCotizacionConsultando === fila.IdCotizacion ? 'Consultando...' : 'Descargar PDF' }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" (click)="api.cerrarModalConsultarCotizacion()">Cerrar</button>
+        </div>
+    </div>
+</div>

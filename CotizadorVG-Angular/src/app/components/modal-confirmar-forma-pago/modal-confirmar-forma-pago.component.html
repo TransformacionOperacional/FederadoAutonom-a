@@ -1,0 +1,16 @@
+<!-- Confirmación de cambio de forma de pago desde los cálculos -->
+<div id="modalConfirmarFormaPago" class="modal" [style.display]="catalogo.formaPagoPendiente ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloConfirmarFormaPago" aria-describedby="mensajeConfirmarFormaPago" (click)="alHacerClicEnFondo($event)">
+    <div class="modal-content" style="max-width:500px;">
+        <div class="modal-header">
+            <h3 id="tituloConfirmarFormaPago">Cambiar forma de pago</h3>
+            <button class="btn-close" id="btnCerrarConfirmarFormaPago" type="button" aria-label="Cerrar" (click)="catalogo.cancelarCambioFormaPago()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="mensajeConfirmarFormaPago">¿Estás seguro de cambiar la forma de pago de <strong>{{ formaPagoActual }}</strong> a <strong>{{ catalogo.formaPagoPendiente }}</strong>? El valor por pago se recalculará.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="btnConfirmarFormaPago" type="button" (click)="catalogo.confirmarCambioFormaPago()">Sí, cambiar</button>
+            <button class="btn btn-secondary" id="btnCancelarCambioFormaPago" type="button" (click)="catalogo.cancelarCambioFormaPago()">Cancelar</button>
+        </div>
+    </div>
+</div>

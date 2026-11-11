@@ -1,0 +1,135 @@
+<!-- PASO 4: Asignación de asegurados a planes -->
+@let v = asignacion.vistaAsignacion;
+<section class="step-section active" id="step4">
+    <h2>Asignación de Planes</h2>
+    <p class="info-box">1. Revisa los rangos de cada plan. 2. Selecciona “Asignar automáticamente por rango”. 3. Ajusta manualmente el plan de cada asegurado desde la tabla de asignación.</p>
+    <div style="margin:12px 0;display:flex;justify-content:flex-end;">
+        <button class="btn btn-outline btn-small" id="btnReiniciarAsignacion" type="button" [disabled]="v.reiniciarDeshabilitado" (click)="asignacion.reiniciarAsignacionAutomatica()">Reiniciar asignación</button>
+    </div>
+    <h3 style="font-size:16px;margin:20px 0 10px;">Planes base</h3>
+    <div style="overflow-x:auto;">
+        <table class="table-editable">
+            <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor asegurado desde (COP)</th><th>Valor asegurado hasta (COP)</th><th>Edad máxima</th></tr></thead>
+            <tbody id="tbody-rangos-planes">
+                @if (v.sinPlanes) {
+                    <tr><td colspan="5" class="text-center text-muted">Crea al menos un plan en el paso de coberturas.</td></tr>
+                } @else {
+                    @for (fila of v.planesBase; track fila.plan.id + ':' + asignacion.generacionRangos) {
+                        <tr>
+                            <td>{{ fila.plan.nombre }}</td>
+                            <td>{{ fila.coberturas }}</td>
+                            <td><input type="text" inputmode="numeric" [attr.data-plan-id]="fila.plan.id" data-limite="desde" [class.rango-plan-error]="asignacion.camposRangoError.has(fila.plan.id + '|desde')" [value]="asignacion.valorCampoRango(fila.plan, 'desde')" placeholder="$ 0" (input)="alEscribirRango(fila.plan.id, 'desde', $any($event.target))" (change)="alCambiarRango(fila.plan.id, 'desde', $any($event.target))"></td>
+                            <td><input type="text" inputmode="numeric" [attr.data-plan-id]="fila.plan.id" data-limite="hasta" [class.rango-plan-error]="asignacion.camposRangoError.has(fila.plan.id + '|hasta')" [value]="asignacion.valorCampoRango(fila.plan, 'hasta')" placeholder="Sin máximo" (input)="alEscribirRango(fila.plan.id, 'hasta', $any($event.target))" (change)="alCambiarRango(fila.plan.id, 'hasta', $any($event.target))"></td>
+                            <td>{{ fila.edadMaxima }}</td>
+                        </tr>
+                    } @empty {
+                        <tr><td colspan="5" class="text-center text-muted">No hay planes base disponibles.</td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    <div style="margin:12px 0 24px;"><button class="btn btn-secondary" type="button" (click)="asignacion.asignarPlanesPorRango()">Asignar automáticamente por rango</button></div>
+    <h3 style="font-size:16px;margin:0 0 10px;">Planes asignados</h3>
+    <div style="overflow-x:auto;">
+        <table class="table-editable">
+            <thead><tr><th>Plan</th><th>Coberturas</th><th>Valor total asegurado en Vida por plan</th><th>Asegurados</th><th>Edad máxima</th></tr></thead>
+            <tbody id="tbody-planes-asignados">
+                @for (fila of v.planesAsignados; track fila.plan.id) {
+                    <tr>
+                        <td>{{ fila.nombre }}@if (fila.tieneRestricciones) {<button class="plan-restriccion-info" type="button" [attr.data-plan-restriccion]="fila.plan.id" [attr.aria-label]="'Consultar por qué se creó ' + fila.nombre" (click)="asignacion.abrirModalRestriccionPlan(fila.plan.id)">i</button>}</td>
+                        <td>{{ fila.coberturas }}</td>
+                        <td>{{ fila.valorVida }}</td>
+                        <td>{{ fila.numAsegurados }}</td>
+                        <td>{{ fila.edadMaxima }}</td>
+                    </tr>
+                } @empty {
+                    <tr><td colspan="5" class="text-center text-muted">Aún no hay planes asignados.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <h3 style="font-size:16px;margin:24px 0 10px;">Asignación manual</h3>
+    <div style="overflow-x:auto;">
+        <div class="asignacion-planes-acciones">
+            <span id="contadorSeleccionAsignacion" aria-live="polite">{{ v.textoContador }}</span>
+            <button class="btn btn-outline btn-small" id="btnLimpiarFiltrosAsignacion" type="button" (click)="asignacion.limpiarFiltrosAsignacionPlanes()">Limpiar filtros</button>
+            <button class="btn btn-accent btn-small btn-reasignar-seleccionados" id="btnReasignarSeleccionados" type="button" [disabled]="!v.haySeleccion" (click)="asignacion.abrirReasignacionSeleccionados()">↻ Reasignar seleccionados</button>
+        </div>
+        <table class="table-editable tabla-asignacion-planes">
+            <thead>
+                <tr><th><input class="checkbox-tabla" id="seleccionarTodosAsignacion" type="checkbox" [checked]="v.todosMarcados" [indeterminate]="v.algunosMarcados" (change)="asignacion.seleccionarTodosAsignacionPlanes($any($event.target).checked)" aria-label="Seleccionar todos los asegurados filtrados"></th><th>Documento</th><th>Edad</th><th>Parentesco</th><th>Grupo</th><th>Valor asegurado</th><th>Plan</th></tr>
+                <tr class="fila-filtros-asignacion">
+                    <th></th>
+                    <th><input id="filtroAsignacionDocumento" type="search" placeholder="Filtrar" [(ngModel)]="asignacion.filtroAsignacionDocumento" (ngModelChange)="asignacion.aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por documento"></th>
+                    <th><input id="filtroAsignacionEdad" type="text" readonly placeholder="Filtrar" [value]="asignacion.textoFiltroEdadAsignacion" (click)="asignacion.abrirModalFiltroEdad()" (keydown)="alTeclaFiltroEdad($event)" aria-label="Filtrar por rango de edad" style="cursor:pointer"></th>
+                    <th>
+                        <select id="filtroAsignacionParentesco" [(ngModel)]="asignacion.filtroAsignacionParentesco" (ngModelChange)="asignacion.aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por parentesco">
+                            <option value="">Filtrar</option>
+                            @for (opcion of v.opcionesParentesco; track opcion) {
+                                <option [value]="opcion">{{ opcion }}</option>
+                            }
+                        </select>
+                    </th>
+                    <th>
+                        <select id="filtroAsignacionGrupo" [(ngModel)]="asignacion.filtroAsignacionGrupo" (ngModelChange)="asignacion.aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por grupo">
+                            <option value="">Filtrar</option>
+                            @for (opcion of v.opcionesGrupo; track opcion) {
+                                <option [value]="opcion">{{ opcion }}</option>
+                            }
+                        </select>
+                    </th>
+                    <th><input id="filtroAsignacionValor" type="search" placeholder="Filtrar" [(ngModel)]="asignacion.filtroAsignacionValor" (ngModelChange)="asignacion.aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por valor asegurado"></th>
+                    <th>
+                        <select id="filtroAsignacionPlan" [(ngModel)]="asignacion.filtroAsignacionPlan" (ngModelChange)="asignacion.aplicarFiltrosAsignacionPlanes()" aria-label="Filtrar por plan">
+                            <option value="">Filtrar</option>
+                            @for (opcion of v.opcionesPlanes; track opcion.id) {
+                                <option [value]="opcion.id">{{ opcion.nombre }}</option>
+                            }
+                        </select>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="tbody-asignacion-planes">
+                @for (fila of v.filas; track fila.asegurado.id) {
+                    <tr>
+                        <td><input class="checkbox-tabla checkbox-asignacion-plan" type="checkbox" [value]="fila.asegurado.id" [checked]="fila.seleccionado" (change)="asignacion.alternarSeleccionAsignacion(fila.asegurado.id, $any($event.target).checked)" [attr.aria-label]="'Seleccionar ' + (fila.asegurado.numeroDocumento || 'asegurado')"></td>
+                        <td>{{ fila.documento }}</td>
+                        <td>{{ fila.edad }}</td>
+                        <td>{{ fila.parentesco }}</td>
+                        <td>{{ fila.grupo }}</td>
+                        <td>{{ fila.valorTexto }}</td>
+                        <td>
+                            <select (change)="alCambiarPlanAsegurado(fila.asegurado, $any($event.target))">
+                                <option value="" [selected]="!fila.asegurado.planId">Sin asignar</option>
+                                @for (opcion of fila.opcionesPlanes; track opcion.id) {
+                                    <option [value]="opcion.id" [selected]="opcion.id === fila.asegurado.planId">{{ opcion.nombre }}</option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                } @empty {
+                    <tr><td colspan="7" class="text-center text-muted">{{ v.mensajeVacioAsignacion }}</td></tr>
+                }
+            </tbody>
+        </table>
+        <div class="paginacion-asegurados" id="paginacionAsignacion" [hidden]="v.ocultarPaginacion">
+            <div class="paginacion-info" id="infoPaginacionAsignacion" aria-live="polite">{{ v.textoInfo }}</div>
+            <div class="paginacion-opciones">
+                <label for="registrosPorPaginaAsignacion">Registros por p&aacute;gina (20-100)</label>
+                <input type="number" id="registrosPorPaginaAsignacion" [min]="registrosMin" [max]="registrosMax" step="1" [value]="asignacion.registrosPorPaginaAsignacion" (change)="alCambiarRegistrosPorPagina($any($event.target))">
+            </div>
+            <div class="paginacion-controles">
+                <button class="btn btn-secondary btn-small" type="button" id="btnPrimeraPaginaAsignacion" aria-label="Primera p&aacute;gina" [disabled]="v.enPrimera" (click)="asignacion.irAPaginaAsignacion(1)">&laquo;</button>
+                <button class="btn btn-secondary btn-small" type="button" id="btnAnteriorPaginaAsignacion" [disabled]="v.enPrimera" (click)="asignacion.irAPaginaAsignacion(asignacion.paginaAsignacion - 1)">&lsaquo; Anterior</button>
+                <span class="paginacion-pagina" id="paginaActualAsignacion">{{ v.textoPagina }}</span>
+                <button class="btn btn-secondary btn-small" type="button" id="btnSiguientePaginaAsignacion" [disabled]="v.enUltima" (click)="asignacion.irAPaginaAsignacion(asignacion.paginaAsignacion + 1)">Siguiente &rsaquo;</button>
+                <button class="btn btn-secondary btn-small" type="button" id="btnUltimaPaginaAsignacion" aria-label="&Uacute;ltima p&aacute;gina" [disabled]="v.enUltima" (click)="asignacion.irAPaginaAsignacion(9007199254740991)">&raquo;</button>
+            </div>
+        </div>
+    </div>
+    <div class="button-group">
+        <button class="btn btn-outline" id="btnAtras3" type="button" (click)="atras()">← Atrás</button>
+        <button class="btn btn-primary" id="btnSiguiente4" type="button" (click)="verCalculos()">Ver cálculos →</button>
+    </div>
+</section>

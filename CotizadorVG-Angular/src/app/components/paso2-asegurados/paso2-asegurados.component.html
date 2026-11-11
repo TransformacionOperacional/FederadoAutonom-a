@@ -1,0 +1,276 @@
+<!-- PASO 2: Registro y carga de asegurados -->
+<section class="step-section active" id="step2">
+    <h2>Asegurados</h2>
+
+    <!-- Panel de simulación (visible solo en modo simulación) -->
+    @if (mostrarPanelSimulacion) {
+        <div id="panelSimulacion" class="panel-modo">
+            <div class="panel-modo-header">
+                <span class="badge-modo badge-simulacion">MODO SIMULACI&Oacute;N</span>
+                <p>Completa los datos promedio para generar una base de asegurados simulada</p>
+            </div>
+            <div class="sim-params">
+                <div class="form-group">
+                    <label for="simCantidad">N&uacute;mero total de asegurados</label>
+                    <input type="number" id="simCantidad" min="1" max="5000" class="input-sim" [(ngModel)]="importacion.simCantidad">
+                </div>
+                <div class="form-group">
+                    <label for="simEdadPromedio">Edad promedio</label>
+                    <input type="number" id="simEdadPromedio" min="18" max="70" class="input-sim" [(ngModel)]="importacion.simEdadPromedio">
+                </div>
+            </div>
+            <div class="sim-grupos">
+                <h4>Grupos salariales</h4>
+                <p class="info-pequena">Define la distribuci&oacute;n de los asegurados por rango salarial. El porcentaje total debe sumar 100%.</p>
+                <table class="table-editable tabla-grupos-sal" id="tablaGruposSalariales">
+                    <thead>
+                        <tr>
+                            <th>Rango salarial</th>
+                            <th>% de asegurados</th>
+                            <th>Salario ref. (millones COP/mes)</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-grupos-salariales">
+                        @for (grupo of gruposSalariales; track $index) {
+                            <tr>
+                                <td><input type="text" [value]="grupo.rango" (input)="importacion.actualizarGrupoSalarial($index, 'rango', $any($event.target).value)"></td>
+                                <td><input type="number" [value]="grupo.porcentaje" min="1" max="100" (input)="importacion.actualizarGrupoSalarial($index, 'porcentaje', $any($event.target).value)"></td>
+                                <td><input type="number" [value]="grupo.salarioRef" min="0.1" step="0.1" (input)="importacion.actualizarGrupoSalarial($index, 'salarioRef', $any($event.target).value)"></td>
+                                <td><button class="btn btn-small btn-danger" type="button" (click)="importacion.eliminarGrupoSalarial($index)">✕</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn btn-secondary btn-small" type="button" (click)="importacion.agregarGrupoSalarial()">+ Agregar grupo</button>
+            </div>
+            <div class="sim-acciones">
+                <div id="simValidacion" [class]="importacion.validacionGrupos.clase">{{ importacion.validacionGrupos.texto }}</div>
+                <button class="btn btn-primary" type="button" (click)="importacion.generarSimulacion()">&#9654; Generar asegurados simulados</button>
+                <button class="btn btn-outline btn-small" type="button" (click)="importacion.limpiarSimulados()">Limpiar simulados</button>
+            </div>
+        </div>
+    }
+
+    <!-- Panel de carga Excel (visible solo en modo cotización) -->
+    @if (mostrarPanelExcel) {
+        <div id="panelExcel" class="panel-modo">
+            <div class="panel-modo-header">
+                <span class="badge-modo badge-cotizacion">COTIZACI&Oacute;N CON DATOS REALES</span>
+                <p>Carga el archivo Excel con la base de asegurados</p>
+            </div>
+            <div class="excel-upload-area">
+                <div class="excel-icon">&#128196;</div>
+                <h4>Archivo Excel (.xlsx)</h4>
+                <p>El archivo debe contener exactamente 5 columnas:</p>
+                <ul class="excel-columnas">
+                    <li><strong>Columna A:</strong> Documento del cliente</li>
+                    <li><strong>Columna B:</strong> Tipo de asegurado</li>
+                    <li><strong>Columna C:</strong> Edad (máximo 70 años)</li>
+                    <li><strong>Columna D:</strong> Valor asegurado en Vida</li>
+                    <li><strong>Columna E:</strong> Grupo (Preasignación de planes)</li>
+                </ul>
+                <input type="file" id="fileExcel" accept=".xlsx" style="display:none;" #archivoExcel (change)="importacion.importarExcel($event)">
+                <div class="excel-acciones">
+                    <button class="btn btn-outline btn-small" type="button" (click)="importacion.descargarPlantillaExcel()">&#11015; Descargar plantilla .xlsx</button>
+                    <button class="btn btn-primary" type="button" (click)="seleccionarArchivo(archivoExcel)">&#128196; Seleccionar archivo Excel</button>
+                </div>
+                <div id="excelStatus" [class]="importacion.excelStatusClase">{{ importacion.excelStatusTexto }}</div>
+            </div>
+        </div>
+    }
+
+    <!-- Toolbar de acciones -->
+    @let pagina = aseguradoService.paginaAseguradosActual;
+    <div class="toolbar-asegurados" [style.display]="aseguradoService.seccionAseguradosVisible ? '' : 'none'">
+        <input type="text" id="buscadorAsegurado" placeholder="Buscar por documento..." class="search-input" [value]="aseguradoService.filtroAsegurados" (input)="aseguradoService.cambiarFiltroAsegurados($any($event.target).value)">
+        <button class="btn btn-secondary btn-small" id="btnAgregarAsegurado" type="button" (click)="aseguradoService.agregarAsegurado()">+ Agregar</button>
+    </div>
+
+    <div class="asegurados-container" [style.display]="aseguradoService.seccionAseguradosVisible ? '' : 'none'">
+        <table class="table-asegurados" id="tablaAsegurados">
+            <thead>
+                <tr>
+                    <th>Documento</th>
+                    <th>Tipo de asegurado</th>
+                    <th>Edad</th>
+                    <th>Grupo</th>
+                    <th>Valor asegurado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-asegurados">
+                @for (fila of pagina.filas; track fila.id) {
+                    <tr>
+                        <td>{{ fila.numeroDocumento }}</td>
+                        <td>{{ fila.tipoAsegurado }}</td>
+                        <td>{{ fila.edad }}</td>
+                        <td>{{ fila.grupo }}</td>
+                        <td>{{ fila.valorAseguradoTexto }}</td>
+                        <td>
+                            <button class="btn btn-small btn-secondary" type="button" (click)="aseguradoService.editarAsegurado(fila.id)">Editar</button>
+                            <button class="btn btn-small btn-danger" type="button" (click)="aseguradoService.eliminarAsegurado(fila.id)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+                @if (pagina.mensajeVacio) {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">{{ pagina.mensajeVacio }}</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="paginacion-asegurados" id="paginacionAsegurados" [hidden]="pagina.ocultarPaginacion">
+            <div class="paginacion-info" id="infoPaginacionAsegurados" aria-live="polite">{{ pagina.textoInfo }}</div>
+            <div class="paginacion-opciones">
+                <label for="registrosPorPaginaAsegurados">Registros por p&aacute;gina (20-100)</label>
+                <input type="number" id="registrosPorPaginaAsegurados" [min]="registrosMin" [max]="registrosMax" step="1" [value]="aseguradoService.registrosPorPaginaAsegurados" (change)="alCambiarRegistrosPorPagina($any($event.target))">
+            </div>
+            <div class="paginacion-controles">
+                <button class="btn btn-secondary btn-small" type="button" id="btnPrimeraPaginaAsegurados" aria-label="Primera p&aacute;gina" [disabled]="pagina.enPrimera" (click)="aseguradoService.irAPrimeraPaginaAsegurados()">&laquo;</button>
+                <button class="btn btn-secondary btn-small" type="button" id="btnAnteriorPaginaAsegurados" [disabled]="pagina.enPrimera" (click)="aseguradoService.irAPaginaAnteriorAsegurados()">&lsaquo; Anterior</button>
+                <span class="paginacion-pagina" id="paginaActualAsegurados">{{ pagina.textoPagina }}</span>
+                <button class="btn btn-secondary btn-small" type="button" id="btnSiguientePaginaAsegurados" [disabled]="pagina.enUltima" (click)="aseguradoService.irAPaginaSiguienteAsegurados()">Siguiente &rsaquo;</button>
+                <button class="btn btn-secondary btn-small" type="button" id="btnUltimaPaginaAsegurados" aria-label="&Uacute;ltima p&aacute;gina" [disabled]="pagina.enUltima" (click)="aseguradoService.irAUltimaPaginaAsegurados()">&raquo;</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button class="btn btn-outline" id="btnAtras1" type="button" (click)="atras()">&larr; Atr&aacute;s</button>
+        <button class="btn btn-success" id="btnExportarAseguradosAlt" type="button" (click)="importacion.exportarAseguradosExcel()">Exportar Excel</button>
+        <button class="btn btn-primary" id="btnSiguiente2" type="button" (click)="siguiente()">Siguiente &rarr;</button>
+    </div>
+
+    <!-- Modal para crear o editar asegurados -->
+    <div id="modalAsegurado" class="modal" [style.display]="aseguradoService.modalAseguradoVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloModalAsegurado">
+        <div class="modal-content" style="max-width:620px;">
+            <div class="modal-header">
+                <h3 id="tituloModalAsegurado">{{ aseguradoService.tituloModalAsegurado }}</h3>
+                <button class="btn-close" type="button" (click)="aseguradoService.cerrarModalAsegurado()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formAsegurado" class="form-grid" (submit)="$event.preventDefault()">
+                    <div class="form-group">
+                        <label for="aseguradoNumeroDocumento">Número de documento *</label>
+                        <input type="text" id="aseguradoNumeroDocumento" name="aseguradoNumeroDocumento" required [(ngModel)]="aseguradoService.aseguradoNumeroDocumento">
+                    </div>
+                    <div class="form-group">
+                        <label for="aseguradoTipo">Tipo de asegurado *</label>
+                        <select id="aseguradoTipo" name="aseguradoTipo" required [ngModel]="aseguradoService.aseguradoTipo" (ngModelChange)="alCambiarTipoAsegurado($event)">
+                            @for (tipo of tiposAsegurado; track tipo) {
+                                <option [value]="tipo">{{ tipo }}</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aseguradoGrupo">Grupo *</label>
+                        <select id="aseguradoGrupo" name="aseguradoGrupo" required [(ngModel)]="aseguradoService.aseguradoGrupo">
+                            @for (grupo of gruposAsignacion; track grupo) {
+                                <option [value]="grupo">{{ grupo }}</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aseguradoEdad">Edad *</label>
+                        <input type="number" id="aseguradoEdad" name="aseguradoEdad" required aria-describedby="ayudaEdadMinima"
+                               [attr.min]="aseguradoService.edadMinimaModal" [attr.max]="aseguradoService.edadMaximaModal"
+                               [class.campo-invalido]="aseguradoService.edadInvalida" [attr.aria-invalid]="aseguradoService.edadInvalida"
+                               [value]="aseguradoService.aseguradoEdad" (input)="alEscribirEdad($any($event.target).value)">
+                        <small id="ayudaEdadMinima" class="validacion-campo" [hidden]="aseguradoService.ayudaEdadOculta">{{ aseguradoService.ayudaEdadTexto }}</small>
+                    </div>
+                    <div class="form-group form-full">
+                        <label for="aseguradoValor">Valor asegurado (COP) *</label>
+                        <input type="text" id="aseguradoValor" name="aseguradoValor" inputmode="numeric" placeholder="$ 10.000.000" required aria-describedby="ayudaValorMinimo" #campoValorAsegurado
+                               [class.campo-invalido]="aseguradoService.valorInvalido" [attr.aria-invalid]="aseguradoService.valorInvalido"
+                               [value]="aseguradoService.aseguradoValor" (input)="alEscribirValorAsegurado(campoValorAsegurado)">
+                        <small id="ayudaValorMinimo">El valor mínimo para cotizar es $ 10.000.000. En pólizas voluntarias, el máximo es $ 300.000.000.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" (click)="aseguradoService.guardarAseguradoDesdeModal()">Guardar</button>
+                <button class="btn btn-secondary" type="button" (click)="aseguradoService.cerrarModalAsegurado()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para configurar coberturas de asegurado -->
+    <div id="modalCoberturas" class="modal" [style.display]="aseguradoService.modalCoberturasVisible ? 'flex' : 'none'">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configurar Coberturas</h3>
+                <button class="btn-close" id="btnCerrarModal" type="button" (click)="aseguradoService.cerrarModalCoberturas()">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (aseguradoService.aseguradoModalCoberturas; as asegurado) {
+                    <div class="form-grid">
+                        @for (cob of asegurado.coberturas; track cob.codigo) {
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" [checked]="cob.activa" (change)="aseguradoService.toggleCobertura(asegurado.id, cob.codigo, $any($event.target).checked)">
+                                    {{ cob.nombre }}
+                                </label>
+                                <input type="number" step="1000000" placeholder="Valor Asegurado" [value]="cob.valorAsegurado" [disabled]="!cob.activa"
+                                       (change)="aseguradoService.actualizarCobertura(asegurado.id, cob.codigo, 'valor', $any($event.target).value)">
+                                <small class="text-muted">Tasa base del sistema: {{ cob.tasa }}</small>
+                                <small class="text-muted">Prima: {{ formatearDinero(cob.prima) }}</small>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnGuardarCoberturas" type="button" (click)="aseguradoService.cerrarModalCoberturas()">Guardar</button>
+                <button class="btn btn-secondary" id="btnCancelarModal" type="button" (click)="aseguradoService.cerrarModalCoberturas()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar cobertura del catálogo -->
+    <div id="modalEditarCobertura" class="modal" [style.display]="modalEditarCoberturaVisible ? 'flex' : 'none'">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Cobertura</h3>
+                <button class="btn-close" id="btnCerrarModalCobertura" type="button" (click)="modalEditarCoberturaVisible = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarCobertura" class="form-grid" (submit)="$event.preventDefault()">
+                    <div class="form-group">
+                        <label for="codCobertura">Código</label>
+                        <input type="text" id="codCobertura" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="nomCobertura">Nombre</label>
+                        <input type="text" id="nomCobertura">
+                    </div>
+                    <div class="form-group">
+                        <label for="tasaCobertura">Tasa Base</label>
+                        <input type="number" id="tasaCobertura" step="0.000001" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="minValor">Valor Mínimo</label>
+                        <input type="number" id="minValor" step="1000000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxValor">Valor Máximo</label>
+                        <input type="number" id="maxValor" step="1000000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="porcentajeMax">% Máximo respecto a Vida</label>
+                        <input type="number" id="porcentajeMax" step="1" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="obligatoria"> Obligatoria
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnGuardarCobertura" type="button" (click)="modalEditarCoberturaVisible = false">Guardar</button>
+                <button class="btn btn-secondary" id="btnCancelarModalCobertura" type="button" (click)="modalEditarCoberturaVisible = false">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</section>

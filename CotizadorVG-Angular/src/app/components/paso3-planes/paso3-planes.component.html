@@ -1,0 +1,103 @@
+<!-- ===== PASO 3: Configuración de Planes ===== -->
+<section class="step-section active" id="step3">
+    <h2>Configuración de Planes</h2>
+    <p class="info-box">Crea o selecciona planes de coberturas. Vida se incluye obligatoriamente en todos los planes.</p>
+
+    <div class="coverage-add-control">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+            <h4 style="margin:0;">Planes Sugeridos</h4>
+            <button class="btn btn-accent btn-small" type="button" (click)="plan.abrirModalCrearPlan()">+ Crear plan</button>
+        </div>
+        <p class="coverage-add-help">Crea planes manuales seleccionando sus coberturas o usa una sugerencia. Luego podrás definir valores asegurados y asignar asegurados en la pantalla de planes.</p>
+        <div id="planesSugeridos" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
+            @for (sugerido of plan.planesSugeridosVista; track sugerido.indice) {
+                <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:#fff;">
+                    <strong>{{ sugerido.nombre }}</strong>
+                    <p style="margin:8px 0;font-size:12px;line-height:1.45;color:var(--color-gray);">{{ sugerido.detalle }}</p>
+                    @if (sugerido.disponible) {
+                        <button class="btn btn-secondary btn-small" type="button" (click)="plan.aplicarPlanSugerido(sugerido.indice)">Agregar plan</button>
+                    } @else {
+                        <span style="font-size:12px;color:#a35b00;">No disponible para Core GW</span>
+                    }
+                </article>
+            }
+            <article class="plan-sugerido-personalizado">
+                <span class="plan-sugerido-personalizado-icono" aria-hidden="true">+</span>
+                <strong>¿Buscas otra opción?</strong>
+                <p>Crea un plan a tu medida y elige sus coberturas.</p>
+                <button class="btn btn-outline btn-small" type="button" (click)="plan.abrirModalCrearPlan()">Crear plan personalizado</button>
+            </article>
+        </div>
+    </div>
+
+    <div style="margin-top:20px;">
+        <strong style="font-size:14px;">Planes agregados</strong>
+        <div id="planesConfiguradosResumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px;">
+            @for (item of plan.resumenPlanesConfigurados; track item.plan.id) {
+                <article style="border:1px solid var(--color-border,#d5dce8);border-radius:8px;padding:14px;background:var(--color-light);">
+                    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+                        <strong>{{ item.plan.nombre }}</strong>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                            <button class="btn btn-secondary btn-small" type="button" (click)="plan.abrirModalEditarPlan(item.plan.id)">Editar plan</button>
+                            <button class="btn btn-danger btn-small" type="button" (click)="plan.eliminarPlan(item.plan.id)">Eliminar</button>
+                        </div>
+                    </div>
+                    <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--color-gray);">{{ item.coberturas.join(' · ') }}</p>
+                </article>
+            } @empty {
+                <p style="grid-column:1/-1;margin:0;color:var(--color-gray);font-size:13px;">Aún no has agregado planes.</p>
+            }
+        </div>
+    </div>
+
+    <!-- Catálogo de coberturas (oculto en la UI original; se conserva por fidelidad) -->
+    <div class="coberturas-container" style="display:none;" aria-hidden="true">
+        <table id="tablaCoberturas">
+            <thead>
+                <tr>
+                    <th>Código operativo</th>
+                    <th>Código amparo</th>
+                    <th>Amparo detallado</th>
+                    <th>Obligatoria</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-coberturas">
+                @for (cob of store.estado.coberturasCatalogo; track cob.codigo) {
+                    <tr>
+                        <td>{{ cob.codigo }}</td>
+                        <td>{{ cob.codigoAmparo }}</td>
+                        <td>{{ cob.nombre }}</td>
+                        <td>{{ cob.obligatoria ? 'Sí' : 'No' }}</td>
+                        <td>
+                            @if (cob.codigo === codigoVida) {
+                                <span>Amparo obligatorio</span>
+                            } @else {
+                                <button class="btn btn-danger btn-small" type="button" (click)="catalogo.eliminarCobertura(cob.codigo)">Eliminar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="coverage-add-control" style="display:none;" aria-hidden="true">
+        <label for="buscadorCoberturas">Buscar amparo para agregar</label>
+        <div class="coverage-add-fields">
+            <input type="text" id="buscadorCoberturas" placeholder="Busca por nombre del amparo..." [(ngModel)]="busquedaCoberturas">
+            <select id="coberturaDisponible" aria-label="Amparo disponible" size="7" [(ngModel)]="codigoAmparoSeleccionado">
+                @for (amparo of amparosDisponibles; track amparo.codigo) {
+                    <option [value]="amparo.codigo">{{ amparo.nombre }}</option>
+                }
+            </select>
+            <p class="coverage-add-help">La lista muestra únicamente los amparos disponibles del Core GW.</p>
+            <button class="btn btn-secondary" id="btnAgregarCobertura" type="button" (click)="agregarAmparo()">+ Agregar amparo seleccionado</button>
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button class="btn btn-outline" type="button" (click)="atras()">← Atrás</button>
+        <button class="btn btn-primary" type="button" (click)="verCalculos()">Ver cálculos →</button>
+    </div>
+</section>

@@ -1,0 +1,38 @@
+<!-- Resumen de cambios aplicados automáticamente -->
+<div id="modalResumenModificaciones" class="modal" [style.display]="asegurados.modalResumenModificacionesVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloResumenModificaciones" aria-describedby="mensajeResumenModificaciones">
+    <div class="modal-content resumen-modificaciones-contenido">
+        <div class="modal-header">
+            <h3 id="tituloResumenModificaciones">Modificaciones realizadas por el cotizador</h3>
+            <button class="btn-close" type="button" (click)="asegurados.cerrarResumenModificaciones()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="mensajeResumenModificaciones">{{ asegurados.mensajeResumenModificaciones }}</p>
+            <div id="detalleResumenModificaciones">
+                @if (asegurados.ajustesResumen.length > 0) {
+                    <section class="resumen-modificaciones-seccion">
+                        <h4>Valores asegurados ajustados</h4>
+                        <ul>
+                            @for (ajuste of asegurados.ajustesResumen; track $index) {
+                                <li><strong>Asegurado con documento {{ ajuste.documento }}</strong>: {{ formatearDinero(ajuste.valorOriginal) }} → {{ formatearDinero(ajuste.valorAjustado) }}</li>
+                            }
+                        </ul>
+                    </section>
+                }
+                @if (asegurados.registrosOmitidosResumen.length > 0) {
+                    <section class="resumen-modificaciones-seccion">
+                        <h4>Registros omitidos</h4>
+                        <ul>
+                            @for (retirado of asegurados.registrosOmitidosResumen; track $index) {
+                                <li>{{ retirado }}</li>
+                            }
+                        </ul>
+                    </section>
+                }
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-success" id="btnExportarRegistrosOmitidos" type="button" [hidden]="asegurados.registrosOmitidosResumen.length === 0" (click)="asegurados.exportarRegistrosOmitidosExcel()">Exportar omitidos a Excel</button>
+            <button class="btn btn-primary" type="button" (click)="asegurados.cerrarResumenModificaciones()">Entendido</button>
+        </div>
+    </div>
+</div>

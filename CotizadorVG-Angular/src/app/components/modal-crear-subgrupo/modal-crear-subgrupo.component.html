@@ -1,0 +1,36 @@
+<!-- ===== MODAL: Crear Subgrupo ===== -->
+<div id="modalCrearSubgrupo" class="modal" [style.display]="plan.modalCrearSubgrupoVisible ? 'flex' : 'none'">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-header">
+            <h3>Crear nuevo subgrupo</h3>
+            <button class="btn-close" type="button" (click)="plan.cerrarModalCrearSubgrupo()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:var(--color-gray);margin-bottom:14px;font-size:14px;">
+                Selecciona las coberturas que componen este subgrupo. Las coberturas obligatorias se incluyen siempre.
+            </p>
+            <div id="coberturaCheckGrid" class="coberturas-seleccion-grid">
+                @for (cob of coberturasCatalogo; track cob.codigo) {
+                    <div class="cobertura-check-item" [class.obligatoria-lock]="cob.obligatoria"
+                         [class.selected]="cob.obligatoria || plan.seleccionSubgrupo[cob.codigo]"
+                         (click)="plan.alternarCoberturaSubgrupo(cob.codigo)">
+                        <input type="checkbox" [id]="'chk-' + cob.codigo" [value]="cob.codigo" style="pointer-events:none;"
+                               [checked]="cob.obligatoria || plan.seleccionSubgrupo[cob.codigo]" [disabled]="cob.obligatoria">
+                        <div class="cobertura-check-body">
+                            <strong>{{ cob.codigo }} {{ cob.obligatoria ? '(obligatoria)' : '' }}</strong>
+                            <span>{{ cob.nombre }}</span>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="subgrupo-id-preview">
+                ID generado: <strong id="previewSubgrupoId">{{ plan.previewSubgrupoId }}</strong>
+                <span id="previewSubgrupoExiste" style="color:var(--color-danger);margin-left:10px;font-size:12px;">{{ plan.previewSubgrupoExiste }}</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-accent" type="button" (click)="plan.confirmarCrearSubgrupo()">Crear subgrupo</button>
+            <button class="btn btn-secondary" type="button" (click)="plan.cerrarModalCrearSubgrupo()">Cancelar</button>
+        </div>
+    </div>
+</div>

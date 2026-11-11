@@ -1,0 +1,22 @@
+<div id="modalReasignarSeleccionados" class="modal modal-reasignar-seleccionados" [style.display]="asignacion.modalReasignarSeleccionadosVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloReasignarSeleccionados">
+    <div class="modal-content contenido-reasignar-seleccionados">
+        <div class="modal-header">
+            <h3 id="tituloReasignarSeleccionados">Reasignar asegurados seleccionados</h3>
+            <button class="btn-close" type="button" (click)="asignacion.cerrarModalReasignarSeleccionados()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="resumenReasignarSeleccionados" style="color:var(--color-gray);margin-bottom:14px;">{{ asignacion.resumenReasignarSeleccionados }}</p>
+            <label for="planReasignacionSeleccionados">Plan de destino</label>
+            <select #selectorPlan id="planReasignacionSeleccionados" class="selector-reasignacion-plan" [(ngModel)]="asignacion.planReasignacionSeleccionados">
+                <option value="">Selecciona un plan...</option>
+                @for (opcion of asignacion.opcionesPlanesReasignacion; track opcion.id) {
+                    <option [value]="opcion.id">{{ opcion.nombre }}</option>
+                }
+            </select>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-accent" type="button" (click)="asignacion.confirmarReasignacionSeleccionados()">Reasignar</button>
+            <button class="btn btn-secondary" type="button" (click)="asignacion.cerrarModalReasignarSeleccionados()">Cancelar</button>
+        </div>
+    </div>
+</div>

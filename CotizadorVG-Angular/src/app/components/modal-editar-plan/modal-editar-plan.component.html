@@ -1,0 +1,50 @@
+<!-- ===== MODAL: Editar plan ===== -->
+@let f = plan.formularioEditarPlan;
+<div id="modalEditarPlan" class="modal" [style.display]="f.visible ? 'flex' : 'none'">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-header">
+            <h3>Editar plan</h3>
+            <button class="btn-close" type="button" (click)="plan.cerrarModalEditarPlan()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="nombrePlanEdicion">Nombre del plan</label>
+                <input type="text" id="nombrePlanEdicion" [(ngModel)]="f.nombre">
+            </div>
+            <p style="color:var(--color-gray);margin:14px 0;font-size:14px;">Agrega o retira las coberturas del plan. Vida se mantiene obligatoria y las coberturas excluyentes no pueden combinarse.</p>
+            <div id="coberturasPlanEdicion" class="coberturas-seleccion-grid">
+                @for (cobertura of plan.coberturasFormularioPlan; track cobertura.codigo) {
+                    @let e = plan.estadoCoberturaFormularioPlan(f, cobertura.codigo);
+                    <label class="cobertura-check-item" [class.obligatoria-lock]="cobertura.codigo === 'WET'" [class.selected]="e.seleccionada" [class.cobertura-excluida]="e.excluida" [attr.aria-disabled]="e.excluida ? 'true' : 'false'">
+                        <input type="checkbox" [value]="cobertura.codigo" [checked]="e.seleccionada" [disabled]="e.deshabilitada" [attr.title]="e.titulo || null"
+                               (change)="plan.alCambiarCoberturaPlan(f, cobertura.codigo, $any($event.target).checked)">
+                        <span>{{ cobertura.nombre }}</span>
+                        @if (cobertura.codigo === codigoRentaIncapacidad) {
+                            <select class="deducible-cobertura-plan" aria-label="Deducible para renta por incapacidad" [disabled]="!plan.deducibleHabilitado(f)" [(ngModel)]="f.deducible">
+                                @for (opcion of plan.opcionesDeduciblePlan; track opcion.valor) {
+                                    <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                                }
+                            </select>
+                        }
+                        @if (plan.esCoberturaEnfermedadesGraves(cobertura.codigo)) {
+                            <div class="configuracion-eg-plan" [hidden]="!plan.configuracionEGVisible(f, cobertura.codigo)">
+                                <span>Porcentaje del valor asegurado en vida
+                                    <select aria-label="Factor para enfermedades graves" [disabled]="!plan.configuracionEGVisible(f, cobertura.codigo)" [(ngModel)]="f.factorEG[cobertura.codigo]">
+                                        @for (opcion of plan.opcionesFactorEnfermedadesGraves; track opcion.valor) {
+                                            <option [ngValue]="opcion.valor">{{ opcion.etiqueta }}</option>
+                                        }
+                                    </select>
+                                </span>
+                                <span class="opcion-cancer-in-situ"><input type="checkbox" [disabled]="!plan.configuracionEGVisible(f, cobertura.codigo)" [(ngModel)]="f.cancerInSitu[cobertura.codigo]"> Añadir Cáncer in Situ</span>
+                            </div>
+                        }
+                    </label>
+                }
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-accent" type="button" (click)="plan.guardarEdicionPlan()">Guardar cambios</button>
+            <button class="btn btn-secondary" type="button" (click)="plan.cerrarModalEditarPlan()">Cancelar</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,339 @@
+<!-- PASO 1: Datos generales de la póliza -->
+<section class="step-section active" id="step1">
+    <h2>Datos Generales de la P&oacute;liza</h2>
+    <form id="formPoliza" class="form-grid" (submit)="$event.preventDefault()">
+
+        <span class="form-section-title">Identificaci&oacute;n del Tomador</span>
+
+        <div class="form-group">
+            <label for="tipoIdentificacion">Tipo de Identificaci&oacute;n *</label>
+            <select id="tipoIdentificacion" name="tipoIdentificacion"
+                [ngModel]="poliza.tipoIdentificacion"
+                (ngModelChange)="cambiarCampoPoliza('tipoIdentificacion', $event)">
+                <option value="NIT">NIT</option>
+                <option value="CC">C&eacute;dula de Ciudadan&iacute;a</option>
+                <option value="CE">C&eacute;dula de Extranjer&iacute;a</option>
+                <option value="Pasaporte">Pasaporte</option>
+                <option value="RUT">RUT</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="numeroIdentificacion">N&uacute;mero de Identificaci&oacute;n *</label>
+            <input type="text" id="numeroIdentificacion" placeholder="Ej: 890123456-7" required
+                [value]="poliza.numeroIdentificacion || ''"
+                (change)="cambiarCampoPoliza('numeroIdentificacion', $any($event.target).value)">
+        </div>
+        <div class="form-group">
+            <label for="tomador">Tomador / Empresa *</label>
+            <input type="text" id="tomador" placeholder="Ej: Empresa XYZ S.A.S." required
+                [value]="poliza.tomador || ''"
+                (change)="cambiarCampoPoliza('tomador', $any($event.target).value)">
+        </div>
+        <div class="form-group">
+            <label for="segmento">Segmento</label>
+            <select id="segmento" name="segmento"
+                [ngModel]="poliza.segmento || ''"
+                (ngModelChange)="cambiarCampoPoliza('segmento', $event)">
+                <option value="" disabled hidden>Selecciona un segmento...</option>
+                <option value="Empresarial">Empresarial</option>
+                <option value="Gran Empresa">Gran Empresa</option>
+                <option value="Corporativo">Corporativo</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="direccionCorrespondencia">Direcci&oacute;n de correspondencia</label>
+            <input type="text" id="direccionCorrespondencia" placeholder="Ej: Calle 10 # 20-30, Barranquilla" maxlength="150" autocomplete="off"
+                [value]="poliza.direccionCorrespondencia || ''"
+                (change)="cambiarCampoPoliza('direccionCorrespondencia', $any($event.target).value)">
+        </div>
+        <div class="form-group">
+            <label for="actividad">Actividad Econ&oacute;mica</label>
+            <div class="actividad-selector">
+                <input type="search" id="actividad" autocomplete="off" aria-autocomplete="list" aria-controls="listaActividades" aria-describedby="ayudaActividad"
+                    [placeholder]="catalogo.placeholderActividad"
+                    [disabled]="catalogo.actividadDeshabilitada"
+                    [attr.aria-expanded]="catalogo.listaActividadesVisible"
+                    [value]="catalogo.textoActividad"
+                    (input)="catalogo.alIngresarActividad($any($event.target).value)"
+                    (focus)="catalogo.renderizarActividadesEconomicas()"
+                    (keydown)="alPresionarTeclaActividad($event)">
+                <div id="listaActividades" class="actividad-lista" role="listbox" [hidden]="!catalogo.listaActividadesVisible">
+                    @if (catalogo.coincidenciasActividades.length) {
+                        @for (coincidencia of catalogo.coincidenciasActividades; track coincidencia.indice) {
+                            <button class="actividad-opcion" type="button" role="option"
+                                (click)="catalogo.actualizarActividadEconomica(coincidencia.indice)">{{ catalogo.nombreActividad(coincidencia.actividad) }}</button>
+                        }
+                    } @else {
+                        <div class="actividad-sin-resultados">No se encontraron actividades.</div>
+                    }
+                </div>
+            </div>
+            <small id="ayudaActividad" [hidden]="!catalogo.ayudaActividadVisible"><span class="spinner spinner-inline" aria-hidden="true"></span>Cargando actividades económicas...</small>
+        </div>
+
+        <span class="form-section-title">Datos de la P&oacute;liza</span>
+
+        <div class="form-group">
+            <label for="modalidadPlan">Modalidad del Plan</label>
+            <select id="modalidadPlan" name="modalidadPlan"
+                [ngModel]="poliza.modalidadPlan"
+                (ngModelChange)="cambiarCampoPoliza('modalidadPlan', $event)">
+                <option value="Voluntaria (Contributiva)">Voluntaria (Contributiva)</option>
+                <option value="Mixta (Contributiva)">Mixta (Contributiva)</option>
+                <option value="Patronal (No Contributiva)">Patronal (No Contributiva)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="formaPago">Forma de Pago</label>
+            <select id="formaPago" name="formaPago"
+                [ngModel]="poliza.formaPago"
+                (ngModelChange)="cambiarCampoPoliza('formaPago', $event)">
+                <option value="Mensual">Mensual</option>
+                <option value="Trimestral">Trimestral</option>
+                <option value="Semestral">Semestral</option>
+                <option value="Anual">Anual</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="vigenciaDesde">Vigencia Desde *</label>
+            <input type="date" id="vigenciaDesde" required
+                [min]="fechaMinimaDesde"
+                [value]="poliza.vigenciaDesde || ''"
+                (change)="alCambiarFecha('vigenciaDesde', $event)">
+        </div>
+        <div class="form-group">
+            <label for="vigenciaHasta">Vigencia Hasta *</label>
+            <input type="date" id="vigenciaHasta" required
+                [min]="fechaMinimaHasta"
+                [value]="poliza.vigenciaHasta || ''"
+                (change)="alCambiarFecha('vigenciaHasta', $event)">
+        </div>
+        <div class="form-group">
+            <label for="fechaCobro">Día de Facturación</label>
+            <input type="date" id="fechaCobro"
+                [min]="fechaHoy"
+                [value]="poliza.fechaCobro || ''"
+                (change)="alCambiarFecha('fechaCobro', $event)">
+        </div>
+        <div class="form-group" hidden>
+            <label for="numeroPoliza">N&uacute;mero de P&oacute;liza</label>
+            <input type="text" id="numeroPoliza" placeholder="Ej: 083001768824" maxlength="30" autocomplete="off"
+                [value]="poliza.numeroPoliza || ''"
+                (change)="cambiarCampoPoliza('numeroPoliza', $any($event.target).value)">
+        </div>
+        <div class="form-group">
+            <label for="validezOferta">Oferta válida hasta</label>
+            <input type="date" id="validezOferta"
+                [min]="fechaHoy"
+                [value]="poliza.validezOferta || ''"
+                (change)="cambiarCampoPoliza('validezOferta', $any($event.target).value)">
+        </div>
+        <div class="form-group" id="grupoTipoPagoMensual" [hidden]="!catalogo.esPagoMensual">
+            <label for="tipoPagoMensual">Modalidad de pago mensual</label>
+            <select id="tipoPagoMensual" name="tipoPagoMensual"
+                [ngModel]="poliza.tipoPagoMensual || 'Vencida'"
+                (ngModelChange)="catalogo.actualizarTipoPagoMensual($event)">
+                <option value="Anticipada">Anticipada</option>
+                <option value="Vencida">Vencida</option>
+            </select>
+        </div>
+
+        <span class="form-section-title">Comercial y Comisiones</span>
+
+        <div class="form-group">
+            <label for="codigoAsesor">C&oacute;digo de Asesor *</label>
+            <input type="text" id="codigoAsesor" placeholder="Ej: 97562" autocomplete="off" inputmode="numeric" aria-describedby="ayudaCodigoAsesor" required
+                [value]="catalogo.campoCodigoAsesor"
+                (input)="catalogo.alIngresarCodigoAsesor($any($event.target).value)"
+                (blur)="catalogo.consultarAsesorPorCodigo()"
+                (keydown)="alPresionarTeclaCodigoAsesor($event)">
+            <small id="ayudaCodigoAsesor" aria-live="polite">{{ catalogo.ayudaCodigoAsesor }}</small>
+        </div>
+        <div class="form-group dato-asesor" [hidden]="!mostrarDatosAsesor">
+            <label for="asesor">Nombre de Asesor</label>
+            <input type="text" id="asesor" placeholder="Se completa al ingresar el c&oacute;digo" readonly aria-readonly="true"
+                [value]="poliza.asesor || ''">
+        </div>
+        <div class="form-group dato-asesor" [hidden]="!mostrarDatosAsesor">
+            <label for="oficinaAsesor">Oficina</label>
+            <select id="oficinaAsesor" name="oficinaAsesor"
+                [ngModel]="catalogo.indiceOficinaAsesor"
+                (ngModelChange)="catalogo.seleccionarOficinaAsesor($event)">
+                <option value="">Selecciona una oficina</option>
+                @for (oficina of (poliza.oficinasAsesor || []); track $index) {
+                    <option [value]="'' + $index">{{ oficina.nombre }}</option>
+                }
+            </select>
+        </div>
+        <div class="form-group dato-oficina-asesor" [hidden]="!mostrarDatosOficina">
+            <label for="canalComercial">Canal Comercial</label>
+            <input type="text" id="canalComercial" placeholder="Se completa al seleccionar la oficina" readonly aria-readonly="true"
+                [value]="canalActual">
+        </div>
+        <div class="form-group dato-oficina-asesor" [hidden]="!mostrarDatosOficina">
+            <label for="regional">Regional</label>
+            <input type="text" id="regional" placeholder="Se completa al seleccionar la oficina" readonly aria-readonly="true"
+                [value]="poliza.regional || ''">
+        </div>
+
+        <div class="comisiones-grid" [class.solo-comision]="!esPromotora">
+            <div class="comisiones-columna">
+                <div class="form-group">
+                    <label for="comision">Comisi&oacute;n %</label>
+                    <input type="number" id="comision" min="10" max="30" step="1" placeholder="Ej: 20" aria-describedby="ayudaComision"
+                        [value]="poliza.comision"
+                        (change)="alCambiarComisionOHonorario('comision', $event)">
+                    <small id="ayudaComision">Mínimo permitido: 10%. Máximo permitido: 30%.</small>
+                </div>
+                <div class="form-group">
+                    <label for="retorno">Retorno %</label>
+                    <input type="number" id="retorno" min="0" step="0.1" placeholder="Ej: 0" aria-describedby="ayudaRetorno"
+                        [attr.max]="catalogo.obtenerRetornoMaximo()"
+                        [class.campo-invalido]="catalogo.invalidos['retorno']"
+                        [attr.aria-invalid]="catalogo.invalidos['retorno'] === undefined ? null : (catalogo.invalidos['retorno'] ? 'true' : 'false')"
+                        [value]="catalogo.retornoCampoTexto ?? poliza.retorno"
+                        (input)="alIngresarRetorno($event)"
+                        (change)="alCambiarRetorno($event)">
+                    <small id="ayudaRetorno">Comisión + Retorno no puede superar el 40%.</small>
+                </div>
+            </div>
+            <div class="form-group" id="grupoHonorarioPromotora" [hidden]="!esPromotora">
+                <label for="honorarioPromotora">Honorario Promotora %</label>
+                <input type="number" id="honorarioPromotora" min="0" max="10" step="0.1" placeholder="Ej: 10" aria-describedby="ayudaHonorarioPromotora"
+                    [disabled]="!esPromotora"
+                    [value]="esPromotora ? poliza.honorarioPromotora : 0"
+                    (change)="alCambiarComisionOHonorario('honorarioPromotora', $event)">
+                <small id="ayudaHonorarioPromotora">Máximo permitido: 10%</small>
+            </div>
+        </div>
+        <div class="form-group form-full">
+            <label for="aplicaCredibilidad">¿Tiene información sobre los siniestros de la póliza?</label>
+            <select id="aplicaCredibilidad" name="aplicaCredibilidad"
+                [ngModel]="catalogo.campoAplicaCredibilidad"
+                (ngModelChange)="catalogo.campoAplicaCredibilidad = $event; catalogo.actualizarAplicacionCredibilidad()">
+                <option value="no">No</option>
+                <option value="si">Sí</option>
+            </select>
+        </div>
+
+        <div class="siniestralidad-grid" id="seccionSiniestralidad" [hidden]="poliza.aplicaCredibilidad !== true">
+            <span class="form-section-title">Siniestralidad</span>
+            <div class="form-group siniestros-full">
+                <label for="detalleSiniestrosCobertura">¿Conoce el valor de siniestros por cobertura?</label>
+                <select id="detalleSiniestrosCobertura" name="detalleSiniestrosCobertura"
+                    [ngModel]="catalogo.campoDetalleSiniestros"
+                    (ngModelChange)="catalogo.campoDetalleSiniestros = $event; catalogo.cambiarDetalleSiniestros()">
+                    <option value="no">No, ingresar el total general</option>
+                    <option value="si">Sí, detallar por cobertura</option>
+                </select>
+                <small id="notaSiniestralidadCoberturasBasicas" [hidden]="catalogo.usaDetalleSiniestros">Aplicaría siniestralidad a las coberturas básicas Vida, Enfermedades graves e ITP.</small>
+            </div>
+            <div class="siniestros-detalle siniestros-full" id="bloqueSiniestrosCobertura" [hidden]="!catalogo.usaDetalleSiniestros">
+                <div class="siniestros-agrupaciones-acciones">
+                    <small>Marca "Sí" en las agrupaciones con información siniestral e ingresa su valor. Puedes ingresar $ 0 si no hubo siniestros.</small>
+                    <button class="btn btn-outline btn-small" type="button" (click)="catalogo.abrirModalGruposSiniestros()">Modificar agrupaciones de la póliza anterior</button>
+                </div>
+                <div class="siniestros-agrupaciones" id="listaSiniestrosCobertura" aria-live="polite">
+                    @if (catalogo.usaDetalleSiniestros) {
+                        <div class="siniestro-agrupacion-encabezado">
+                            <span>Agrupación</span>
+                            <span style="text-align:center">¿Tiene información siniestral?</span>
+                            <span>Valor de siniestros</span>
+                        </div>
+                        @for (fila of catalogo.filasSiniestrosCobertura; track fila.grupo.codigo) {
+                            <div class="siniestro-agrupacion-fila" [class.activa]="fila.activa">
+                                <div class="siniestro-agrupacion-nombre">
+                                    <strong>{{ fila.grupo.nombre }}</strong>
+                                    <ul>
+                                        @for (cobertura of fila.grupo.coberturas; track cobertura) {
+                                            <li>{{ cobertura }}</li>
+                                        }
+                                    </ul>
+                                </div>
+                                <label class="siniestro-agrupacion-check">
+                                    <input type="checkbox" [attr.data-codigo-check]="fila.grupo.codigo"
+                                        [checked]="fila.activa"
+                                        [attr.aria-label]="'Hay información siniestral de ' + fila.grupo.nombre"
+                                        (change)="catalogo.alternarAgrupacionSiniestro(fila.grupo.codigo, $any($event.target).checked)">
+                                    Sí
+                                </label>
+                                <div class="siniestro-agrupacion-valor">
+                                    <input type="text" inputmode="numeric" autocomplete="off" placeholder="$ 0"
+                                        [attr.data-codigo]="fila.grupo.codigo"
+                                        [value]="fila.texto"
+                                        [class.campo-invalido]="fila.activa && fila.vacio"
+                                        [disabled]="!fila.activa"
+                                        [attr.aria-label]="'Siniestros de ' + fila.grupo.nombre"
+                                        (input)="alIngresarValorSiniestroCobertura(fila.grupo.codigo, $event)">
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="valorSiniestrosTotales">Valor de siniestros totales</label>
+                <input type="text" id="valorSiniestrosTotales" inputmode="numeric" placeholder="$ 0" autocomplete="off"
+                    [required]="poliza.aplicaCredibilidad === true"
+                    [readOnly]="catalogo.usaDetalleSiniestros"
+                    [attr.aria-readonly]="catalogo.usaDetalleSiniestros"
+                    [class.campo-invalido]="catalogo.invalidos['valorSiniestrosTotales']"
+                    [value]="catalogo.campoValorSiniestrosTotales"
+                    (input)="alIngresarSiniestrosTotales($event)">
+                <small>Ingresa el valor en pesos colombianos (COP).</small>
+            </div>
+            <div class="form-group">
+                <label for="anosExposicion">Cantidad de a&ntilde;os de exposici&oacute;n</label>
+                <input type="number" id="anosExposicion" min="0" max="4" step="1" placeholder="Ej: 3" aria-describedby="ayudaAnosExposicion"
+                    [required]="poliza.aplicaCredibilidad === true"
+                    [class.campo-invalido]="catalogo.invalidos['anosExposicion']"
+                    [value]="catalogo.campoAnosExposicion ?? ''"
+                    (input)="alIngresarAnosExposicion($event)"
+                    (change)="alCambiarAnosExposicion($event)">
+                <small id="ayudaAnosExposicion">Máximo 4 años de siniestros.</small>
+            </div>
+            <div class="form-group">
+                <label for="siniestrosPromedio">Siniestros promedio</label>
+                <input type="text" id="siniestrosPromedio" placeholder="$ 0" readonly aria-readonly="true"
+                    [value]="catalogo.campoSiniestrosPromedio">
+            </div>
+        </div>
+
+    </form>
+
+    <div class="button-group">
+        <button class="btn btn-outline" id="btnVolverLanding" type="button" (click)="volverAlLanding()">&larr; Volver</button>
+        <button class="btn btn-primary" id="btnSiguiente1" type="button" (click)="siguiente()">Siguiente &rarr;</button>
+        <button class="btn btn-secondary" id="btnLimpiar" type="button" (click)="limpiar()">Limpiar</button>
+    </div>
+</section>
+
+<!-- Agrupaciones que traía la póliza anterior -->
+<div id="modalGruposSiniestros" class="modal" [style.display]="catalogo.modalGruposSiniestrosVisible ? 'flex' : 'none'" role="dialog" aria-modal="true" aria-labelledby="tituloModalGruposSiniestros">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+            <h3 id="tituloModalGruposSiniestros">Agrupaciones de la póliza anterior</h3>
+            <button class="btn-close" type="button" (click)="catalogo.cerrarModalGruposSiniestros()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="info-box" style="margin-top:0;">Selecciona las agrupaciones de coberturas que traía la póliza anterior.</p>
+            <div id="opcionesGruposSiniestros" class="grupos-siniestros-opciones">
+                @for (grupo of agrupaciones; track grupo.codigo) {
+                    <label class="grupo-siniestro-opcion">
+                        <input type="checkbox" [value]="grupo.codigo"
+                            [checked]="catalogo.gruposSiniestrosSeleccionados.includes(grupo.codigo)"
+                            (change)="catalogo.alternarGrupoSiniestroSeleccionado(grupo.codigo, $any($event.target).checked)">
+                        <span>
+                            <strong>{{ grupo.nombre }}</strong>
+                            <small>{{ grupo.coberturas.join(' · ') }}</small>
+                        </span>
+                    </label>
+                }
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" type="button" (click)="catalogo.confirmarGruposSiniestros()">Aceptar</button>
+            <button class="btn btn-secondary" type="button" (click)="catalogo.cerrarModalGruposSiniestros()">Cancelar</button>
+        </div>
+    </div>
+</div>
