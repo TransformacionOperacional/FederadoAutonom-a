@@ -159,6 +159,7 @@ TARGET_COLUMNS = [
     "DNI_TOMADOR",
     "NOMBRE_TOMADOR",
     "FECHA_INICIO_PRIMERA_VIGENCIA",
+    "FECHA_PROXIMA_RENOVACION",
     "NUMERO_POLIZA",
     "POLIZA_ID",
     "GRUPO_PRODUCTO",
@@ -743,6 +744,7 @@ def refrescar_distanciasvg(
     # Paso D: eliminar cualquier columna obsoleta y garantizar columna destino antes de cargar
     _drop_sqlserver_column_if_exists(sqlserver_conn, table_name, "SIN_REAL")
     _ensure_sqlserver_column_exists(sqlserver_conn, table_name, "VALOR_INCURRIDO")
+    _ensure_sqlserver_column_exists(sqlserver_conn, table_name, "FECHA_PROXIMA_RENOVACION", "DATE")
     return _cargar_en_sqlserver(sqlserver_conn, df, table_name)
 
 

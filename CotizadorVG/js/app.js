@@ -695,7 +695,7 @@ function mostrarResumenModificaciones({ ajustes = [], retirados = [] } = {}) {
     mensaje.textContent = resumen.join(' ');
 
     const seccionAjustes = ajustes.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Valores asegurados ajustados</h4><ul>${ajustes.map(ajuste => `<li><strong>Asegurado con documento ${escaparHTML(ajuste.documento)}</strong>: ${formatearDinero(ajuste.valorOriginal)} → ${formatearDinero(ajuste.valorAjustado)}</li>`).join('')}</ul></section>`;
-    const seccionRetirados = retirados.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Registros omitidos</h4><ul>${retirados.map(retirado => `<li>${escaparHTML(retirado)}</li>`).join('')}</ul></section>`;
+    const seccionRetirados = retirados.length === 0 ? '' : `<section class="resumen-modificaciones-seccion"><h4>Registros omitidos</h4><ul>${retirados.map(retirado => `<li>${escaparHTML(retirado.detalle)}</li>`).join('')}</ul></section>`;
     detalle.innerHTML = seccionAjustes + seccionRetirados;
     modal.style.display = 'flex';
 }
@@ -716,9 +716,11 @@ async function exportarRegistrosOmitidosExcel() {
 
     const libro = new ExcelJS.Workbook();
     const hoja = libro.addWorksheet('Registros omitidos');
-    hoja.addRow(['No.', 'Detalle del registro omitido']);
-    registrosOmitidosResumen.forEach((detalle, indice) => hoja.addRow([indice + 1, String(detalle)]));
-    hoja.columns = [{ width: 8 }, { width: 110 }];
+    hoja.addRow(['No.', 'Numero de documento', 'Detalle del registro omitido']);
+    registrosOmitidosResumen.forEach((registro, indice) => {
+        hoja.addRow([indice + 1, registro.documento, registro.detalle]);
+    });
+    hoja.columns = [{ width: 8 }, { width: 24 }, { width: 110 }];
     hoja.getRow(1).font = { bold: true };
     hoja.views = [{ state: 'frozen', ySplit: 1 }];
 
@@ -4640,6 +4642,7 @@ function importarExcel(evento) {
             const errores = [];
             const ajustes = [];
             const documentosEnArchivo = new Set();
+            const registrarError = (documento, detalle) => errores.push({ documento, detalle });
 
             for (let i = inicio; i < filas.length; i++) {
                 const fila = filas[i];
@@ -4651,38 +4654,38 @@ function importarExcel(evento) {
                 const valorAseguradoRaw = fila[columnaValorAsegurado];
                 const grupoRaw = String(fila[columnaGrupo] ?? '').trim();
 
-                if (!documento) { errores.push(`Fila ${i + 1}: documento vacío`); continue; }
+                if (!documento) { registrarError('', `Fila ${i + 1}: documento vacío`); continue; }
 
                 const tipoAsegurado = CONFIG.TIPO_ASEGURADO.find(tipo =>
                     tipo.toLowerCase() === tipoAseguradoRaw.toLowerCase()
                 );
                 if (!tipoAsegurado) {
-                    errores.push(`Fila ${i + 1}: Tipo_Asegurado inválido (${tipoAseguradoRaw || 'vacío'})`); continue;
+                    registrarError(documento, `Fila ${i + 1}: Tipo_Asegurado inválido (${tipoAseguradoRaw || 'vacío'})`); continue;
                 }
 
                 const grupo = CONFIG.GRUPOS_ASIGNACION.find(item =>
                     item.toLowerCase() === grupoRaw.toLowerCase()
                 );
                 if (!grupo) {
-                    errores.push(`Fila ${i + 1}: Grupo inválido (${grupoRaw || 'vacío'}). Selecciona Grupo 1 a Grupo 5.`); continue;
+                    registrarError(documento, `Fila ${i + 1}: Grupo inválido (${grupoRaw || 'vacío'}). Selecciona Grupo 1 a Grupo 5.`); continue;
                 }
 
                 const edad = Number(edadRaw);
                 if (Number.isInteger(edad) && edad > CONFIG.EDAD_MAXIMA_ASEGURADO) {
-                    errores.push(`Documento ${documento}: registro eliminado porque la edad (${edad}) supera el máximo permitido de ${CONFIG.EDAD_MAXIMA_ASEGURADO} años para la carga de Excel.`); continue;
+                    registrarError(documento, `Registro eliminado porque la edad (${edad}) supera el máximo permitido de ${CONFIG.EDAD_MAXIMA_ASEGURADO} años para la carga de Excel.`); continue;
                 }
                 const validacionEdad = validarEdad(edadRaw, tipoAsegurado);
                 if (!validacionEdad.valido) {
-                    errores.push(`Documento ${documento}: registro eliminado por edad inválida (${edadRaw}). ${validacionEdad.mensaje}.`); continue;
+                    registrarError(documento, `Registro eliminado por edad inválida (${edadRaw}). ${validacionEdad.mensaje}.`); continue;
                 }
 
                 const valorAsegurado = parsearValorAsegurado(valorAseguradoRaw);
                 if (!Number.isFinite(valorAsegurado) || valorAsegurado <= 0) {
-                    errores.push(`Fila ${i + 1}: valor asegurado inválido (${valorAseguradoRaw})`); continue;
+                    registrarError(documento, `Fila ${i + 1}: valor asegurado inválido (${valorAseguradoRaw})`); continue;
                 }
 
                 if (documentosEnArchivo.has(documento)) {
-                    errores.push(`Fila ${i + 1}: documento duplicado dentro del archivo`); continue;
+                    registrarError(documento, `Fila ${i + 1}: documento duplicado dentro del archivo`); continue;
                 }
                 documentosEnArchivo.add(documento);
 
