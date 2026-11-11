@@ -17,8 +17,15 @@
         expedicion: ['expedicion'],
         codag: ['codag'],
         agente: ['agente'],
-        plan: ['nombreplan', 'plan']
+        plan: ['nombreplan', 'plan'],
+        valorPagado: ['valorpagado', 'valorpagos'],
+        medioPago: ['mediopago', 'formapagotxt']
     };
+
+    const formatoMoneda = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+    const MEDIOS_PAGO = { GE: 'Gerencia electrónica', CA: 'Caja' };
+    const nombreMedioPago = codigo => MEDIOS_PAGO[codigo.toUpperCase()] || codigo;
 
     const COLUMNAS_TABLA = [
         { campo: 'poliza', titulo: 'Póliza' },
@@ -29,7 +36,9 @@
         { campo: 'expedicion', titulo: 'Expedición' },
         { campo: 'codag', titulo: 'Cód. agente' },
         { campo: 'agente', titulo: 'Agente' },
-        { campo: 'plan', titulo: 'Plan' }
+        { campo: 'plan', titulo: 'Plan' },
+        { campo: 'valorPagado', titulo: 'Valor pagado', formato: valor => (valor === null ? '' : formatoMoneda.format(valor)) },
+        { campo: 'medioPago', titulo: 'Medio de pago' }
     ];
 
     const estado = {
@@ -112,6 +121,39 @@
         return /^\d{4}-\d{2}-\d{2}$/.test(valor) ? valor : '';
     }
 
+    // Acepta 1735000, 1735000.00, 1735000,00 o 1.735.000,00; devuelve null si no es un número.
+    function numeroValido(texto) {
+        let valor = limpiar(texto).replace(/[^\d.,-]/g, '');
+        if (!valor) return null;
+        const ultimoPunto = valor.lastIndexOf('.');
+        const ultimaComa = valor.lastIndexOf(',');
+        if (ultimoPunto >= 0 && ultimaComa >= 0) {
+            const decimal = ultimoPunto > ultimaComa ? '.' : ',';
+            const miles = decimal === '.' ? ',' : '.';
+            valor = valor.split(miles).join('').replace(decimal, '.');
+        } else if (ultimaComa >= 0) {
+            valor = /^-?\d{1,3}(,\d{3})+$/.test(valor) ? valor.replace(/,/g, '') : valor.replace(',', '.');
+        } else if ((valor.match(/\./g) || []).length > 1) {
+            valor = valor.replace(/\./g, '');
+        }
+        const numero = Number(valor);
+        return Number.isFinite(numero) ? numero : null;
+    }
+
+    // Suma el valor pagado una sola vez por siniestro (una fila puede repetirse por varios pagos).
+    function sumarValorPagado(filas) {
+        const vistos = new Set();
+        let total = 0;
+        let hayDatos = false;
+        filas.forEach(fila => {
+            if (fila.valorPagado === null || vistos.has(fila.siniestro)) return;
+            vistos.add(fila.siniestro);
+            total += fila.valorPagado;
+            hayDatos = true;
+        });
+        return hayDatos ? total : null;
+    }
+
     function diasEntre(desde, hasta) {
         const [a1, m1, d1] = desde.split('-').map(Number);
         const [a2, m2, d2] = hasta.split('-').map(Number);
@@ -140,10 +182,12 @@
                 expedicion: fechaValida(leer('expedicion')),
                 codag: leer('codag'),
                 agente: leer('agente'),
-                plan: leer('plan')
+                plan: leer('plan'),
+                valorPagado: numeroValido(leer('valorPagado')),
+                medioPago: nombreMedioPago(leer('medioPago'))
             };
             fila.antiguedadDias = fila.fecha && fila.expedicion ? diasEntre(fila.expedicion, fila.fecha) : null;
-            fila.busqueda = normalizar([fila.poliza, fila.siniestro, fila.asegurado, fila.dni, fila.agente, fila.codag].join(' '));
+            fila.busqueda = normalizar([fila.poliza, fila.siniestro, fila.asegurado, fila.dni, fila.agente, fila.codag, fila.medioPago].join(' '));
             return fila;
         }).filter(fila => fila.siniestro || fila.poliza);
     }
@@ -178,6 +222,7 @@
         $('panelVacio').hidden = true;
         $('contenido').hidden = false;
         poblarPlanes();
+        poblarMediosPago();
         render();
         if (!primeraCarga) mostrarAviso('Datos actualizados');
         return true;
@@ -255,17 +300,27 @@
         select.value = planes.includes(actual) ? actual : '';
     }
 
+    function poblarMediosPago() {
+        const select = $('filtroMedioPago');
+        const actual = select.value;
+        const medios = [...new Set(estado.filas.map(fila => fila.medioPago).filter(Boolean))].sort();
+        select.replaceChildren(new Option('Todos', ''), ...medios.map(medio => new Option(medio, medio)));
+        select.value = medios.includes(actual) ? actual : '';
+    }
+
     function aplicarFiltros() {
         const busqueda = normalizar($('filtroBusqueda').value);
         const desde = $('filtroDesde').value;
         const hasta = $('filtroHasta').value;
         const plan = $('filtroPlan').value;
+        const medioPago = $('filtroMedioPago').value;
 
         estado.filtradas = estado.filas.filter(fila =>
             (!busqueda || fila.busqueda.includes(busqueda))
             && (!desde || (fila.fecha && fila.fecha >= desde))
             && (!hasta || (fila.fecha && fila.fecha <= hasta))
             && (!plan || fila.plan === plan)
+            && (!medioPago || fila.medioPago === medioPago)
             && (!estado.agente || fila.agente === estado.agente)
         );
     }
@@ -276,6 +331,7 @@
         renderMeses();
         renderAntiguedad();
         renderAgentes();
+        renderMediosPago();
         renderTabla();
         const chip = $('chipAgente');
         chip.hidden = !estado.agente;
@@ -291,6 +347,8 @@
         $('kpiPolizas').textContent = formatoNumero.format(unicos('poliza'));
         $('kpiAsegurados').textContent = formatoNumero.format(unicos('dni'));
         $('kpiAgentes').textContent = formatoNumero.format(unicos('codag'));
+        const totalPagado = sumarValorPagado(filas);
+        $('kpiValorPagado').textContent = totalPagado === null ? '-' : formatoMoneda.format(totalPagado);
 
         const antiguedades = filas.map(fila => fila.antiguedadDias).filter(dias => dias !== null && dias >= 0);
         if (antiguedades.length) {
@@ -343,7 +401,7 @@
         });
     }
 
-    function pintarBarras(contenedor, elementos, alHacerClic) {
+    function pintarBarras(contenedor, elementos, alHacerClic, formato = formatoNumero.format) {
         contenedor.replaceChildren();
         if (!elementos.length) {
             contenedor.appendChild(crear('p', 'sin-datos', 'Sin datos para los filtros seleccionados.'));
@@ -358,7 +416,7 @@
             const relleno = crear('div', 'barra-relleno');
             relleno.style.width = `${maximo ? elemento.valor / maximo * 100 : 0}%`;
             pista.appendChild(relleno);
-            fila.append(etiqueta, pista, crear('span', 'barra-valor', formatoNumero.format(elemento.valor)));
+            fila.append(etiqueta, pista, crear('span', 'barra-valor', formato(elemento.valor)));
             if (alHacerClic) fila.addEventListener('click', () => alHacerClic(elemento));
             contenedor.appendChild(fila);
         });
@@ -395,6 +453,27 @@
             estado.pagina = 1;
             render();
         });
+    }
+
+    function renderMediosPago() {
+        const grupos = new Map();
+        estado.filtradas.forEach(fila => {
+            const medio = fila.medioPago || 'Sin dato';
+            const grupo = grupos.get(medio) || { etiqueta: medio, siniestros: new Set(), filas: [] };
+            grupo.siniestros.add(fila.siniestro);
+            grupo.filas.push(fila);
+            grupos.set(medio, grupo);
+        });
+        const medios = [...grupos.values()];
+        const porCantidad = medios
+            .map(grupo => ({ etiqueta: grupo.etiqueta, valor: grupo.siniestros.size }))
+            .sort((a, b) => b.valor - a.valor);
+        const porValor = medios
+            .map(grupo => ({ etiqueta: grupo.etiqueta, valor: sumarValorPagado(grupo.filas) }))
+            .filter(dato => dato.valor !== null && dato.valor > 0)
+            .sort((a, b) => b.valor - a.valor);
+        pintarBarras($('graficoMedioPago'), porCantidad);
+        pintarBarras($('graficoValorMedioPago'), porValor, null, valor => formatoMoneda.format(valor));
     }
 
     // ---------- Tabla ----------
@@ -434,7 +513,7 @@
         } else {
             filas.slice(inicio, inicio + FILAS_POR_PAGINA).forEach(dato => {
                 const fila = crear('tr');
-                COLUMNAS_TABLA.forEach(columna => fila.appendChild(crear('td', '', dato[columna.campo])));
+                COLUMNAS_TABLA.forEach(columna => fila.appendChild(crear('td', '', columna.formato ? columna.formato(dato[columna.campo]) : dato[columna.campo])));
                 cuerpo.appendChild(fila);
             });
         }
@@ -454,13 +533,14 @@
             clearTimeout(temporizador);
             temporizador = setTimeout(refiltrar, 200);
         });
-        ['filtroDesde', 'filtroHasta', 'filtroPlan'].forEach(id => $(id).addEventListener('change', refiltrar));
+        ['filtroDesde', 'filtroHasta', 'filtroPlan', 'filtroMedioPago'].forEach(id => $(id).addEventListener('change', refiltrar));
 
         $('btnLimpiar').addEventListener('click', () => {
             $('filtroBusqueda').value = '';
             $('filtroDesde').value = '';
             $('filtroHasta').value = '';
             $('filtroPlan').value = '';
+            $('filtroMedioPago').value = '';
             estado.agente = '';
             refiltrar();
         });

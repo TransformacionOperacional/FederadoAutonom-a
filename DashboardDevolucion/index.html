@@ -49,6 +49,10 @@
                     <label for="filtroPlan">Plan</label>
                     <select class="campo" id="filtroPlan"></select>
                 </div>
+                <div class="filtro">
+                    <label for="filtroMedioPago">Medio de pago</label>
+                    <select class="campo" id="filtroMedioPago"></select>
+                </div>
                 <button class="btn btn-secondary btn-small" id="btnLimpiar" type="button">Limpiar filtros</button>
             </section>
 
@@ -62,6 +66,7 @@
                 <div class="card-stat"><div class="stat-numero" id="kpiPolizas">0</div><div class="stat-label">Pólizas</div></div>
                 <div class="card-stat"><div class="stat-numero" id="kpiAsegurados">0</div><div class="stat-label">Asegurados</div></div>
                 <div class="card-stat"><div class="stat-numero" id="kpiAgentes">0</div><div class="stat-label">Agentes</div></div>
+                <div class="card-stat"><div class="stat-numero" id="kpiValorPagado">-</div><div class="stat-label">Valor pagado</div></div>
                 <div class="card-stat"><div class="stat-numero" id="kpiAntiguedad">-</div><div class="stat-label">Antigüedad prom. de la póliza</div></div>
             </section>
 
@@ -77,6 +82,14 @@
                 <article class="panel">
                     <h2>Top 10 agentes <small>(clic para filtrar)</small></h2>
                     <div class="barras" id="graficoAgentes"></div>
+                </article>
+                <article class="panel">
+                    <h2>Siniestros por medio de pago</h2>
+                    <div class="barras" id="graficoMedioPago"></div>
+                </article>
+                <article class="panel">
+                    <h2>Valor pagado por medio de pago</h2>
+                    <div class="barras" id="graficoValorMedioPago"></div>
                 </article>
             </section>
 

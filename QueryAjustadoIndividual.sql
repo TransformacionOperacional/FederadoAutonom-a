@@ -7,7 +7,9 @@ ca.nombre_completo as Asegurado,
 p.Fecha_Expedicion as Expedicion,
 AG.codigo_op as CODAG,
 AG.nombre_agente as AGENTE,
-pl.Nombre_Comercial as Nombre_plan
+pl.Nombre_Comercial as Nombre_plan,
+si.Valor_Pagos as Valor_Pagado,
+psap.Forma_Pago_Txt as Medio_Pago
 from  mdb_seguros_colombia.v_siniestro_consolidado si
 inner join mdb_seguros_colombia.V_Siniestro S2
 on (si.siniestro_id = s2.siniestro_id)
@@ -64,6 +66,8 @@ inner join mdb_seguros_colombia.v_cliente ca1
 on (coalesce(s2.cliente_apertura_siniestro_id,cast(-1 as integer)) = ca1.cliente_id)    
 LEFT OUTER JOIN mdb_seguros_colombia.V_subsituacion_sini su1
           ON (s2.subsituacion_sini_id  = su1.subsituacion_sini_id)
+LEFT OUTER JOIN mdb_seguros_colombia.V_SINIESTROS_PAGOS_SAP psap
+          ON (psap.Siniestro_Id = si.Siniestro_Id)
 where s2.Fecha_ultima_actualizacion >= DATE '2026-03-01'
 And       s2.Fecha_ultima_actualizacion < CURRENT_DATE + 1  
 And       r2.codigo_ramo_Op in ('081')  
