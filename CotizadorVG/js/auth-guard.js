@@ -1,13 +1,16 @@
-// Protección de sesión del Cotizador Vida Grupo (misma API que el tablero de Vida Grupo).
+// Protección de sesión del Cotizador Vida Grupo.
+// La sesión se crea en Login.html tras validar usuario/contraseña y el OTP (ver js/login.js).
 (function () {
     'use strict';
 
-    const VALIDAR_TOKEN_URL = 'https://2fa36fac371d4dcf8ae6279f09e7bc.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8a4ca32652c8423da0bf840c807851cd/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dhD7PQamDrvJKiIRjygu0FyN4ZurhQrIqk-wu2H5MAs';
     const LOGIN_PAGE = 'Login.html';
+    const CLAVE_DATOS_USUARIO = 'datosUsuario';
+    const MAX_TIMEOUT_MS = 2147483647;
 
     function cerrarSesion() {
         localStorage.removeItem('token');
         localStorage.removeItem('token2');
+        localStorage.removeItem(CLAVE_DATOS_USUARIO);
         localStorage.removeItem('correoElectronico');
         window.location.replace(LOGIN_PAGE);
     }
@@ -28,52 +31,47 @@
         cerrarSesion();
     }
 
-    async function validarToken(token) {
+    // Datos de la sesión (no sensibles) guardados por login.js tras validar el OTP; null si no existen.
+    function leerSesion() {
         try {
-            const response = await fetch(VALIDAR_TOKEN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token })
-            });
-            if (!response.ok) return false;
-            return (await response.json()).EsValido === true;
+            const datos = JSON.parse(localStorage.getItem(CLAVE_DATOS_USUARIO));
+            return datos && typeof datos === 'object' ? datos : null;
         } catch (error) {
-            console.error('No fue posible validar la sesión:', error);
-            return false;
+            return null;
         }
     }
 
-    // Decodifica el contenido (JSON en base64) de un token; devuelve null si no es válido.
-    function decodificarToken(token) {
-        if (!token) return null;
-        const candidatos = [token, ...String(token).split('.')];
-        for (const candidato of candidatos) {
-            try {
-                const base64 = candidato.replace(/-/g, '+').replace(/_/g, '/');
-                const binario = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
-                const bytes = Uint8Array.from(binario, caracter => caracter.charCodeAt(0));
-                const datos = JSON.parse(new TextDecoder('utf-8').decode(bytes));
-                if (datos && typeof datos === 'object') return datos;
-            } catch (error) {
-                // Se prueba con el siguiente candidato.
-            }
-        }
-        return null;
+    function milisegundosHastaExpirar(sesion) {
+        const expiracion = sesion?.fechaExpiracion ? new Date(sesion.fechaExpiracion).getTime() : NaN;
+        return Number.isFinite(expiracion) ? expiracion - Date.now() : Infinity;
+    }
+
+    function sesionVigente() {
+        const sesion = leerSesion();
+        return Boolean(
+            localStorage.getItem('token') &&
+            localStorage.getItem('token2') &&
+            sesion &&
+            milisegundosHastaExpirar(sesion) > 0
+        );
     }
 
     function formatearNombre(texto) {
         return texto.charAt(0).toLocaleUpperCase('es') + texto.slice(1).toLocaleLowerCase('es');
     }
 
-    // Datos del usuario logueado según el token de sesión.
+    // Datos del usuario logueado según la respuesta de la API de validación del OTP.
     function obtenerUsuario() {
-        const datos = decodificarToken(localStorage.getItem('token')) || decodificarToken(localStorage.getItem('token2'));
+        const datos = leerSesion();
         if (!datos) return null;
-        const nombreCompleto = String(datos.NombreCompleto || '').trim();
+        const nombreCompleto = String(datos.nombreCompleto || '').trim();
         const primerNombre = nombreCompleto.split(/\s+/)[0] || '';
         return {
-            correo: String(datos.CorreoElectronico || '').trim(),
+            usuario: String(datos.usuario || '').trim(),
+            correo: String(datos.correo || '').trim(),
             nombreCompleto,
+            perfil: String(datos.perfil || '').trim(),
+            fechaExpiracion: datos.fechaExpiracion || null,
             primerNombre: primerNombre ? formatearNombre(primerNombre) : ''
         };
     }
@@ -84,25 +82,22 @@
         if (titulo && usuario?.primerNombre) titulo.textContent = `¡Hola, ${usuario.primerNombre}!`;
     }
 
-    async function protegerPagina() {
-        const token = localStorage.getItem('token');
-        const token2 = localStorage.getItem('token2');
-        if (!token && !token2) {
+    // Cierra la sesión en el momento de la expiración, y la revalida al volver a la pestaña
+    // (los temporizadores se pausan si el equipo se suspende).
+    function vigilarExpiracion() {
+        const restante = milisegundosHastaExpirar(leerSesion());
+        if (Number.isFinite(restante)) setTimeout(cerrarSesion, Math.min(Math.max(restante, 0), MAX_TIMEOUT_MS));
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !sesionVigente()) cerrarSesion();
+        });
+    }
+
+    function protegerPagina() {
+        if (!sesionVigente()) {
             cerrarSesion();
             return;
         }
-
-        const [tokenValido, token2Valido] = await Promise.all([
-            token ? validarToken(token) : false,
-            token2 ? validarToken(token2) : false
-        ]);
-
-        if (!tokenValido && !token2Valido) {
-            cerrarSesion();
-            return;
-        }
-        if (!tokenValido && token2Valido) localStorage.setItem('token', token2);
-
+        vigilarExpiracion();
         document.documentElement.classList.remove('auth-pending');
     }
 

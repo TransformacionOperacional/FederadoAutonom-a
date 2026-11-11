@@ -26,18 +26,40 @@
         .message { min-height: 22px; margin: 16px 0 0; color: #c62835; font-size: .9rem; text-align: center; }
         .loading { display: none; margin-top: 15px; color: #406080; font-size: .88rem; text-align: center; }
         .loading.show { display: block; }
+        /* Modal de verificación OTP: mismos valores visuales del modal del Cotizador (css/styles.css). */
+        .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .5); }
+        .modal[hidden], .modal [hidden] { display: none !important; }
+        .modal-content { width: min(90%, 460px); max-height: 90vh; overflow-y: auto; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(0, 51, 160, .18); animation: slideIn .3s ease; }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; border-radius: 8px 8px 0 0; color: #fff; background: var(--blue); }
+        .modal-header h2 { margin: 0; font-size: 18px; }
+        .modal .btn-close { width: 30px; height: 30px; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: #fff; font-size: 28px; line-height: 1; }
+        .modal .btn-close:hover:not(:disabled) { background: none; transform: rotate(90deg); }
+        .modal-body { padding: 20px; }
+        .modal-body p { margin: 0; color: #1A2E4A; line-height: 1.5; }
+        .modal-body label { margin-top: 18px; }
+        .modal-body input.otp-input { text-align: center; font-size: 1.5rem; letter-spacing: .5em; padding-left: calc(14px + .5em); }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 15px 20px; border-top: 1px solid #B4B4B5; background: #F8F8F8; }
+        .modal .btn { width: auto; margin: 0; padding: 10px 24px; border-radius: 8px; font-size: 14px; }
+        .modal .btn-primary { background: var(--blue); color: #fff; }
+        .modal .btn-primary:hover:not(:disabled) { background: #0033A0; }
+        .modal .btn-secondary { border: 1px solid #B4B4B5; background: #E5E9EA; color: #1A2E4A; }
+        .modal .btn-secondary:hover:not(:disabled) { background: #B4B4B5; }
+        .modal .btn:disabled { cursor: not-allowed; opacity: .5; }
+        .modal .message { min-height: 0; margin: 12px 0 0; text-align: left; }
+        .modal .loading { margin-top: 12px; text-align: left; }
+        @keyframes slideIn { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
         @media (max-width: 460px) { .login-card { padding: 30px 24px; } }
     </style>
 </head>
 <body>
-    <main class="login-card">
+    <main class="login-card" id="tarjetaLogin">
         <div class="brand">
             <img src="assets/images/logo-sura.png" alt="SURA">
         </div>
         <h1>Cotizador Vida Grupo</h1>
         <form id="formulario">
-            <label for="Correo">Correo electrónico</label>
-            <input id="Correo" type="email" autocomplete="username" required>
+            <label for="Usuario">Usuario</label>
+            <input id="Usuario" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
             <label for="Clave">Contraseña</label>
             <input id="Clave" type="password" autocomplete="current-password" required>
             <button id="login-button" type="submit">Iniciar sesión</button>
@@ -46,6 +68,30 @@
             <p class="loading" id="pantallaCarga">Validando credenciales…</p>
         </form>
     </main>
+
+    <div id="modalVerificacionOtp" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="tituloVerificacionOtp" aria-describedby="descripcionVerificacionOtp">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="tituloVerificacionOtp">Verificación de acceso</h2>
+                <button class="btn-close" id="btnCerrarOtp" type="button" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="formularioOtp" novalidate>
+                <div class="modal-body">
+                    <p id="descripcionVerificacionOtp">Enviamos un código de verificación al correo registrado.</p>
+                    <label for="codigoOtp">Código de verificación</label>
+                    <input id="codigoOtp" class="otp-input" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" aria-describedby="descripcionVerificacionOtp errorOtp" aria-required="true">
+                    <p class="message" id="errorOtp" role="alert" hidden></p>
+                    <p class="loading show" id="cargandoOtp" role="status" hidden>Validando código…</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btnCancelarOtp" type="button">Cancelar</button>
+                    <button class="btn btn-primary" id="btnVerificarOtp" type="submit" disabled>Verificar código</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/env.js"></script>
     <script src="js/login.js"></script>
 </body>
 </html>
