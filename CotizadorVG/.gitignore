@@ -1,8 +1,7 @@
 # Ignorar archivos de credenciales
 config.credentials.json
 
-# Configuración local de autenticación (URLs de Power Automate con firma)
-js/env.js
+# Configuración local de autenticación (js/env.js se versiona)
 .env
 .env.*
 !.env.example
